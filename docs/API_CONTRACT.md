@@ -44,13 +44,9 @@ Example response:
 
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "service": "EngineerOS API"
 }
-```
-
-This endpoint will be used for basic backend health checks.
-
----
 
 ## 4. Experiments API
 
@@ -163,7 +159,7 @@ Example response:
 }
 ```
 
-The final request and response schemas will be defined when the quiz backend is implemented.
+The quiz API uses validated request and response schemas. All quiz questions must be answered before submission, and the passing score is 70%.
 
 ---
 
