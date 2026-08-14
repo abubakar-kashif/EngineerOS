@@ -129,6 +129,20 @@ Example:
 
 ```text
 GET /api/quizzes/ohms-law
+{
+  "experiment_id": "ohms-law",
+  "questions": [
+    {
+      "id": 1,
+      "experiment_id": "ohms-law",
+      "question": "What is the relationship between voltage, current, and resistance?",
+      "option_a": "V = I × R",
+      "option_b": "V = I / R",
+      "option_c": "V = R / I",
+      "option_d": "V = I + R"
+    }
+  ]
+}
 ```
 
 ### POST `/api/quizzes/{experiment_id}/submit`
@@ -141,7 +155,7 @@ Example request structure:
 {
   "answers": [
     {
-      "question_id": "q1",
+      "question_id": 1,
       "answer": "B"
     }
   ]
@@ -152,9 +166,9 @@ Example response:
 
 ```json
 {
-  "score": 8,
-  "total": 10,
-  "percentage": 80,
+  "score": 80.0,
+  "total_questions": 10,
+  "correct_answers": 8,
   "passed": true
 }
 ```
