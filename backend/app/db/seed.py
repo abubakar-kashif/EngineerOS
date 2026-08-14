@@ -13,14 +13,17 @@ def seed_quizzes():
     init_db()
 
     with SessionLocal() as db:
-        existing = db.execute(select(QuizQuestion.id)).first()
-        if existing is not None:
-            return
+        existing_ids = set(db.execute(select(QuizQuestion.id)).scalars().all())
 
+        added = 0
         for item in iter_questions():
+            if item["id"] in existing_ids:
+                continue
             db.add(QuizQuestion(**item))
+            added += 1
 
-        db.commit()
+        if added:
+            db.commit()
 
 
 if __name__ == "__main__":

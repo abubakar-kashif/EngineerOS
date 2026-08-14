@@ -43,15 +43,16 @@ def submit_quiz(
             detail="Duplicate question IDs are not allowed",
         )
 
-    questions = db.execute(
+    all_questions = db.execute(
         select(QuizQuestion)
-        .where(
-            QuizQuestion.experiment_id == experiment_id,
-            QuizQuestion.id.in_(question_ids),
-        )
+        .where(QuizQuestion.experiment_id == experiment_id)
+        .order_by(QuizQuestion.id)
     ).scalars().all()
 
-    question_map = {question.id: question for question in questions}
+    if not all_questions:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    question_map = {question.id: question for question in all_questions}
 
     invalid_ids = [
         question_id
@@ -65,16 +66,18 @@ def submit_quiz(
             detail=f"Invalid question ID(s): {invalid_ids}",
         )
 
+    if len(question_ids) != len(all_questions):
+        raise HTTPException(
+            status_code=400,
+            detail="All quiz questions must be answered",
+        )
+
     correct_answers = sum(
         answer.answer == question_map[answer.question_id].correct_answer
         for answer in answers
     )
 
-    total_questions = len(answers)
-
-    if total_questions == 0:
-        raise HTTPException(status_code=400, detail="No questions submitted")
-
+    total_questions = len(all_questions)
     score = round((correct_answers / total_questions) * 100, 2)
 
     return QuizSubmitResponse(
