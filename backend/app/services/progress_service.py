@@ -1,6 +1,8 @@
-from sqlalchemy import select
+from fastapi import HTTPException
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models.experiment import Experiment
 from app.models.progress import Progress
 from app.schemas.progress import (
     ProgressCreate,
@@ -8,26 +10,36 @@ from app.schemas.progress import (
     ProgressSummary,
 )
 
-TOTAL_EXPERIMENTS = 10
+
+def _ensure_experiment_exists(db: Session, experiment_id: str) -> None:
+    exists = db.execute(
+        select(Experiment.id).where(Experiment.id == experiment_id)
+    ).scalar_one_or_none()
+
+    if exists is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Experiment not found",
+        )
 
 
 def get_progress_summary(db: Session) -> ProgressSummary:
-    progress_rows = db.execute(
-        select(Progress).order_by(Progress.id)
-    ).scalars().all()
+    completed_experiments = db.execute(
+        select(func.count(Progress.id)).where(
+            Progress.status == "completed"
+        )
+    ).scalar_one()
 
-    completed_experiments = sum(
-        row.status == "completed" for row in progress_rows
+    total_experiments = db.execute(
+        select(func.count(Experiment.id))
+    ).scalar_one()
+
+    overall_progress = (
+        round((completed_experiments / total_experiments) * 100, 2)
+        if total_experiments
+        else 0.0
     )
 
-    overall_progress = round(
-        (completed_experiments / TOTAL_EXPERIMENTS) * 100,
-        2,
-    )
-
-    # Week 1 does not persist quiz submissions as progress records.
-    # Therefore these remain honest demo values until a later
-    # user-specific progress integration is implemented.
     return ProgressSummary(
         completed_experiments=completed_experiments,
         completed_quizzes=0,
@@ -40,6 +52,8 @@ def upsert_progress(
     db: Session,
     payload: ProgressCreate,
 ) -> ProgressResponse:
+    _ensure_experiment_exists(db, payload.experiment_id)
+
     progress = db.execute(
         select(Progress).where(
             Progress.experiment_id == payload.experiment_id
