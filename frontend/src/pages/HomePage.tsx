@@ -1,14 +1,17 @@
-import SectionHeading from "../component/ui/SectionHeading";
-import Card from "../component/ui/Card";
+import SectionHeading from "../components/ui/SectionHeading";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
 
-function Home() {
+function HomePage() {
   return (
     <div className="home-page">
       {/* HERO */}
       <section className="hero-section">
         {/* LEFT SIDE */}
         <div className="hero-content">
-          <p className="eyebrow">ELECTRICAL ENGINEERING LEARNING PLATFORM</p>
+          <p className="eyebrow">
+            ELECTRICAL ENGINEERING LEARNING PLATFORM
+          </p>
 
           <h1>
             Learn.
@@ -26,16 +29,22 @@ function Home() {
 
           {/* HERO BUTTONS */}
           <div className="hero-actions">
-            <button className="primary-button" type="button">
+            <Button
+              to="/experiments"
+              variant="primary"
+              className="hero-link-button"
+            >
               Explore Experiments
-            </button>
+            </Button>
 
-            <button className="secondary-button" type="button">
+            <Button
+              to="/about"
+              variant="secondary"
+              className="hero-link-button"
+            >
               Learn More
-            </button>
+            </Button>
           </div>
-
-
         </div>
 
         {/* RIGHT SIDE WORKSPACE */}
@@ -43,22 +52,14 @@ function Home() {
           <div className="workspace-window">
             <div className="workspace-top">
               <div className="live-status">● Live workspace</div>
-
               <div className="workspace-menu">•••</div>
             </div>
 
             {/* CIRCUIT AREA */}
             <div className="circuit-area">
-              {/* TOP WIRE */}
               <div className="circuit-line top-wire" />
-
-              {/* LEFT WIRE */}
               <div className="circuit-line left-wire" />
-
-              {/* RIGHT WIRE */}
               <div className="circuit-line right-wire" />
-
-              {/* BOTTOM WIRE */}
               <div className="circuit-line bottom-wire" />
 
               {/* VOLTAGE SOURCE */}
@@ -79,7 +80,7 @@ function Home() {
               <div className="circuit-label voltage-label">V1</div>
               <div className="circuit-label current-label">I</div>
 
-              {/* RUN BUTTON */}
+              {/* VISUAL PLACEHOLDER ONLY */}
               <button
                 className="play-button"
                 type="button"
@@ -104,7 +105,9 @@ function Home() {
           <div className="learning-card">
             <span>01</span>
             <h3>Learn</h3>
-            <p>Understand engineering concepts and theoretical foundations.</p>
+            <p>
+              Understand engineering concepts and theoretical foundations.
+            </p>
           </div>
 
           <div className="learning-card">
@@ -155,29 +158,33 @@ function Home() {
             </p>
           </Card>
 
-          <div className="feature-card">
+          <Card className="feature-card">
             <div className="feature-icon">◈</div>
 
             <h3>Simulation Workspace</h3>
 
             <p>Build and analyze circuits in an interactive environment.</p>
-          </div>
+          </Card>
 
-          <div className="feature-card">
+          <Card className="feature-card">
             <div className="feature-icon">✦</div>
 
             <h3>AI Mentor</h3>
 
-            <p>Receive contextual guidance while learning and experimenting.</p>
-          </div>
+            <p>
+              Receive contextual guidance while learning and experimenting.
+            </p>
+          </Card>
 
-          <div className="feature-card">
+          <Card className="feature-card">
             <div className="feature-icon">▦</div>
 
             <h3>Learning Progress</h3>
 
-            <p>Track your learning journey through assessment and reports.</p>
-          </div>
+            <p>
+              Track your learning journey through assessment and reports.
+            </p>
+          </Card>
         </div>
       </section>
 
@@ -198,4 +205,4 @@ function Home() {
   );
 }
 
-export default Home;
+export default HomePage;
