@@ -191,14 +191,14 @@ Example response:
 {
   "completed_experiments": 3,
   "completed_quizzes": 2,
-  "average_quiz_score": 85,
-  "overall_progress": 30
+  "average_quiz_score": 85.0,
+  "overall_progress": 30.0
 }
 ```
 
 ### POST `/api/progress`
 
-Creates or updates learning progress.
+Creates or updates learning progress for an experiment.
 
 Example request:
 
@@ -209,9 +209,35 @@ Example request:
 }
 ```
 
-The final progress model will be defined when the backend implementation begins.
+Example response:
+
+```json
+{
+  "id": 1,
+  "experiment_id": "ohms-law",
+  "status": "completed"
+}
+```
+
+If the provided `experiment_id` does not exist, the API returns:
+
+**404 Not Found**
+
+```json
+{
+  "detail": "Experiment not found"
+}
+```
+
+The progress API supports the following statuses:
+
+* `in_progress`
+* `completed`
+
+Posting progress for the same experiment updates the existing progress record rather than creating a duplicate record.
 
 ---
+
 
 ## 7. Reports API
 

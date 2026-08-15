@@ -5,12 +5,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.quiz import router as quiz_router
+from app.api.routes.progress import router as progress_router
 from app.db.seed import seed_quizzes
-
+from app.db.seed_experiments import seed_experiments
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     seed_quizzes()
+    seed_experiments()
     yield
 
 
@@ -42,6 +44,7 @@ app.add_middleware(
 
 
 app.include_router(quiz_router)
+app.include_router(progress_router)
 
 
 @app.get("/api/health")
