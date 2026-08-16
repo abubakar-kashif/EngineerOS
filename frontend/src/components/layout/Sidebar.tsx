@@ -19,24 +19,34 @@ const menuItems = [
   { path: "/dashboard", label: "Dashboard", icon: ChartNoAxesCombined },
   { path: "/tools", label: "Tools", icon: Wrench },
   { path: "/reports", label: "Reports", icon: FileText },
+  { path: "/simulation", label: "Simulation", icon: Zap },
   { path: "/about", label: "About Us", icon: Info },
 ];
 
 function Sidebar() {
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">
-        <div className="brand-logo">ϟ</div>
 
-        <div className="brand-text">
+      {/* EngineerOS Brand */}
+      <div className="sidebar-brand">
+        <div className="brand-icon">
+          <Zap size={24} strokeWidth={2.5} />
+        </div>
+
+        <div>
           <div className="brand-name">EngineerOS</div>
-          <div className="brand-subtitle">Engineering Learning</div>
+          <div className="brand-subtitle">
+            Engineering Learning
+          </div>
         </div>
       </div>
 
-      <nav className="sidebar-nav">
-        <div className="nav-section-title">PLATFORM</div>
+      {/* Platform Navigation */}
+      <div className="sidebar-section-title">
+        PLATFORM
+      </div>
 
+      <nav className="sidebar-nav">
         {menuItems.map((item) => {
           const Icon = item.icon;
 
@@ -49,9 +59,11 @@ function Sidebar() {
                 `nav-item ${isActive ? "nav-item-active" : ""}`
               }
             >
-              <span className="nav-icon">
-                <Icon size={18} strokeWidth={2} />
-              </span>
+              <Icon
+                className="nav-icon"
+                size={19}
+                strokeWidth={2}
+              />
 
               <span>{item.label}</span>
             </NavLink>
@@ -59,30 +71,30 @@ function Sidebar() {
         })}
       </nav>
 
+      {/* Keep Learning */}
       <div className="sidebar-bottom">
-        <div className="sidebar-help-card">
-          <div className="help-icon">
-            <Zap size={18} strokeWidth={2} />
+        <div className="keep-learning">
+          <div className="keep-learning-icon">
+            <Zap size={18} strokeWidth={2.2} />
           </div>
 
-          <div className="help-content">
-            <div className="help-title">Keep Learning</div>
-
-            <div className="help-text">
-              Complete one experiment today.
-            </div>
+          <div>
+            <strong>Keep Learning</strong>
+            <p>Complete one experiment today.</p>
           </div>
         </div>
 
         <div className="sidebar-footer">
-          <div className="sidebar-status">
-            <span className="status-dot"></span>
-            <span>EngineerOS</span>
-          </div>
+          <span className="status-dot"></span>
 
-          <span className="version-text">v0.1</span>
+          <span>EngineerOS</span>
+
+          <span className="version">
+            v0.1
+          </span>
         </div>
       </div>
+
     </aside>
   );
 }

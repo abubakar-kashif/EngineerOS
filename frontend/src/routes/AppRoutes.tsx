@@ -11,13 +11,16 @@ import ReportsPage from "../pages/ReportsPage";
 import DashboardPage from "../pages/DashboardPage";
 import ToolsPage from "../pages/ToolsPage";
 import AboutPage from "../pages/AboutPage";
+import SimulationPage from "../pages/simulationpage";
 
 function AppRoutes() {
   return (
     <Routes>
       <Route element={<MainLayout />}>
+        {/* Home */}
         <Route path="/" element={<HomePage />} />
 
+        {/* Experiments */}
         <Route path="/experiments" element={<ExperimentsPage />} />
 
         <Route
@@ -30,16 +33,31 @@ function AppRoutes() {
           element={<WorkspacePage />}
         />
 
+        {/* AI Mentor */}
         <Route path="/mentor" element={<MentorPage />} />
 
-        <Route path="/quiz/:experimentId" element={<QuizPage />} />
+        {/* Quiz */}
+        <Route
+          path="/quiz/:experimentId"
+          element={<QuizPage />}
+        />
 
+        {/* Reports */}
         <Route path="/reports" element={<ReportsPage />} />
 
+        {/* Dashboard */}
         <Route path="/dashboard" element={<DashboardPage />} />
 
+        {/* Tools */}
         <Route path="/tools" element={<ToolsPage />} />
 
+        {/* Simulation */}
+        <Route
+          path="/simulation"
+          element={<SimulationPage />}
+        />
+
+        {/* About */}
         <Route path="/about" element={<AboutPage />} />
       </Route>
     </Routes>
