@@ -1,12 +1,22 @@
-import { mockExperiments } from "../data/mockExperiments";
+import { ApiError, apiRequest } from "./api";
 import type { Experiment } from "../types/experiment";
 
 export async function getExperiments(): Promise<Experiment[]> {
-  return mockExperiments;
+  return apiRequest<Experiment[]>("/experiments");
 }
 
 export async function getExperimentById(
   id: string,
 ): Promise<Experiment | undefined> {
-  return mockExperiments.find((experiment) => experiment.id === id);
+  try {
+    return await apiRequest<Experiment>(
+      `/experiments/${id}`,
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return undefined;
+    }
+
+    throw error;
+  }
 }

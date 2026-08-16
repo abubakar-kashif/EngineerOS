@@ -5,13 +5,13 @@ import Button from "../components/ui/Button";
 function HomePage() {
   return (
     <div className="home-page">
-      {/* HERO */}
+      {/* =====================================================
+          HERO
+      ===================================================== */}
       <section className="hero-section">
         {/* LEFT SIDE */}
         <div className="hero-content">
-          <p className="eyebrow">
-            ELECTRICAL ENGINEERING LEARNING PLATFORM
-          </p>
+          <p className="eyebrow">ELECTRICAL ENGINEERING LEARNING PLATFORM</p>
 
           <h1>
             Learn.
@@ -24,34 +24,26 @@ function HomePage() {
           <p className="hero-description">
             EngineerOS is an interactive learning platform designed to help
             electrical engineering students understand concepts through theory,
-            experiments, simulation, and AI guidance.
+            experiments, simulation, and guided learning.
           </p>
 
           {/* HERO BUTTONS */}
           <div className="hero-actions">
-            <Button
-              to="/experiments"
-              variant="primary"
-              className="hero-link-button"
-            >
+            <Button to="/experiments" variant="primary">
               Explore Experiments
             </Button>
 
-            <Button
-              to="/about"
-              variant="secondary"
-              className="hero-link-button"
-            >
-              Learn More
-            </Button>
+            <a href="#how-it-works" className="ui-button ui-button-secondary">
+              See How It Works
+            </a>
           </div>
         </div>
 
-        {/* RIGHT SIDE WORKSPACE */}
+        {/* RIGHT SIDE WORKSPACE PREVIEW */}
         <div className="hero-workspace">
           <div className="workspace-window">
             <div className="workspace-top">
-              <div className="live-status">● Live workspace</div>
+              <div className="live-status">● Workspace Preview</div>
               <div className="workspace-menu">•••</div>
             </div>
 
@@ -80,21 +72,19 @@ function HomePage() {
               <div className="circuit-label voltage-label">V1</div>
               <div className="circuit-label current-label">I</div>
 
-              {/* VISUAL PLACEHOLDER ONLY */}
-              <button
-                className="play-button"
-                type="button"
-                aria-label="Run simulation"
-              >
+              {/* SIMULATION PREVIEW ONLY */}
+              <div className="play-button" aria-hidden="true">
                 ▶
-              </button>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <section className="learning-section">
+      {/* =====================================================
+          HOW IT WORKS
+      ===================================================== */}
+      <section id="how-it-works" className="learning-section">
         <SectionHeading
           eyebrow="HOW IT WORKS"
           title="From theory to understanding"
@@ -105,9 +95,7 @@ function HomePage() {
           <div className="learning-card">
             <span>01</span>
             <h3>Learn</h3>
-            <p>
-              Understand engineering concepts and theoretical foundations.
-            </p>
+            <p>Understand engineering concepts and theoretical foundations.</p>
           </div>
 
           <div className="learning-card">
@@ -123,8 +111,8 @@ function HomePage() {
             <span>03</span>
             <h3>Simulate</h3>
             <p>
-              Explore circuit behavior through an interactive simulation
-              environment.
+              Explore circuit behavior through the simulation environment as the
+              platform develops.
             </p>
           </div>
 
@@ -139,7 +127,9 @@ function HomePage() {
         </div>
       </section>
 
-      {/* FEATURES */}
+      {/* =====================================================
+          FEATURES
+      ===================================================== */}
       <section className="features-section">
         <SectionHeading
           eyebrow="PLATFORM"
@@ -149,9 +139,7 @@ function HomePage() {
         <div className="feature-grid">
           <Card className="feature-card">
             <div className="feature-icon">⚡</div>
-
             <h3>Interactive Experiments</h3>
-
             <p>
               Explore electrical engineering concepts through practical
               experiments.
@@ -160,44 +148,136 @@ function HomePage() {
 
           <Card className="feature-card">
             <div className="feature-icon">◈</div>
-
             <h3>Simulation Workspace</h3>
-
-            <p>Build and analyze circuits in an interactive environment.</p>
+            <p>
+              Explore the planned circuit workspace and simulation experience.
+            </p>
           </Card>
 
           <Card className="feature-card">
             <div className="feature-icon">✦</div>
-
             <h3>AI Mentor</h3>
-
-            <p>
-              Receive contextual guidance while learning and experimenting.
-            </p>
+            <p>AI Mentor is being prepared for the simulation phase.</p>
           </Card>
 
           <Card className="feature-card">
             <div className="feature-icon">▦</div>
-
             <h3>Learning Progress</h3>
-
-            <p>
-              Track your learning journey through assessment and reports.
-            </p>
+            <p>Track your learning journey through assessment and reports.</p>
           </Card>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="home-cta">
-        <div>
-          <p className="eyebrow">ENGINEEROS</p>
+      {/* =====================================================
+          FEATURED EXPERIMENTS
+      ===================================================== */}
+      <section className="featured-experiments-section mt-[70px]">
+        <SectionHeading
+          eyebrow="FEATURED EXPERIMENTS"
+          title="Start with the fundamentals"
+          description="Explore electrical engineering experiments designed to build your understanding step by step."
+        />
 
-          <h2>A smarter way to learn electrical engineering.</h2>
+        <div className="feature-grid !mt-[25px] !mb-0">
+          <Card className="feature-card">
+            <h3>Ohm's Law</h3>
+            <p>
+              Understand the relationship between voltage, current, and
+              resistance.
+            </p>
+          </Card>
+
+          <Card className="feature-card">
+            <h3>Series Circuit</h3>
+            <p>
+              Explore current flow and voltage distribution in series circuits.
+            </p>
+          </Card>
+
+          <Card className="feature-card">
+            <h3>Parallel Circuit</h3>
+            <p>
+              Analyze voltage and current behavior across parallel branches.
+            </p>
+          </Card>
+        </div>
+
+        <div className="home-section-action !mt-[25px]">
+          <Button to="/experiments" variant="secondary">
+            View All Experiments
+          </Button>
+        </div>
+      </section>
+
+      {/* =====================================================
+          AI MENTOR PREVIEW
+      ===================================================== */}
+      <section className="ai-preview-section !mt-[55px]">
+        <SectionHeading
+          eyebrow="AI MENTOR"
+          title="Guidance for your engineering journey"
+          description="The AI Mentor will provide learning guidance as EngineerOS develops its simulation and AI capabilities."
+        />
+
+        <Card className="feature-card !mt-[25px]">
+          <h3>AI Mentor is being prepared</h3>
 
           <p>
-            Learn concepts, experiment with circuits, and understand the
-            results.
+            The Week 1 version provides the interface foundation. Real AI
+            assistance will be integrated in a later development phase.
+          </p>
+
+          <div className="home-section-action !mt-[22px]">
+            <Button to="/mentor" variant="secondary">
+              View Mentor
+            </Button>
+          </div>
+        </Card>
+      </section>
+
+      {/* =====================================================
+          SIMULATION PREVIEW
+      ===================================================== */}
+      <section className="simulation-preview-section !mt-[55px]">
+        <SectionHeading
+          eyebrow="SIMULATION"
+          title="Explore circuits through simulation"
+          description="The simulation workspace is part of the EngineerOS learning experience and will be developed in a later phase."
+        />
+
+        <Card className="feature-card !mt-[25px]">
+          <h3>Simulation Workspace Preview</h3>
+
+          <p>
+            The current interface provides a visual preview of the planned
+            circuit workspace. Real circuit simulation is not connected in Week
+            1.
+          </p>
+
+          <div className="home-section-action !mt-[22px]">
+            <Button to="/tools" variant="secondary">
+              Explore Tools
+            </Button>
+          </div>
+        </Card>
+      </section>
+
+      {/* =====================================================
+          FINAL CTA
+      ===================================================== */}
+      <section className="home-cta !mt-[80px]">
+        <div className="max-w-[700px]">
+          <p className="mb-2 text-[11px] font-medium leading-none text-[#9f82ff]">
+            GET STARTED
+          </p>
+
+          <h2 className="mb-2 text-[22px] font-semibold leading-[1.2] text-white">
+            Ready to start learning?
+          </h2>
+
+          <p className="text-[12px] font-normal leading-[1.6] text-[#9aa6b9]">
+            Explore electrical engineering concepts through experiments,
+            simulation, and guided learning.
           </p>
         </div>
       </section>
