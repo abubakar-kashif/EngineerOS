@@ -1,55 +1,52 @@
-import os
-from contextlib import asynccontextmanager
-
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes.quiz import router as quiz_router
-from app.api.routes.progress import router as progress_router
-from app.db.seed import seed_quizzes
-from app.db.seed_experiments import seed_experiments
+from app.core.config import settings
+from app.db.database import Base, engine
+from app.db.seed import seed_database
+from app.db.database import SessionLocal
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    seed_quizzes()
-    seed_experiments()
-    yield
+# Create database tables
+print("Creating database tables...")
+Base.metadata.create_all(bind=engine)
+print("Database tables created!")
 
+# Seed the database
+print("Seeding database...")
+db = SessionLocal()
+try:
+    seed_database(db)
+finally:
+    db.close()
 
+# Create FastAPI app
 app = FastAPI(
-    title="EngineerOS API",
-    description="Backend API for the EngineerOS engineering learning platform.",
-    version="0.1.0",
-    lifespan=lifespan,
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-
-cors_origins = [
-    origin.strip()
-    for origin in os.getenv(
-        "CORS_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173",
-    ).split(",")
-    if origin.strip()
-]
-
-
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-app.include_router(quiz_router)
-app.include_router(progress_router)
-
-
 @app.get("/api/health")
 def health_check():
     return {
         "status": "ok",
-        "service": "EngineerOS API",
+        "service": settings.APP_NAME,
+        "version": settings.APP_VERSION
+    }
+
+@app.get("/")
+def root():
+    return {
+        "message": f"Welcome to {settings.APP_NAME}",
+        "docs": "/docs"
     }
