@@ -341,20 +341,23 @@ The resources API provides engineering learning resources.
 
 ### GET `/api/resources`
 
-Returns available learning resources.
+Returns all available learning resources.
 
 Example response:
 
 ```json
-[
-  {
-    "id": 1,
-    "experiment_id": "ohms-law",
-    "title": "Ohm's Law Notes",
-    "type": "document",
-    "description": "Engineering notes covering Ohm's Law."
-  }
-]
+{
+  "items": [
+    {
+      "id": "ohms-law-notes",
+      "title": "Ohm's Law Notes",
+      "type": "document",
+      "description": "Engineering notes covering voltage, current, resistance, and Ohm's Law.",
+      "url": null
+    }
+  ],
+  "total": 4
+}
 ```
 
 ### GET `/api/resources/{resource_id}`
@@ -364,19 +367,20 @@ Returns a specific learning resource.
 Example:
 
 ```text
-GET /api/resources/1
+GET /api/resources/ohms-law-notes
 ```
 
 Example response:
 
 ```json
 {
-  "id": 1,
-  "experiment_id": "ohms-law",
+  "id": "ohms-law-notes",
   "title": "Ohm's Law Notes",
   "type": "document",
-  "description": "Engineering notes covering Ohm's Law."
+  "description": "Engineering notes covering voltage, current, resistance, and Ohm's Law.",
+  "url": null
 }
+
 ```
 
 If the resource does not exist:
