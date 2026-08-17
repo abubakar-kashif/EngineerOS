@@ -241,11 +241,26 @@ Posting progress for the same experiment updates the existing progress record ra
 
 ## 7. Reports API
 
-The reports API will support engineering lab reports.
+The reports API supports basic engineering lab report records.
 
 ### GET `/api/reports`
 
-Returns available lab reports.
+Returns all available lab reports.
+
+Example response:
+
+```json
+[
+  {
+    "id": 1,
+    "experiment_id": "ohms-law",
+    "title": "Ohm's Law Experiment",
+    "observations": "Measured voltage and current values.",
+    "conclusion": "The experimental results followed Ohm's Law.",
+    "status": "generated"
+  }
+]
+```
 
 ### POST `/api/reports`
 
@@ -262,7 +277,61 @@ Example request:
 }
 ```
 
-The final report schema will be defined when report functionality is implemented.
+Example response:
+
+```json
+{
+  "id": 1,
+  "experiment_id": "ohms-law",
+  "title": "Ohm's Law Experiment",
+  "observations": "Measured voltage and current values.",
+  "conclusion": "The experimental results followed Ohm's Law.",
+  "status": "generated"
+}
+```
+
+If the provided `experiment_id` does not exist, the API returns:
+
+**404 Not Found**
+
+```json
+{
+  "detail": "Experiment not found"
+}
+```
+
+### GET `/api/reports/{report_id}`
+
+Returns a specific lab report.
+
+Example:
+
+```text
+GET /api/reports/1
+```
+
+Example response:
+
+```json
+{
+  "id": 1,
+  "experiment_id": "ohms-law",
+  "title": "Ohm's Law Experiment",
+  "observations": "Measured voltage and current values.",
+  "conclusion": "The experimental results followed Ohm's Law.",
+  "status": "generated"
+}
+```
+
+If the report does not exist:
+
+**404 Not Found**
+
+```json
+{
+  "detail": "Report not found"
+}
+```
 
 ---
 
@@ -272,11 +341,34 @@ The resources API provides engineering learning resources.
 
 ### GET `/api/resources`
 
-Returns available resources.
+Returns all available learning resources.
+
+Example response:
+
+```json
+{
+  "items": [
+    {
+      "id": "ohms-law-notes",
+      "title": "Ohm's Law Notes",
+      "type": "document",
+      "description": "Engineering notes covering voltage, current, resistance, and Ohm's Law.",
+      "url": null
+    }
+  ],
+  "total": 4
+}
+```
 
 ### GET `/api/resources/{resource_id}`
 
-Returns a specific resource.
+Returns a specific learning resource.
+
+Example:
+
+```text
+GET /api/resources/ohms-law-notes
+```
 
 Example response:
 
@@ -285,11 +377,22 @@ Example response:
   "id": "ohms-law-notes",
   "title": "Ohm's Law Notes",
   "type": "document",
-  "description": "Engineering notes covering Ohm's Law."
+  "description": "Engineering notes covering voltage, current, resistance, and Ohm's Law.",
+  "url": null
+}
+
+```
+
+If the resource does not exist:
+
+**404 Not Found**
+
+```json
+{
+  "detail": "Resource not found"
 }
 ```
 
----
 
 ## 9. Future Simulation API
 
