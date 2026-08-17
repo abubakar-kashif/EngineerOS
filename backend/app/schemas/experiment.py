@@ -1,27 +1,23 @@
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel, ConfigDict
+from typing import List
 
-class ExperimentBase(BaseModel):
-    name: str
-    slug: str
+
+class ExperimentResponse(BaseModel):
+    id: str
     title: str
-    short_description: Optional[str] = None
-    description: Optional[str] = None
-    objective: Optional[str] = None
-    theory: Optional[str] = None
+    slug: str
+    short_description: str | None = None
+    description: str | None = None
+    objective: str | None = None
+    theory: str | None = None
     difficulty: str
     category: str
-    duration_minutes: int = 30
-    status: str = "draft"
+    duration_minutes: int
+    status: str
 
-class ExperimentCreate(ExperimentBase):
-    pass
+    model_config = ConfigDict(from_attributes=True)
 
-class ExperimentResponse(ExperimentBase):
-    id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+class ExperimentListResponse(BaseModel):
+    items: List[ExperimentResponse]
+    total: int
