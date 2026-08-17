@@ -1,15 +1,20 @@
-from fastapi import FastAPI, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.db.database import Base, engine
+from app.db.database import Base, engine, SessionLocal
 from app.db.seed import seed_database
-from app.db.database import SessionLocal
+
+from app.api.routes.quiz import router as quiz_router
+from app.api.routes.progress import router as progress_router
+from app.api.routes.experiments import router as experiment_router
+
 
 # Create database tables
 print("Creating database tables...")
 Base.metadata.create_all(bind=engine)
 print("Database tables created!")
+
 
 # Seed the database
 print("Seeding database...")
@@ -19,6 +24,7 @@ try:
 finally:
     db.close()
 
+
 # Create FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
@@ -26,6 +32,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
 
 # Configure CORS
 app.add_middleware(
@@ -36,13 +43,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Include routers
+app.include_router(quiz_router)
+app.include_router(progress_router)
+app.include_router(experiment_router)
+
+
 @app.get("/api/health")
 def health_check():
     return {
         "status": "ok",
-        "service": settings.APP_NAME,
-        "version": settings.APP_VERSION
+        "service": settings.APP_NAME
     }
+
 
 @app.get("/")
 def root():
