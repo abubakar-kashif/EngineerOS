@@ -31,13 +31,8 @@ def seed_quizzes():
 
 
 def seed_experiments(db: Session):
-    """Add initial experiments to the database"""
-    
-    existing = db.query(Experiment).count()
-    if existing > 0:
-        print(f"  ℹ️ Database already has {existing} experiments. Skipping seed.")
-        return
-    
+    """Add the initial experiments to the database without duplicates."""
+
     experiments = [
         {
             "id": "ohms-law",
@@ -50,7 +45,7 @@ def seed_experiments(db: Session):
             "difficulty": "Beginner",
             "category": "Circuit Fundamentals",
             "duration_minutes": 30,
-            "status": "published"
+            "status": "published",
         },
         {
             "id": "series-circuit",
@@ -63,7 +58,7 @@ def seed_experiments(db: Session):
             "difficulty": "Beginner",
             "category": "Circuit Fundamentals",
             "duration_minutes": 35,
-            "status": "published"
+            "status": "published",
         },
         {
             "id": "parallel-circuit",
@@ -76,7 +71,7 @@ def seed_experiments(db: Session):
             "difficulty": "Beginner",
             "category": "Circuit Fundamentals",
             "duration_minutes": 35,
-            "status": "published"
+            "status": "published",
         },
         {
             "id": "kvl",
@@ -89,7 +84,7 @@ def seed_experiments(db: Session):
             "difficulty": "Intermediate",
             "category": "Circuit Fundamentals",
             "duration_minutes": 40,
-            "status": "published"
+            "status": "published",
         },
         {
             "id": "kcl",
@@ -102,7 +97,7 @@ def seed_experiments(db: Session):
             "difficulty": "Intermediate",
             "category": "Circuit Fundamentals",
             "duration_minutes": 40,
-            "status": "published"
+            "status": "published",
         },
         {
             "id": "voltage-divider",
@@ -115,7 +110,7 @@ def seed_experiments(db: Session):
             "difficulty": "Intermediate",
             "category": "Circuit Fundamentals",
             "duration_minutes": 35,
-            "status": "published"
+            "status": "published",
         },
         {
             "id": "current-divider",
@@ -128,7 +123,7 @@ def seed_experiments(db: Session):
             "difficulty": "Intermediate",
             "category": "Circuit Fundamentals",
             "duration_minutes": 35,
-            "status": "published"
+            "status": "published",
         },
         {
             "id": "rc-circuit",
@@ -141,7 +136,7 @@ def seed_experiments(db: Session):
             "difficulty": "Intermediate",
             "category": "Circuit Fundamentals",
             "duration_minutes": 45,
-            "status": "published"
+            "status": "published",
         },
         {
             "id": "diode-characteristics",
@@ -154,12 +149,12 @@ def seed_experiments(db: Session):
             "difficulty": "Advanced",
             "category": "Semiconductors",
             "duration_minutes": 45,
-            "status": "published"
+            "status": "published",
         },
         {
             "id": "led-circuit",
             "title": "LED Circuit",
-            "slug": "led-circuit",
+            "slug": "LED Circuit",
             "short_description": "Design and analyze circuits using LEDs.",
             "description": "This experiment explores how to properly use LEDs in circuits.",
             "objective": "Design LED circuits with appropriate current limiting.",
@@ -167,25 +162,37 @@ def seed_experiments(db: Session):
             "difficulty": "Advanced",
             "category": "Semiconductors",
             "duration_minutes": 40,
-            "status": "published"
-        }
+            "status": "published",
+        },
     ]
-    
+
+    added = 0
+
     for exp_data in experiments:
-        experiment = Experiment(**exp_data)
-        db.add(experiment)
-        print(f"  ✅ Added: {exp_data['title']}")
-    
-    db.commit()
-    print(f"\n✅ Seeded {len(experiments)} experiments!")
+        existing = (
+            db.query(Experiment)
+            .filter(Experiment.id == exp_data["id"])
+            .first()
+        )
+
+        if existing:
+            continue
+
+        db.add(Experiment(**exp_data))
+        added += 1
+
+    if added:
+        db.commit()
+        print(f"  ✅ Added {added} experiment(s)")
+    else:
+        print("  ℹ️ All experiments already exist")
 
 
 def seed_database(db: Session):
-    """Main seed function - calls both experiment and quiz seeding"""
     print("🌱 Seeding experiments...")
     seed_experiments(db)
-    
+
     print("🌱 Seeding quizzes...")
     seed_quizzes()
-    
+
     print("✅ Database seeding complete!")
