@@ -5,6 +5,9 @@ from app.core.config import settings
 from app.db.database import Base, engine
 from app.db.seed import seed_database
 from app.db.database import SessionLocal
+from app.api.routes.quiz import router as quiz_router
+from app.api.routes.progress import router as progress_router
+from app.api.routes.experiments import router as experiment_router
 
 # Create database tables
 print("Creating database tables...")
@@ -35,6 +38,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Include routers
+app.include_router(quiz_router)
+app.include_router(progress_router)
+app.include_router(experiment_router)
 
 @app.get("/api/health")
 def health_check():
@@ -50,3 +57,4 @@ def root():
         "message": f"Welcome to {settings.APP_NAME}",
         "docs": "/docs"
     }
+
