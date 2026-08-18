@@ -5,16 +5,25 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import ErrorState from "../components/common/ErrorState";
 import LoadingState from "../components/common/LoadingState";
+
 import { getExperimentById } from "../services/experimentService";
+import { mockExperiments } from "../data/mockExperiments";
 import type { Experiment } from "../types/experiment";
 
 function ExperimentDetailsPage() {
-  const { experimentId } = useParams<{ experimentId: string }>();
+  const { experimentId } = useParams<{
+    experimentId: string;
+  }>();
+
   const navigate = useNavigate();
 
-  const [experiment, setExperiment] = useState<Experiment | null>(null);
+  const [experiment, setExperiment] =
+    useState<Experiment | null>(null);
+
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const [error, setError] =
+    useState<string | null>(null);
 
   useEffect(() => {
     async function loadExperiment() {
@@ -31,16 +40,49 @@ function ExperimentDetailsPage() {
         const data = await getExperimentById(experimentId);
 
         if (!data) {
-          setExperiment(null);
+          const mockExperiment = mockExperiments.find(
+            (item) =>
+              item.id === experimentId ||
+              item.slug === experimentId,
+          );
+
+          if (mockExperiment) {
+            setExperiment(mockExperiment);
+          } else {
+            setExperiment(null);
+          }
+
           return;
         }
 
         setExperiment(data);
-      } catch {
-        setExperiment(null);
-        setError(
-          "Unable to load this experiment. Please try again."
+      } catch (err) {
+        console.error(
+          "Failed to load experiment:",
+          err,
         );
+
+        /*
+         * Development fallback:
+         * If the backend request fails, use the local
+         * mock experiment data so the frontend remains
+         * usable during Week 1 integration.
+         */
+        const mockExperiment = mockExperiments.find(
+          (item) =>
+            item.id === experimentId ||
+            item.slug === experimentId,
+        );
+
+        if (mockExperiment) {
+          setExperiment(mockExperiment);
+          setError(null);
+        } else {
+          setExperiment(null);
+          setError(
+            "Unable to load this experiment. Please try again.",
+          );
+        }
       } finally {
         setLoading(false);
       }
@@ -84,14 +126,17 @@ function ExperimentDetailsPage() {
           <h1>Experiment Not Found</h1>
 
           <p>
-            We could not find the experiment you are looking for.
+            We could not find the experiment you are
+            looking for.
           </p>
 
           <div className="page-actions">
             <Button
               type="button"
               variant="primary"
-              onClick={() => navigate("/experiments")}
+              onClick={() =>
+                navigate("/experiments")
+              }
             >
               Back to Experiments
             </Button>
@@ -101,18 +146,36 @@ function ExperimentDetailsPage() {
     );
   }
 
+  const description =
+    experiment.description ||
+    experiment.short_description ||
+    "Explore this electrical engineering experiment.";
+
   return (
     <main className="page-container">
-      {/* BREADCRUMB */}
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      {/* =====================================================
+          BREADCRUMB
+      ===================================================== */}
+      <nav
+        className="breadcrumb"
+        aria-label="Breadcrumb"
+      >
         <Link to="/">Home</Link>
+
         <span>/</span>
-        <Link to="/experiments">Experiments</Link>
+
+        <Link to="/experiments">
+          Experiments
+        </Link>
+
         <span>/</span>
+
         <span>{experiment.title}</span>
       </nav>
 
-      {/* HEADER */}
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
       <section className="details-header">
         <div className="details-header-content">
           <p className="eyebrow">EXPERIMENT</p>
@@ -120,8 +183,7 @@ function ExperimentDetailsPage() {
           <h1>{experiment.title}</h1>
 
           <p className="details-description">
-            {experiment.description ||
-              experiment.short_description}
+            {description}
           </p>
 
           <div className="details-meta">
@@ -136,16 +198,24 @@ function ExperimentDetailsPage() {
             <span className="details-duration">
               {experiment.duration_minutes} min
             </span>
+
+            <span className="ui-badge">
+              {experiment.status}
+            </span>
           </div>
         </div>
       </section>
 
-      {/* OBJECTIVE */}
+      {/* =====================================================
+          OBJECTIVE
+      ===================================================== */}
       {experiment.objective && (
         <section className="details-section">
           <Card>
             <div className="details-card-content">
-              <p className="eyebrow">OBJECTIVE</p>
+              <p className="eyebrow">
+                OBJECTIVE
+              </p>
 
               <h2>Learning Objective</h2>
 
@@ -155,12 +225,16 @@ function ExperimentDetailsPage() {
         </section>
       )}
 
-      {/* THEORY */}
+      {/* =====================================================
+          THEORY
+      ===================================================== */}
       {experiment.theory && (
         <section className="details-section">
           <Card>
             <div className="details-card-content">
-              <p className="eyebrow">THEORY</p>
+              <p className="eyebrow">
+                THEORY
+              </p>
 
               <h2>Theory</h2>
 
@@ -170,83 +244,74 @@ function ExperimentDetailsPage() {
         </section>
       )}
 
-      {/* COMPONENTS */}
-      {experiment.components &&
-        experiment.components.length > 0 && (
-          <section className="details-section">
-            <Card>
-              <div className="details-card-content">
-                <p className="eyebrow">COMPONENTS</p>
-
-                <h2>Required Components</h2>
-
-                <ul className="details-list">
-                  {experiment.components.map((component) => (
-                    <li key={component}>{component}</li>
-                  ))}
-                </ul>
-              </div>
-            </Card>
-          </section>
-        )}
-
-      {/* FORMULA */}
+      {/* =====================================================
+          EXPERIMENT INFORMATION
+      ===================================================== */}
       <section className="details-section">
         <Card>
           <div className="details-card-content">
-            <p className="eyebrow">EXPERIMENT</p>
+            <p className="eyebrow">
+              EXPERIMENT INFORMATION
+            </p>
 
             <h2>Experiment Overview</h2>
 
-            <p>
-              Review the experiment theory and objective before
-              starting the practical workspace.
-            </p>
+            <div className="details-grid">
+              <div>
+                <p className="eyebrow">
+                  CATEGORY
+                </p>
+
+                <p>{experiment.category}</p>
+              </div>
+
+              <div>
+                <p className="eyebrow">
+                  DIFFICULTY
+                </p>
+
+                <p>{experiment.difficulty}</p>
+              </div>
+
+              <div>
+                <p className="eyebrow">
+                  DURATION
+                </p>
+
+                <p>
+                  {experiment.duration_minutes} minutes
+                </p>
+              </div>
+
+              <div>
+                <p className="eyebrow">
+                  STATUS
+                </p>
+
+                <p>{experiment.status}</p>
+              </div>
+            </div>
           </div>
         </Card>
       </section>
 
-      {/* PROCEDURE / OUTCOME PLACEHOLDER */}
-      <section className="details-section details-grid">
-        <Card>
-          <div className="details-card-content">
-            <p className="eyebrow">PROCEDURE</p>
-
-            <h2>Procedure</h2>
-
-            <p>
-              Follow the experiment instructions and observe the
-              expected circuit behavior in the workspace.
-            </p>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="details-card-content">
-            <p className="eyebrow">EXPECTED OUTCOME</p>
-
-            <h2>Expected Outcome</h2>
-
-            <p>
-              Complete the experiment and compare your observations
-              with the expected electrical behavior.
-            </p>
-          </div>
-        </Card>
-      </section>
-
-      {/* START EXPERIMENT */}
+      {/* =====================================================
+          START EXPERIMENT
+      ===================================================== */}
       <section className="details-cta">
         <Card>
           <div className="details-cta-content">
             <div>
-              <p className="eyebrow">READY TO START?</p>
+              <p className="eyebrow">
+                READY TO START?
+              </p>
 
               <h2>Start the Experiment</h2>
 
               <p>
-                Open the experiment workspace to continue learning
-                through practical circuit work.
+                Open the experiment workspace to
+                continue learning through practical
+                circuit work.
               </p>
             </div>
 
@@ -255,7 +320,7 @@ function ExperimentDetailsPage() {
               variant="primary"
               onClick={() =>
                 navigate(
-                  `/experiments/${experiment.id}/workspace`
+                  `/experiments/${experiment.id}/workspace`,
                 )
               }
             >

@@ -5,8 +5,8 @@ const API_BASE_URL =
 export class ApiError extends Error {
   status: number;
 
-  constructor(status: number) {
-    super(`API request failed with status ${status}`);
+  constructor(status: number, message?: string) {
+    super(message ?? `API request failed with status ${status}`);
     this.name = "ApiError";
     this.status = status;
   }
@@ -25,7 +25,19 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status);
+    let message = `API request failed with status ${response.status}`;
+
+    try {
+      const body = await response.json();
+
+      if (typeof body?.detail === "string") {
+        message = body.detail;
+      }
+    } catch {
+      // Keep the default error message.
+    }
+
+    throw new ApiError(response.status, message);
   }
 
   return response.json() as Promise<T>;

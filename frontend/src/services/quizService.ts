@@ -28,12 +28,15 @@ export interface QuizSubmitResponse {
   score: number;
   total_questions: number;
   correct_answers: number;
+  passed: boolean;
 }
 
 export async function getQuiz(
   experimentId: string,
 ): Promise<Quiz> {
-  return apiRequest<Quiz>(`/quizzes/${experimentId}`);
+  return apiRequest<Quiz>(
+    `/quizzes/${encodeURIComponent(experimentId)}`,
+  );
 }
 
 export async function submitQuiz(
@@ -41,7 +44,7 @@ export async function submitQuiz(
   data: QuizSubmitRequest,
 ): Promise<QuizSubmitResponse> {
   return apiRequest<QuizSubmitResponse>(
-    `/quizzes/${experimentId}/submit`,
+    `/quizzes/${encodeURIComponent(experimentId)}/submit`,
     {
       method: "POST",
       body: JSON.stringify(data),

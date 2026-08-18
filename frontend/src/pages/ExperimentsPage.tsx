@@ -51,7 +51,7 @@ function ExperimentsPage() {
         experiment.id,
         experiment.slug,
         experiment.title,
-        experiment.short_description,
+        experiment.short_description ?? "",
         experiment.description ?? "",
         experiment.category,
       ]

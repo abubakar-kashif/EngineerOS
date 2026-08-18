@@ -13,15 +13,10 @@ export const mockExperiments: Experiment[] = [
       "Understand how voltage, current, and resistance are related in a basic electrical circuit.",
     theory:
       "Ohm's Law states that voltage is equal to current multiplied by resistance: V = I × R.",
-    components: [
-      "DC Voltage Source",
-      "Resistor",
-      "Ammeter",
-      "Voltmeter",
-    ],
     difficulty: "Beginner",
     category: "Circuit Fundamentals",
     duration_minutes: 30,
+    status: "active",
   },
 
   {
@@ -36,15 +31,10 @@ export const mockExperiments: Experiment[] = [
       "Understand current flow and voltage distribution in a series circuit.",
     theory:
       "In a series circuit, the same current flows through every component while the supply voltage is divided across components.",
-    components: [
-      "DC Voltage Source",
-      "Resistor",
-      "Ammeter",
-      "Voltmeter",
-    ],
     difficulty: "Beginner",
     category: "Circuit Analysis",
     duration_minutes: 30,
+    status: "active",
   },
 
   {
@@ -59,15 +49,10 @@ export const mockExperiments: Experiment[] = [
       "Understand how current divides and how voltage behaves across parallel branches.",
     theory:
       "In a parallel circuit, each branch has the same voltage while the total current is divided between branches.",
-    components: [
-      "DC Voltage Source",
-      "Resistors",
-      "Ammeter",
-      "Voltmeter",
-    ],
     difficulty: "Beginner",
     category: "Circuit Analysis",
     duration_minutes: 30,
+    status: "active",
   },
 
   {
@@ -82,14 +67,10 @@ export const mockExperiments: Experiment[] = [
       "Verify that the algebraic sum of voltages around a closed loop is zero.",
     theory:
       "Kirchhoff's Voltage Law states that the algebraic sum of all voltage rises and drops around a closed loop is zero.",
-    components: [
-      "DC Voltage Source",
-      "Resistors",
-      "Voltmeter",
-    ],
     difficulty: "Intermediate",
     category: "Circuit Analysis",
     duration_minutes: 30,
+    status: "active",
   },
 
   {
@@ -104,14 +85,10 @@ export const mockExperiments: Experiment[] = [
       "Verify that the total current entering a node equals the total current leaving it.",
     theory:
       "Kirchhoff's Current Law states that the algebraic sum of currents at a circuit node is zero.",
-    components: [
-      "DC Voltage Source",
-      "Resistors",
-      "Ammeter",
-    ],
     difficulty: "Intermediate",
     category: "Circuit Analysis",
     duration_minutes: 30,
+    status: "active",
   },
 
   {
@@ -126,14 +103,10 @@ export const mockExperiments: Experiment[] = [
       "Understand and calculate output voltage using a voltage divider.",
     theory:
       "A voltage divider produces an output voltage determined by the ratio of resistor values in a series network.",
-    components: [
-      "DC Voltage Source",
-      "Two Resistors",
-      "Voltmeter",
-    ],
     difficulty: "Beginner",
     category: "Circuit Fundamentals",
     duration_minutes: 25,
+    status: "active",
   },
 
   {
@@ -148,14 +121,10 @@ export const mockExperiments: Experiment[] = [
       "Calculate branch currents in a parallel resistor network.",
     theory:
       "A current divider distributes total current among parallel branches according to their resistance values.",
-    components: [
-      "DC Current Source",
-      "Resistors",
-      "Ammeter",
-    ],
     difficulty: "Intermediate",
     category: "Circuit Fundamentals",
     duration_minutes: 25,
+    status: "active",
   },
 
   {
@@ -170,15 +139,10 @@ export const mockExperiments: Experiment[] = [
       "Understand the charging and discharging behavior of a capacitor through a resistor.",
     theory:
       "The capacitor voltage in an RC circuit changes exponentially according to the circuit time constant.",
-    components: [
-      "DC Voltage Source",
-      "Resistor",
-      "Capacitor",
-      "Voltmeter",
-    ],
     difficulty: "Intermediate",
     category: "Circuit Analysis",
     duration_minutes: 35,
+    status: "active",
   },
 
   {
@@ -193,16 +157,10 @@ export const mockExperiments: Experiment[] = [
       "Understand forward and reverse bias behavior of a diode.",
     theory:
       "A diode allows current to flow primarily in one direction and exhibits a nonlinear current-voltage relationship.",
-    components: [
-      "DC Voltage Source",
-      "Resistor",
-      "Diode",
-      "Ammeter",
-      "Voltmeter",
-    ],
     difficulty: "Intermediate",
     category: "Electronics",
     duration_minutes: 35,
+    status: "active",
   },
 
   {
@@ -217,14 +175,9 @@ export const mockExperiments: Experiment[] = [
       "Understand LED operation and the purpose of a series resistor.",
     theory:
       "An LED emits light when forward biased, while a series resistor limits current and protects the device.",
-    components: [
-      "DC Voltage Source",
-      "LED",
-      "Resistor",
-      "Ammeter",
-    ],
     difficulty: "Beginner",
     category: "Electronics",
     duration_minutes: 25,
+    status: "active",
   },
 ];
