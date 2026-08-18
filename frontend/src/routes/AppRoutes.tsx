@@ -32,6 +32,7 @@ function AppRoutes() {
 
         <Route path="/mentor" element={<MentorPage />} />
 
+        <Route path="/quiz" element={<QuizPage />} />
         <Route path="/quiz/:experimentId" element={<QuizPage />} />
 
         <Route path="/reports" element={<ReportsPage />} />

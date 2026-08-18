@@ -1,7 +1,7 @@
+import { Link } from "react-router-dom";
 import SectionHeading from "../components/ui/SectionHeading";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-
 function HomePage() {
   return (
     <div className="home-page">
@@ -171,6 +171,7 @@ function HomePage() {
       {/* =====================================================
           FEATURED EXPERIMENTS
       ===================================================== */}
+
       <section className="featured-experiments-section mt-[70px]">
         <SectionHeading
           eyebrow="FEATURED EXPERIMENTS"
@@ -179,27 +180,37 @@ function HomePage() {
         />
 
         <div className="feature-grid !mt-[25px] !mb-0">
-          <Card className="feature-card">
-            <h3>Ohm's Law</h3>
-            <p>
-              Understand the relationship between voltage, current, and
-              resistance.
-            </p>
-          </Card>
+          {/* OHM'S LAW */}
+          <Link to="/experiments/1" className="block h-full">
+            <Card className="feature-card h-full transition-all duration-200 hover:-translate-y-1 hover:border-violet-200 hover:shadow-[0_8px_24px_rgba(124,58,237,0.10)]">
+              <h3>Ohm's Law</h3>
+              <p>
+                Understand the relationship between voltage, current, and
+                resistance.
+              </p>
+            </Card>
+          </Link>
 
-          <Card className="feature-card">
-            <h3>Series Circuit</h3>
-            <p>
-              Explore current flow and voltage distribution in series circuits.
-            </p>
-          </Card>
+          {/* SERIES CIRCUIT */}
+          <Link to="/experiments/2" className="block h-full">
+            <Card className="feature-card h-full transition-all duration-200 hover:-translate-y-1 hover:border-violet-200 hover:shadow-[0_8px_24px_rgba(124,58,237,0.10)]">
+              <h3>Series Circuit</h3>
+              <p>
+                Explore current flow and voltage distribution in series
+                circuits.
+              </p>
+            </Card>
+          </Link>
 
-          <Card className="feature-card">
-            <h3>Parallel Circuit</h3>
-            <p>
-              Analyze voltage and current behavior across parallel branches.
-            </p>
-          </Card>
+          {/* PARALLEL CIRCUIT */}
+          <Link to="/experiments/3" className="block h-full">
+            <Card className="feature-card h-full transition-all duration-200 hover:-translate-y-1 hover:border-violet-200 hover:shadow-[0_8px_24px_rgba(124,58,237,0.10)]">
+              <h3>Parallel Circuit</h3>
+              <p>
+                Analyze voltage and current behavior across parallel branches.
+              </p>
+            </Card>
+          </Link>
         </div>
 
         <div className="home-section-action !mt-[25px]">

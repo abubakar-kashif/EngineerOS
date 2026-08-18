@@ -16,6 +16,7 @@ const menuItems = [
   { path: "/mentor", label: "Mentor (AI)", icon: Bot },
   { path: "/dashboard", label: "Dashboard", icon: ChartNoAxesCombined },
   { path: "/tools", label: "Tools", icon: Wrench },
+  { path: "/quiz", label: "Quiz", icon: Zap },
   { path: "/reports", label: "Reports", icon: FileText },
   { path: "/about", label: "About Us", icon: Info },
 ];
@@ -41,12 +42,10 @@ function Sidebar() {
               end={item.path === "/"}
               className={({ isActive }) =>
                 `nav-item ${isActive ? "nav-item-active" : ""}`
-              }
-            >
+              }>
               <span className="nav-icon">
                 <Icon size={18} strokeWidth={2} />
               </span>
-
               <span>{item.label}</span>
             </NavLink>
           );

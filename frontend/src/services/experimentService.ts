@@ -1,8 +1,13 @@
 import { ApiError, apiRequest } from "./api";
 import type { Experiment } from "../types/experiment";
 
-export async function getExperiments(): Promise<Experiment[]> {
-  return apiRequest<Experiment[]>("/experiments");
+export interface ExperimentListResponse {
+  items: Experiment[];
+  total: number;
+}
+
+export async function getExperiments(): Promise<ExperimentListResponse> {
+  return apiRequest<ExperimentListResponse>("/experiments");
 }
 
 export async function getExperimentById(
