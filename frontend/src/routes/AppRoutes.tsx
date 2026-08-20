@@ -11,6 +11,7 @@ import ReportsPage from "../pages/ReportsPage";
 import DashboardPage from "../pages/DashboardPage";
 import ToolsPage from "../pages/ToolsPage";
 import AboutPage from "../pages/AboutPage";
+import SimulationPage from "../pages/SimulationPage";
 
 function AppRoutes() {
   return (
@@ -40,6 +41,8 @@ function AppRoutes() {
         <Route path="/dashboard" element={<DashboardPage />} />
 
         <Route path="/tools" element={<ToolsPage />} />
+
+        <Route path="/simulation" element={<SimulationPage />} />
 
         <Route path="/about" element={<AboutPage />} />
       </Route>
