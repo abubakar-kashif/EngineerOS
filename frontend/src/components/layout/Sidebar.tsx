@@ -8,6 +8,7 @@ import {
   FileText,
   Info,
   Zap,
+  Sparkles,
 } from "lucide-react";
 
 const menuItems = [
@@ -16,6 +17,7 @@ const menuItems = [
   { path: "/mentor", label: "Mentor (AI)", icon: Bot },
   { path: "/dashboard", label: "Dashboard", icon: ChartNoAxesCombined },
   { path: "/tools", label: "Tools", icon: Wrench },
+  { path: "/simulation", label: "Simulation", icon: Sparkles },
   { path: "/quiz", label: "Quiz", icon: Zap },
   { path: "/reports", label: "Reports", icon: FileText },
   { path: "/about", label: "About Us", icon: Info },

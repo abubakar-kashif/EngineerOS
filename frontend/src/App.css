@@ -2423,3 +2423,191 @@ textarea:focus-visible {
     margin-top: 16px;
   }
 }
+
+/* ==========================================
+   Frontend B additions — append to App.css
+   Uses existing design tokens (no new colors)
+   ========================================== */
+
+/* --- About page --- */
+.about-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.about-card h3 {
+  margin-top: 0;
+}
+
+.about-tech-section,
+.about-philosophy-section {
+  margin-top: 32px;
+}
+
+.about-tech-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.about-philosophy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.about-philosophy-card h4 {
+  margin-top: 0;
+}
+
+.about-team-card {
+  margin-top: 32px;
+}
+
+/* --- Mentor page --- */
+.mentor-status-card {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mentor-chat-card {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 360px;
+}
+
+.mentor-chat-context {
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  padding-bottom: 12px;
+}
+
+.mentor-chat-messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  max-height: 320px;
+}
+
+.mentor-message {
+  padding: 10px 14px;
+  border-radius: 10px;
+  max-width: 80%;
+}
+
+.mentor-message-role {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.mentor-message-mentor {
+  background: var(--surface-muted, #f5f7fb);
+  align-self: flex-start;
+}
+
+.mentor-message-student {
+  background: var(--primary-light, #e0ecff);
+  align-self: flex-end;
+}
+
+.mentor-chat-input {
+  display: flex;
+  gap: 10px;
+}
+
+.mentor-chat-input input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+/* --- Tools page --- */
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.tool-card h3 {
+  margin-top: 0;
+}
+
+.tool-description {
+  opacity: 0.7;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.tool-input-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tool-input-row label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.tool-input-row input,
+.tool-input-wide {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  width: 100%;
+}
+
+.tool-input-wide {
+  margin-bottom: 16px;
+}
+
+.tool-result {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+  font-size: 14px;
+}
+
+.tool-result-empty {
+  opacity: 0.6;
+}
+
+.tool-formula-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tool-formula-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.tool-formula-list code {
+  background: var(--surface-muted, #f5f7fb);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
