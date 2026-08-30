@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.services.ai.types import AIMessage
 from app.services.ai.context.experiment_context import ExperimentContext
 from app.services.ai.context.quiz_context import QuizContext
-
+from app.services.ai.context.report_context import ReportContext
 
 class ContextResult:
     """Result of context gathering for an AI request."""
@@ -62,8 +62,8 @@ class ContextEngine:
         self.db = db
         self._experiment_context = ExperimentContext(db)
         self._quiz_context = QuizContext(db)
+        self._report_context = ReportContext(db)
         self._simulation_context = None  # Phase 13
-        self._report_context = None      # Phase 15
         self._user_context = None        # Phase 16
         self._conversation_context = None  # Phase 17
     
@@ -109,6 +109,15 @@ class ContextEngine:
                     result.quiz = quiz_data
             except Exception:
                 # Log but continue without quiz context
+                pass
+        # Load report context if experiment_id is provided
+        if experiment_id:
+            try:
+                report_data = self._report_context.load_for_experiment(experiment_id, user_id)
+                if report_data:
+                    result.report = report_data
+            except Exception:
+                # Log but continue without report context
                 pass
         
         # Future: load other contexts

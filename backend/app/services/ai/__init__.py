@@ -5,6 +5,8 @@ from .provider_factory import ProviderFactory
 from .mentor_service import MentorService
 from .context_engine import ContextEngine, ContextResult
 from .context.experiment_context import ExperimentContext
+from .context.quiz_context import QuizContext
+from .context.report_context import ReportContext
 
 __all__ = [
     "AIProvider",
@@ -18,4 +20,6 @@ __all__ = [
     "ContextEngine",
     "ContextResult",
     "ExperimentContext",
+    "QuizContext",
+    "ReportContext",
 ]
