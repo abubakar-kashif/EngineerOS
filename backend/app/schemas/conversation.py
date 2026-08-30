@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List, Any
+from typing import Optional, List
 
 
 class MessageCreate(BaseModel):
@@ -31,7 +31,7 @@ class ConversationResponse(BaseModel):
     user_id: Optional[str] = None
     title: str
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
     messages: Optional[List[MessageResponse]] = None
 
     class Config:
