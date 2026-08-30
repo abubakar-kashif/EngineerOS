@@ -25,6 +25,8 @@ from app.services.ai.protection import (
     get_protection_manager,
 )
 from app.models.conversation import Conversation
+from app.services.ai.prompt_builder import PromptBuilder
+from app.services.ai.context_engine import ContextEngine, ContextResult
 
 
 class MentorService:
@@ -34,6 +36,7 @@ class MentorService:
         self.db = db
         self.provider = ProviderFactory.get_provider()
         self.protection = get_protection_manager()
+        self.prompt_builder = PromptBuilder()
 
     def start_conversation(
         self,
@@ -47,11 +50,43 @@ class MentorService:
             title=title
         )
 
+    def _get_context(
+        self,
+        conversation_id: str,
+        question: str,
+        user_id: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        simulation_id: Optional[str] = None,
+    ) -> ContextResult:
+        """
+        Get context for the conversation using ContextEngine.
+
+        Args:
+            conversation_id: Current conversation ID
+            question: User's question
+            user_id: Optional user ID for ownership
+            experiment_id: Optional experiment ID
+            simulation_id: Optional simulation ID
+
+        Returns:
+            ContextResult: Structured context from ContextEngine
+        """
+        engine = ContextEngine(self.db)
+        return engine.gather_context(
+            user_id=user_id,
+            conversation_id=conversation_id,
+            question=question,
+            experiment_id=experiment_id,
+            simulation_id=simulation_id,
+        )
+
     def ask(
         self,
         conversation_id: str,
         question: str,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        simulation_id: Optional[str] = None,
     ) -> AIResponse:
         """Ask the AI mentor a question (non-streaming)."""
         # 1. Rate limit check
@@ -85,33 +120,18 @@ class MentorService:
             user_id=user_id
         )
 
-        # 5. Build AI request
-        ai_messages = []
+        # 5. Build AI request using PromptBuilder with context
+        context = self._get_context(
+            conversation_id=conversation_id,
+            question=question,
+            user_id=user_id,
+            experiment_id=experiment_id,
+            simulation_id=simulation_id,
+        )
+        prompt_messages = self.prompt_builder.build_messages(context, question)
+        request = AIRequest(messages=prompt_messages)
 
-        ai_messages.append(AIMessage(
-            role="system",
-            content=(
-                "You are an AI mentor for electrical engineering. "
-                "Help students understand concepts, solve problems, "
-                "and think critically. Be supportive and educational."
-            )
-        ))
-
-        for msg in messages:
-            ai_messages.append(AIMessage(
-                role=msg.role,
-                content=msg.content
-            ))
-
-        ai_messages.append(AIMessage(
-            role="user",
-            content=question
-        ))
-
-        # 6. Create request
-        request = AIRequest(messages=ai_messages)
-
-        # 7. Generate with retry
+        # 6. Generate with retry
         attempt = 0
         while True:
             attempt += 1
@@ -126,10 +146,10 @@ class MentorService:
                     continue
                 raise
 
-        # 8. Validate response
+        # 7. Validate response
         validated_content = self.protection.validate_response(response.content)
 
-        # 9. Save assistant response
+        # 8. Save assistant response
         add_message(
             self.db,
             conversation_id,
@@ -139,7 +159,7 @@ class MentorService:
             user_id=user_id
         )
 
-        # 10. Return validated response
+        # 9. Return validated response
         response.content = validated_content
         return response
 
@@ -147,10 +167,15 @@ class MentorService:
         self,
         conversation_id: str,
         question: str,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        simulation_id: Optional[str] = None,
     ) -> Generator[StreamEvent, None, None]:
         """
         Ask the AI mentor a question with streaming response.
+
+        Yields:
+            StreamEvent: START, DELTA, METADATA, COMPLETE, or ERROR events
         """
         full_content = ""
         final_model = None
@@ -200,33 +225,18 @@ class MentorService:
                 user_id=user_id
             )
 
-            # 5. Build AI request
-            ai_messages = []
+            # 5. Build AI request using PromptBuilder with context
+            context = self._get_context(
+                conversation_id=conversation_id,
+                question=question,
+                user_id=user_id,
+                experiment_id=experiment_id,
+                simulation_id=simulation_id,
+            )
+            prompt_messages = self.prompt_builder.build_messages(context, question)
+            request = AIRequest(messages=prompt_messages, stream=True)
 
-            ai_messages.append(AIMessage(
-                role="system",
-                content=(
-                    "You are an AI mentor for electrical engineering. "
-                    "Help students understand concepts, solve problems, "
-                    "and think critically. Be supportive and educational."
-                )
-            ))
-
-            for msg in messages:
-                ai_messages.append(AIMessage(
-                    role=msg.role,
-                    content=msg.content
-                ))
-
-            ai_messages.append(AIMessage(
-                role="user",
-                content=question
-            ))
-
-            # 6. Create request
-            request = AIRequest(messages=ai_messages, stream=True)
-
-            # 7. Stream with retry
+            # 6. Stream with retry
             attempt = 0
             while True:
                 attempt += 1
