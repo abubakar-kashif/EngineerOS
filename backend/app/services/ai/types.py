@@ -12,6 +12,15 @@ class StreamEventType(str, Enum):
     ERROR = "error"
 
 
+class StreamErrorType(str, Enum):
+    """Types of streaming errors."""
+    PROVIDER_DISCONNECT = "provider_disconnect"
+    PROVIDER_TIMEOUT = "provider_timeout"
+    MALFORMED_EVENT = "malformed_event"
+    UNEXPECTED_TERMINATION = "unexpected_termination"
+    PROVIDER_ERROR = "provider_error"
+
+
 @dataclass
 class StreamEvent:
     """A single streaming event."""
@@ -19,6 +28,7 @@ class StreamEvent:
     content: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    error_type: Optional[StreamErrorType] = None
 
 
 @dataclass

@@ -1,6 +1,6 @@
 from .types import (
     AIRequest, AIResponse, ProviderError, AIMessage,
-    StreamEvent, StreamEventType
+    StreamEvent, StreamEventType, StreamErrorType
 )
 from .provider import AIProvider
 from .providers.openai_provider import OpenAIProvider
@@ -21,6 +21,7 @@ __all__ = [
     "AIMessage",
     "StreamEvent",
     "StreamEventType",
+    "StreamErrorType",
     "OpenAIProvider",
     "ProviderFactory",
     "MentorService",

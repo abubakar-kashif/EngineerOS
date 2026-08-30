@@ -1,9 +1,10 @@
 import os
+import time
 from typing import Optional, Dict, Any, Generator
 
 from app.services.ai.types import (
     AIRequest, AIResponse, ProviderError, AIMessage,
-    StreamEvent, StreamEventType
+    StreamEvent, StreamEventType, StreamErrorType
 )
 from app.services.ai.provider import AIProvider
 
@@ -11,9 +12,10 @@ from app.services.ai.provider import AIProvider
 class OpenAIProvider(AIProvider):
     """OpenAI implementation of the AIProvider interface."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-3.5-turbo"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-3.5-turbo", timeout: int = 60):
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
         self.model = model
+        self.timeout = timeout
         self._client = None
 
     @property
@@ -27,7 +29,10 @@ class OpenAIProvider(AIProvider):
                 )
             try:
                 from openai import OpenAI
-                self._client = OpenAI(api_key=self.api_key)
+                self._client = OpenAI(
+                    api_key=self.api_key,
+                    timeout=self.timeout,
+                )
             except ImportError:
                 raise ProviderError(
                     "OpenAI package not installed. Run: pip install openai"
@@ -76,7 +81,7 @@ class OpenAIProvider(AIProvider):
             raise ProviderError(f"OpenAI API error: {str(e)}")
 
     def stream(self, request: AIRequest) -> Generator[StreamEvent, None, None]:
-        """Stream a response from OpenAI."""
+        """Stream a response from OpenAI with failure handling."""
         try:
             messages = [
                 {"role": msg.role, "content": msg.content}
@@ -103,18 +108,32 @@ class OpenAIProvider(AIProvider):
                 metadata={"model": params["model"]}
             )
 
-            # Stream from OpenAI
-            stream = self.client.chat.completions.create(**params)
+            # Stream from OpenAI with timeout protection
             full_content = ""
             finish_reason = None
             usage = None
+            start_time = time.time()
+            last_chunk_time = start_time
+
+            stream = self.client.chat.completions.create(**params)
 
             for chunk in stream:
+                # Check for timeout
+                if time.time() - start_time > self.timeout:
+                    yield StreamEvent(
+                        type=StreamEventType.ERROR,
+                        error="Stream timeout exceeded",
+                        error_type=StreamErrorType.PROVIDER_TIMEOUT,
+                    )
+                    return
+
+                # Process chunk
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
                     if delta.content:
                         content = delta.content
                         full_content += content
+                        last_chunk_time = time.time()
                         yield StreamEvent(
                             type=StreamEventType.DELTA,
                             content=content
@@ -128,6 +147,15 @@ class OpenAIProvider(AIProvider):
                         "completion_tokens": chunk.usage.completion_tokens,
                         "total_tokens": chunk.usage.total_tokens,
                     }
+
+            # Check if we got any content
+            if not full_content:
+                yield StreamEvent(
+                    type=StreamEventType.ERROR,
+                    error="Stream ended with no content",
+                    error_type=StreamErrorType.UNEXPECTED_TERMINATION,
+                )
+                return
 
             # Emit METADATA event
             yield StreamEvent(
@@ -151,9 +179,19 @@ class OpenAIProvider(AIProvider):
             )
 
         except Exception as e:
+            error_msg = str(e)
+            # Categorize the error
+            if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                error_type = StreamErrorType.PROVIDER_TIMEOUT
+            elif "disconnect" in error_msg.lower() or "connection" in error_msg.lower():
+                error_type = StreamErrorType.PROVIDER_DISCONNECT
+            else:
+                error_type = StreamErrorType.PROVIDER_ERROR
+
             yield StreamEvent(
                 type=StreamEventType.ERROR,
-                error=f"OpenAI API error: {str(e)}"
+                error=error_msg,
+                error_type=error_type,
             )
 
     def get_provider_name(self) -> str:

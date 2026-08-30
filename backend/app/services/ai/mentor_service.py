@@ -10,7 +10,10 @@ from app.services.conversation_service import (
     get_messages,
 )
 from app.services.ai.provider_factory import ProviderFactory
-from app.services.ai.types import AIRequest, AIMessage, AIResponse, StreamEvent
+from app.services.ai.types import (
+    AIRequest, AIMessage, AIResponse, StreamEvent,
+    StreamEventType, StreamErrorType
+)
 from app.models.conversation import Conversation
 
 
@@ -40,10 +43,8 @@ class MentorService:
         user_id: Optional[str] = None
     ) -> AIResponse:
         """Ask the AI mentor a question (non-streaming)."""
-        # 1. Verify conversation exists and ownership
         get_conversation(self.db, conversation_id, user_id)
 
-        # 2. Get conversation history
         messages, _ = get_messages(
             self.db,
             conversation_id,
@@ -51,7 +52,6 @@ class MentorService:
             limit=50
         )
 
-        # 3. Save user question
         add_message(
             self.db,
             conversation_id,
@@ -60,7 +60,6 @@ class MentorService:
             user_id=user_id
         )
 
-        # 4. Build AI request
         ai_messages = []
 
         ai_messages.append(AIMessage(
@@ -83,11 +82,9 @@ class MentorService:
             content=question
         ))
 
-        # 5. Call provider
         request = AIRequest(messages=ai_messages)
         response = self.provider.generate(request)
 
-        # 6. Save assistant response
         add_message(
             self.db,
             conversation_id,
@@ -108,16 +105,17 @@ class MentorService:
         """
         Ask the AI mentor a question with streaming response.
 
+        Handles failures gracefully - distinguishes between
+        completed responses and stream errors.
+
         Yields:
             StreamEvent: START, DELTA, METADATA, COMPLETE, or ERROR events
-
-        Raises:
-            HTTPException: If conversation not found or access denied
         """
         full_content = ""
         final_model = None
         final_usage = None
         final_finish_reason = None
+        stream_success = False
 
         try:
             # 1. Verify conversation exists and ownership
@@ -131,7 +129,7 @@ class MentorService:
                 limit=50
             )
 
-            # 3. Save user question (immediately)
+            # 3. Save user question
             add_message(
                 self.db,
                 conversation_id,
@@ -168,15 +166,16 @@ class MentorService:
 
             # 6. Stream from provider
             for event in self.provider.stream(request):
-                if event.type == "delta":
+                if event.type == StreamEventType.DELTA:
                     full_content += event.content or ""
 
-                if event.type == "metadata" and event.metadata:
+                if event.type == StreamEventType.METADATA and event.metadata:
                     final_model = event.metadata.get("model", final_model)
                     final_usage = event.metadata.get("usage", final_usage)
                     final_finish_reason = event.metadata.get("finish_reason", final_finish_reason)
 
-                if event.type == "complete":
+                if event.type == StreamEventType.COMPLETE:
+                    stream_success = True
                     # Save the complete response
                     add_message(
                         self.db,
@@ -191,15 +190,31 @@ class MentorService:
                         user_id=user_id
                     )
 
+                if event.type == StreamEventType.ERROR:
+                    # DO NOT save partial response as complete
+                    # This is the key failure handling rule
+                    stream_success = False
+                    # We could save the error state if needed
+                    # But NOT as a successful assistant message
+
                 yield event
+
+            # If stream ended without error but also without complete event
+            if not stream_success and full_content:
+                # This is a partial response - don't save it
+                # The frontend already received the partial content
+                # But we don't persist it as a message
+                pass
 
         except HTTPException as e:
             yield StreamEvent(
-                type="error",
-                error=f"Conversation error: {e.detail}"
+                type=StreamEventType.ERROR,
+                error=f"Conversation error: {e.detail}",
+                error_type=StreamErrorType.UNEXPECTED_TERMINATION,
             )
         except Exception as e:
             yield StreamEvent(
-                type="error",
-                error=f"Unexpected error: {str(e)}"
+                type=StreamEventType.ERROR,
+                error=f"Unexpected error: {str(e)}",
+                error_type=StreamErrorType.UNEXPECTED_TERMINATION,
             )
