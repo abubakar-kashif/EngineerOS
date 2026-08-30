@@ -2,6 +2,7 @@ from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
 from app.services.ai.types import AIMessage
+from app.services.ai.context.experiment_context import ExperimentContext
 
 
 class ContextResult:
@@ -58,12 +59,12 @@ class ContextEngine:
     
     def __init__(self, db: Session):
         self.db = db
-        self._experiment_context = None
-        self._simulation_context = None
-        self._quiz_context = None
-        self._report_context = None
-        self._user_context = None
-        self._conversation_context = None
+        self._experiment_context = ExperimentContext(db)
+        self._simulation_context = None  # Phase 13
+        self._quiz_context = None        # Phase 14
+        self._report_context = None      # Phase 15
+        self._user_context = None        # Phase 16
+        self._conversation_context = None  # Phase 17
     
     def gather_context(
         self,
@@ -89,17 +90,18 @@ class ContextEngine:
         result = ContextResult()
         result.current_message = question
         
-        # Will be implemented when context modules are added
-        # For now, placeholder structure
+        # Load experiment context if provided
+        if experiment_id:
+            try:
+                experiment_data = self._experiment_context.load(experiment_id, user_id)
+                if experiment_data:
+                    result.experiment = experiment_data
+            except Exception:
+                # Log but continue without experiment context
+                pass
+        
+        # Future: load other contexts
+        # if simulation_id:
+        #     result.simulation = self._simulation_context.load(simulation_id, user_id)
         
         return result
-    
-    def _get_experiment_context(self, experiment_id: str, user_id: Optional[str]) -> Optional[Dict[str, Any]]:
-        """Load experiment context if available."""
-        # Phase 11 will implement this
-        return None
-    
-    def _get_simulation_context(self, simulation_id: str, user_id: Optional[str]) -> Optional[Dict[str, Any]]:
-        """Load simulation context if available."""
-        # Phase 13 will implement this
-        return None
