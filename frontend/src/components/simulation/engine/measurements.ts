@@ -4,18 +4,12 @@
  * Generates measurements from solver results
  */
 
-import {
+import type {
   CircuitDefinition,
-  Component,
-  ElectricalNode,
-  findComponent,
-  getConnectionsForTerminal,
-  findComponentByTerminal,
 } from './circuitGraph';
 
-import {
+import type {
   DCResult,
-  ComponentResult,
 } from './dcSolver';
 
 export interface Measurement {
@@ -42,26 +36,14 @@ export interface CompleteMeasurements {
   summary: MeasurementGroup;
 }
 
-/**
- * Generate complete measurements from circuit and solver results
- */
 export function generateMeasurements(
   circuit: CircuitDefinition,
   dcResult: DCResult
 ): CompleteMeasurements {
-  // Source measurements
   const sourceMeasurements = generateSourceMeasurements(circuit, dcResult);
-  
-  // Component measurements
   const componentMeasurements = generateComponentMeasurements(circuit, dcResult);
-  
-  // Node measurements
   const nodeMeasurements = generateNodeMeasurements(circuit, dcResult);
-  
-  // Total measurements
   const totalMeasurements = generateTotalMeasurements(circuit, dcResult);
-  
-  // Summary measurements
   const summaryMeasurements = generateSummaryMeasurements(circuit, dcResult);
 
   return {
@@ -88,9 +70,6 @@ export function generateMeasurements(
   };
 }
 
-/**
- * Generate source measurements
- */
 function generateSourceMeasurements(
   circuit: CircuitDefinition,
   dcResult: DCResult
@@ -171,9 +150,6 @@ function generateSourceMeasurements(
   return measurements;
 }
 
-/**
- * Generate component measurements
- */
 function generateComponentMeasurements(
   circuit: CircuitDefinition,
   dcResult: DCResult
@@ -188,7 +164,6 @@ function generateComponentMeasurements(
     const result = dcResult.componentResults.get(component.id);
     if (!result) continue;
 
-    // Voltage measurement
     measurements.push({
       id: `${component.id}_voltage`,
       type: 'voltage',
@@ -198,7 +173,6 @@ function generateComponentMeasurements(
       componentId: component.id,
     });
 
-    // Current measurement
     measurements.push({
       id: `${component.id}_current`,
       type: 'current',
@@ -208,7 +182,6 @@ function generateComponentMeasurements(
       componentId: component.id,
     });
 
-    // Power measurement
     measurements.push({
       id: `${component.id}_power`,
       type: 'power',
@@ -218,7 +191,6 @@ function generateComponentMeasurements(
       componentId: component.id,
     });
 
-    // Resistance measurement (for resistors only)
     if (component.type === 'resistor' && result.resistance) {
       measurements.push({
         id: `${component.id}_resistance`,
@@ -234,16 +206,12 @@ function generateComponentMeasurements(
   return measurements;
 }
 
-/**
- * Generate node measurements
- */
 function generateNodeMeasurements(
   circuit: CircuitDefinition,
   dcResult: DCResult
 ): Measurement[] {
   const measurements: Measurement[] = [];
   
-  // Use nodes from circuit
   const nodes = circuit.nodes || [];
   
   for (const node of nodes) {
@@ -264,16 +232,12 @@ function generateNodeMeasurements(
   return measurements;
 }
 
-/**
- * Generate total measurements
- */
 function generateTotalMeasurements(
   circuit: CircuitDefinition,
   dcResult: DCResult
 ): Measurement[] {
   const measurements: Measurement[] = [];
 
-  // Total voltage (from voltage source)
   const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
   if (voltageSource) {
     measurements.push({
@@ -285,7 +249,6 @@ function generateTotalMeasurements(
     });
   }
 
-  // Total current
   measurements.push({
     id: 'total_current',
     type: 'current',
@@ -294,7 +257,6 @@ function generateTotalMeasurements(
     label: 'Total Current',
   });
 
-  // Total power
   measurements.push({
     id: 'total_power',
     type: 'power',
@@ -303,7 +265,6 @@ function generateTotalMeasurements(
     label: 'Total Power',
   });
 
-  // Equivalent resistance
   if (dcResult.equivalentResistance > 0) {
     measurements.push({
       id: 'equivalent_resistance',
@@ -317,16 +278,12 @@ function generateTotalMeasurements(
   return measurements;
 }
 
-/**
- * Generate summary measurements
- */
 function generateSummaryMeasurements(
   circuit: CircuitDefinition,
   dcResult: DCResult
 ): Measurement[] {
   const measurements: Measurement[] = [];
 
-  // Count components
   const componentCount = circuit.components.length;
   measurements.push({
     id: 'component_count',
@@ -336,7 +293,6 @@ function generateSummaryMeasurements(
     label: 'Total Components',
   });
 
-  // Count resistor types
   const resistorCount = circuit.components.filter(c => c.type === 'resistor').length;
   measurements.push({
     id: 'resistor_count',
@@ -346,7 +302,6 @@ function generateSummaryMeasurements(
     label: 'Resistors',
   });
 
-  // Count sources
   const sourceCount = circuit.components.filter(
     c => c.type === 'voltage_source' || c.type === 'current_source'
   ).length;
@@ -358,7 +313,6 @@ function generateSummaryMeasurements(
     label: 'Sources',
   });
 
-  // Check if circuit has ground
   const hasGround = circuit.components.some(c => c.type === 'ground');
   measurements.push({
     id: 'has_ground',
@@ -368,7 +322,6 @@ function generateSummaryMeasurements(
     label: 'Ground Present',
   });
 
-  // Solver success
   measurements.push({
     id: 'solver_success',
     type: 'resistance' as any,
@@ -380,9 +333,6 @@ function generateSummaryMeasurements(
   return measurements;
 }
 
-/**
- * Get measurement by ID
- */
 export function getMeasurement(
   measurements: CompleteMeasurements,
   id: string
@@ -403,9 +353,6 @@ export function getMeasurement(
   return undefined;
 }
 
-/**
- * Get measurements by component ID
- */
 export function getMeasurementsForComponent(
   measurements: CompleteMeasurements,
   componentId: string
@@ -413,7 +360,9 @@ export function getMeasurementsForComponent(
   const results: Measurement[] = [];
   
   const allGroups = [
+    measurements.source,
     measurements.components,
+    measurements.totals,
   ];
 
   for (const group of allGroups) {
@@ -424,9 +373,6 @@ export function getMeasurementsForComponent(
   return results;
 }
 
-/**
- * Get measurements by type
- */
 export function getMeasurementsByType(
   measurements: CompleteMeasurements,
   type: Measurement['type']
@@ -449,9 +395,6 @@ export function getMeasurementsByType(
   return results;
 }
 
-/**
- * Format measurement value for display
- */
 export function formatMeasurement(measurement: Measurement): string {
   const value = measurement.value;
   const unit = measurement.unit;
@@ -460,7 +403,6 @@ export function formatMeasurement(measurement: Measurement): string {
   if (value === -Infinity) return '-∞';
   if (isNaN(value)) return 'N/A';
   
-  // Format based on magnitude
   if (Math.abs(value) >= 1000000) {
     return `${(value / 1000000).toFixed(2)} M${unit}`;
   }

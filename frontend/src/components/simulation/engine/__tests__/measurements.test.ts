@@ -9,11 +9,14 @@ import {
   getMeasurementsForComponent,
   getMeasurementsByType,
   formatMeasurement,
-  CompleteMeasurements,
+  type CompleteMeasurements,
 } from '../measurements';
 
-import {
+import type {
   CircuitDefinition,
+} from '../circuitGraph';
+
+import {
   createTerminalId,
 } from '../circuitGraph';
 
@@ -123,7 +126,7 @@ describe('Measurements', () => {
       
       const componentCount = measurements.summary.measurements.find(m => m.id === 'component_count');
       expect(componentCount).toBeDefined();
-      expect(componentCount?.value).toBe(3); // V1, R1, GND1
+      expect(componentCount?.value).toBe(3);
       
       const resistorCount = measurements.summary.measurements.find(m => m.id === 'resistor_count');
       expect(resistorCount).toBeDefined();
@@ -212,7 +215,6 @@ describe('Measurements', () => {
     });
 
     it('should handle special values', () => {
-      // Test Infinity
       expect(formatMeasurement({ 
         id: 'test', 
         type: 'current', 
@@ -221,7 +223,6 @@ describe('Measurements', () => {
         label: 'Test' 
       })).toBe('∞');
 
-      // Test NaN
       expect(formatMeasurement({ 
         id: 'test', 
         type: 'current', 

@@ -7,8 +7,10 @@ import {
   solveDC,
 } from '../dcSolver';
 
-import {
+import type {
   CircuitDefinition,
+} from '../circuitGraph';
+import {
   createTerminalId,
 } from '../circuitGraph';
 

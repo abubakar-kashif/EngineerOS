@@ -7,11 +7,10 @@ import {
   buildElectricalNodes,
   hasGround,
   findGroundNode,
-  getNodeIdForTerminal,
 } from '../circuitGraphBuilder';
 
 import {
-  CircuitDefinition,
+  type CircuitDefinition,
   createTerminalId,
 } from '../circuitGraph';
 
@@ -64,8 +63,8 @@ describe('Circuit Graph Builder', () => {
 
       const result = buildElectricalNodes(circuit);
       
-      expect(result.nodes).toHaveLength(3); // V1+, R1,A | R1,B, GND | V1-
-      expect(result.errors).toHaveLength(1); // V1- is dangling (unless connected to something)
+      expect(result.nodes).toHaveLength(3);
+      expect(result.errors).toHaveLength(1);
     });
 
     it('should identify ground node', () => {

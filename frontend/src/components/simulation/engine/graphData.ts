@@ -4,21 +4,17 @@
  * Generates graph data from simulation results
  */
 
-import {
+import type {
   CircuitDefinition,
-  Component,
-  findComponent,
 } from './circuitGraph';
 
 import {
+  findComponent,
+} from './circuitGraph';
+
+import type {
   DCResult,
 } from './dcSolver';
-
-import {
-  generateMeasurements,
-  CompleteMeasurements,
-  getMeasurement,
-} from './measurements';
 
 export interface GraphPoint {
   x: number;
@@ -58,13 +54,9 @@ export interface GraphOptions {
   maxX?: number;
 }
 
-/**
- * Generate Ohm's Law graph
- * Voltage vs Current for a resistor
- */
 export function generateOhmsLawGraph(
   circuit: CircuitDefinition,
-  dcResult: DCResult,
+  _dcResult: DCResult,
   options: GraphOptions = {}
 ): GraphData {
   const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
@@ -113,13 +105,9 @@ export function generateOhmsLawGraph(
   };
 }
 
-/**
- * Generate Voltage Divider graph
- * Input Voltage vs Output Voltage
- */
 export function generateVoltageDividerGraph(
   circuit: CircuitDefinition,
-  dcResult: DCResult,
+  _dcResult: DCResult,
   options: GraphOptions = {}
 ): GraphData {
   const resistors = circuit.components.filter(c => c.type === 'resistor');
@@ -170,13 +158,9 @@ export function generateVoltageDividerGraph(
   };
 }
 
-/**
- * Generate RC Charging graph
- * Time vs Capacitor Voltage
- */
 export function generateRCGraph(
   circuit: CircuitDefinition,
-  dcResult: DCResult,
+  _dcResult: DCResult,
   options: GraphOptions = {}
 ): GraphData {
   const capacitor = circuit.components.find(c => c.type === 'capacitor');
@@ -186,14 +170,14 @@ export function generateRCGraph(
     throw new Error('Circuit must have a capacitor and resistor for RC graph');
   }
 
-  const capacitance = capacitor.properties.capacitance || 0.000001; // 1µF
+  const capacitance = capacitor.properties.capacitance || 0.000001;
   const resistance = resistor.properties.resistance || 1000;
   const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
   const sourceVoltage = voltageSource?.properties.voltage || 5;
   
   const tau = resistance * capacitance;
   const numPoints = options.numPoints || 20;
-  const maxTime = options.maxX || (tau * 5); // 5 time constants
+  const maxTime = options.maxX || (tau * 5);
   
   const chargingPoints: GraphPoint[] = [];
   const dischargingPoints: GraphPoint[] = [];
@@ -201,11 +185,9 @@ export function generateRCGraph(
   for (let i = 0; i <= numPoints; i++) {
     const time = (i / numPoints) * maxTime;
     
-    // Charging: Vc(t) = V * (1 - e^(-t/RC))
     const chargingVoltage = sourceVoltage * (1 - Math.exp(-time / tau));
     chargingPoints.push({ x: time, y: chargingVoltage });
     
-    // Discharging: Vc(t) = V * e^(-t/RC)
     const dischargingVoltage = sourceVoltage * Math.exp(-time / tau);
     dischargingPoints.push({ x: time, y: dischargingVoltage });
   }
@@ -245,13 +227,9 @@ export function generateRCGraph(
   };
 }
 
-/**
- * Generate RL Charging graph
- * Time vs Inductor Current
- */
 export function generateRLGraph(
   circuit: CircuitDefinition,
-  dcResult: DCResult,
+  _dcResult: DCResult,
   options: GraphOptions = {}
 ): GraphData {
   const inductor = circuit.components.find(c => c.type === 'inductor');
@@ -261,7 +239,7 @@ export function generateRLGraph(
     throw new Error('Circuit must have an inductor and resistor for RL graph');
   }
 
-  const inductance = inductor.properties.inductance || 0.001; // 1mH
+  const inductance = inductor.properties.inductance || 0.001;
   const resistance = resistor.properties.resistance || 1000;
   const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
   const sourceVoltage = voltageSource?.properties.voltage || 5;
@@ -275,7 +253,6 @@ export function generateRLGraph(
   
   for (let i = 0; i <= numPoints; i++) {
     const time = (i / numPoints) * maxTime;
-    // IL(t) = (V/R) * (1 - e^(-Rt/L))
     const current = maxCurrent * (1 - Math.exp(-time / tau));
     points.push({ x: time, y: current });
   }
@@ -311,13 +288,9 @@ export function generateRLGraph(
   };
 }
 
-/**
- * Generate Power vs Resistance graph
- * Shows power dissipated in resistor for different resistance values
- */
 export function generatePowerGraph(
   circuit: CircuitDefinition,
-  dcResult: DCResult,
+  _dcResult: DCResult,
   options: GraphOptions = {}
 ): GraphData {
   const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
@@ -371,10 +344,6 @@ export function generatePowerGraph(
   };
 }
 
-/**
- * Generate Component Analysis graph
- * Shows voltage, current, and power for all components
- */
 export function generateComponentAnalysisGraph(
   circuit: CircuitDefinition,
   dcResult: DCResult,
@@ -382,7 +351,6 @@ export function generateComponentAnalysisGraph(
 ): GraphData {
   const points: GraphPoint[] = [];
   
-  // Get all passive components
   const components = circuit.components.filter(
     c => ['resistor', 'capacitor', 'inductor', 'diode', 'led'].includes(c.type)
   );
@@ -391,8 +359,6 @@ export function generateComponentAnalysisGraph(
     const result = dcResult.componentResults.get(component.id);
     if (!result) continue;
     
-    // For bar chart, we want to show each component's values
-    // We'll use index as x and power as y
     points.push({
       x: components.indexOf(component),
       y: result.power,
@@ -425,9 +391,6 @@ export function generateComponentAnalysisGraph(
   };
 }
 
-/**
- * Generate Current vs Voltage graph for a component
- */
 export function generateIVGraph(
   circuit: CircuitDefinition,
   dcResult: DCResult,
@@ -458,10 +421,10 @@ export function generateIVGraph(
     } else if (component.type === 'diode') {
       const forwardVoltage = component.properties.forwardVoltage || 0.7;
       if (voltage > forwardVoltage) {
-        current = (voltage - forwardVoltage) / 100; // Simplified
+        current = (voltage - forwardVoltage) / 100;
       }
     } else {
-      current = voltage / 1000; // Default
+      current = voltage / 1000;
     }
     
     points.push({ x: voltage, y: current });
@@ -494,9 +457,6 @@ export function generateIVGraph(
   };
 }
 
-/**
- * Generate all available graphs for a circuit
- */
 export function generateAllGraphs(
   circuit: CircuitDefinition,
   dcResult: DCResult
@@ -504,53 +464,46 @@ export function generateAllGraphs(
   const graphs: GraphData[] = [];
 
   try {
-    // Ohm's Law graph
     graphs.push(generateOhmsLawGraph(circuit, dcResult));
-  } catch (e) {
+  } catch (_e) {
     // Skip if not applicable
   }
 
   try {
-    // Voltage Divider graph
     graphs.push(generateVoltageDividerGraph(circuit, dcResult));
-  } catch (e) {
+  } catch (_e) {
     // Skip if not applicable
   }
 
   try {
-    // RC graph
     graphs.push(generateRCGraph(circuit, dcResult));
-  } catch (e) {
+  } catch (_e) {
     // Skip if not applicable
   }
 
   try {
-    // RL graph
     graphs.push(generateRLGraph(circuit, dcResult));
-  } catch (e) {
+  } catch (_e) {
     // Skip if not applicable
   }
 
   try {
-    // Power graph
     graphs.push(generatePowerGraph(circuit, dcResult));
-  } catch (e) {
+  } catch (_e) {
     // Skip if not applicable
   }
 
   try {
-    // Component analysis graph
     graphs.push(generateComponentAnalysisGraph(circuit, dcResult));
-  } catch (e) {
+  } catch (_e) {
     // Skip if not applicable
   }
 
-  // I-V graph for each component
   for (const component of circuit.components) {
     if (['resistor', 'diode', 'led'].includes(component.type)) {
       try {
         graphs.push(generateIVGraph(circuit, dcResult, component.id));
-      } catch (e) {
+      } catch (_e) {
         // Skip if not applicable
       }
     }
@@ -559,33 +512,24 @@ export function generateAllGraphs(
   return graphs;
 }
 
-/**
- * Validate graph data
- * Returns true if graph data is valid
- */
 export function validateGraphData(graph: GraphData): boolean {
-  // Check if graph has required fields
   if (!graph.id || !graph.title || !graph.xAxis || !graph.yAxis) {
     return false;
   }
 
-  // Check series
   if (!graph.series || graph.series.length === 0) {
     return false;
   }
 
-  // Check each series has points
   for (const series of graph.series) {
     if (!series.points || series.points.length === 0) {
       return false;
     }
 
-    // Check each point has x and y
     for (const point of series.points) {
       if (point.x === undefined || point.y === undefined) {
         return false;
       }
-      // Check for NaN or Infinity
       if (isNaN(point.x) || isNaN(point.y) || !isFinite(point.x) || !isFinite(point.y)) {
         return false;
       }
@@ -595,9 +539,6 @@ export function validateGraphData(graph: GraphData): boolean {
   return true;
 }
 
-/**
- * Get graph by ID from array
- */
 export function getGraphById(graphs: GraphData[], id: string): GraphData | undefined {
   return graphs.find(g => g.id === id);
 }

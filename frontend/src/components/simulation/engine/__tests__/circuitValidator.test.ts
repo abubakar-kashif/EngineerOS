@@ -7,8 +7,10 @@ import {
   validateCircuit,
 } from '../circuitValidator';
 
-import {
+import type {
   CircuitDefinition,
+} from '../circuitGraph';
+import {
   createTerminalId,
 } from '../circuitGraph';
 

@@ -4,12 +4,12 @@
  * Builds electrical nodes from terminals and connections
  */
 
-import {
+import type {
   CircuitDefinition,
   ElectricalNode,
-  Connection,
-  Terminal,
-  Component,
+} from './circuitGraph';
+
+import {
   findTerminal,
   getConnectionsForTerminal,
   findComponentByTerminal,
@@ -20,16 +20,11 @@ export interface GraphBuilderResult {
   errors: string[];
 }
 
-/**
- * Build electrical nodes from circuit connections
- * Groups connected terminals into electrical nodes
- */
 export function buildElectricalNodes(circuit: CircuitDefinition): GraphBuilderResult {
   const nodes: ElectricalNode[] = [];
   const visitedTerminals = new Set<string>();
   const errors: string[] = [];
 
-  // Get all terminal IDs from all components
   const allTerminals: string[] = [];
   for (const comp of circuit.components) {
     for (const term of comp.terminals) {
@@ -37,26 +32,20 @@ export function buildElectricalNodes(circuit: CircuitDefinition): GraphBuilderRe
     }
   }
 
-  // If no terminals, return empty result
   if (allTerminals.length === 0) {
     return { nodes: [], errors: ['No components with terminals found'] };
   }
 
-  // Build adjacency list from connections
   const adjacency = buildAdjacencyList(circuit);
 
-  // Find all connected groups (electrical nodes)
   for (const terminalId of allTerminals) {
     if (!visitedTerminals.has(terminalId)) {
-      // BFS to find all connected terminals
       const connectedTerminals = findConnectedTerminals(terminalId, adjacency);
       
-      // Mark all as visited
       for (const t of connectedTerminals) {
         visitedTerminals.add(t);
       }
 
-      // Check if any terminal in this group is a ground
       const isGround = connectedTerminals.some(t => {
         const term = findTerminal(circuit, t);
         if (!term) return false;
@@ -64,7 +53,6 @@ export function buildElectricalNodes(circuit: CircuitDefinition): GraphBuilderRe
         return comp?.type === 'ground';
       });
 
-      // Create node
       const node: ElectricalNode = {
         id: `N${nodes.length + 1}`,
         terminals: connectedTerminals,
@@ -76,16 +64,31 @@ export function buildElectricalNodes(circuit: CircuitDefinition): GraphBuilderRe
     }
   }
 
-  // Validate: Check for dangling terminals
+  for (const component of circuit.components) {
+    let hasConnection = false;
+    for (const terminal of component.terminals) {
+      const connections = getConnectionsForTerminal(circuit, terminal.id);
+      if (connections.length > 0) {
+        hasConnection = true;
+        break;
+      }
+    }
+    if (!hasConnection && component.type !== 'ground') {
+      errors.push(`Component ${component.id} has no connections`);
+    }
+  }
+
   for (const terminalId of allTerminals) {
     const connections = getConnectionsForTerminal(circuit, terminalId);
     if (connections.length === 0) {
       const term = findTerminal(circuit, terminalId);
       if (term) {
         const comp = findComponentByTerminal(circuit, terminalId);
-        // Don't warn for ground terminals (they are intentionally single)
         if (comp?.type !== 'ground') {
-          errors.push(`Dangling terminal: ${terminalId} (component: ${comp?.id || 'unknown'})`);
+          const msg = `Dangling terminal: ${terminalId} (component: ${comp?.id || 'unknown'})`;
+          if (!errors.includes(msg)) {
+            errors.push(msg);
+          }
         }
       }
     }
@@ -94,14 +97,10 @@ export function buildElectricalNodes(circuit: CircuitDefinition): GraphBuilderRe
   return { nodes, errors };
 }
 
-/**
- * Build adjacency list from connections
- */
 function buildAdjacencyList(circuit: CircuitDefinition): Map<string, Set<string>> {
   const adjacency = new Map<string, Set<string>>();
 
   for (const conn of circuit.connections) {
-    // Add edge from -> to
     if (!adjacency.has(conn.from)) {
       adjacency.set(conn.from, new Set());
     }
@@ -115,9 +114,6 @@ function buildAdjacencyList(circuit: CircuitDefinition): Map<string, Set<string>
   return adjacency;
 }
 
-/**
- * Find all terminals connected to a given terminal using BFS
- */
 function findConnectedTerminals(
   startTerminal: string,
   adjacency: Map<string, Set<string>>
@@ -145,9 +141,6 @@ function findConnectedTerminals(
   return result;
 }
 
-/**
- * Get node ID for a terminal
- */
 export function getNodeIdForTerminal(nodes: ElectricalNode[], terminalId: string): string | null {
   for (const node of nodes) {
     if (node.terminals.includes(terminalId)) {
@@ -157,24 +150,15 @@ export function getNodeIdForTerminal(nodes: ElectricalNode[], terminalId: string
   return null;
 }
 
-/**
- * Get all terminals in a node
- */
 export function getTerminalsInNode(nodes: ElectricalNode[], nodeId: string): string[] {
   const node = nodes.find(n => n.id === nodeId);
   return node ? node.terminals : [];
 }
 
-/**
- * Find ground node
- */
 export function findGroundNode(nodes: ElectricalNode[]): ElectricalNode | null {
   return nodes.find(n => n.isGround) || null;
 }
 
-/**
- * Validate that circuit has a ground
- */
 export function hasGround(nodes: ElectricalNode[]): boolean {
   return nodes.some(n => n.isGround);
 }

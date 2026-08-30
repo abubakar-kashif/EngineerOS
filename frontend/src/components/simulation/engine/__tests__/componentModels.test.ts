@@ -13,7 +13,6 @@ import {
 import {
   timeConstant,
   chargingVoltage,
-  dischargingVoltage,
   storedEnergy,
 } from '../capacitorAnalysis';
 
@@ -57,8 +56,8 @@ describe('Component Models', () => {
 
   describe('Capacitor Analysis', () => {
     it('should calculate RC time constant correctly', () => {
-      const tau = timeConstant(1000, 0.000001); // 1kΩ * 1µF
-      expect(tau).toBe(0.001); // 1ms
+      const tau = timeConstant(1000, 0.000001);
+      expect(tau).toBe(0.001);
     });
 
     it('should calculate charging voltage correctly', () => {
@@ -67,15 +66,15 @@ describe('Component Models', () => {
     });
 
     it('should calculate stored energy correctly', () => {
-      const energy = storedEnergy(0.000001, 5); // 1µF at 5V
-      expect(energy).toBe(0.0000125); // 12.5µJ
+      const energy = storedEnergy(0.000001, 5);
+      expect(energy).toBeCloseTo(0.0000125, 10);
     });
   });
 
   describe('Inductor Analysis', () => {
     it('should calculate RL time constant correctly', () => {
-      const tau = timeConstantRL(0.001, 1000); // 1mH / 1kΩ
-      expect(tau).toBe(0.000001); // 1µs
+      const tau = timeConstantRL(0.001, 1000);
+      expect(tau).toBe(0.000001);
     });
 
     it('should calculate charging current correctly', () => {
@@ -84,8 +83,8 @@ describe('Component Models', () => {
     });
 
     it('should calculate stored energy correctly', () => {
-      const energy = storedEnergyInductor(0.001, 0.005); // 1mH at 5mA
-      expect(energy).toBe(0.0000000125); // 12.5nJ
+      const energy = storedEnergyInductor(0.001, 0.005);
+      expect(energy).toBeCloseTo(0.0000000125, 10);
     });
   });
 
@@ -106,7 +105,7 @@ describe('Component Models', () => {
     it('should analyze LED correctly with resistor', () => {
       const result = analyzeLED(12, 2, 1000);
       expect(result.isOn).toBe(true);
-      expect(result.current).toBeCloseTo(0.01, 6); // 10mA
+      expect(result.current).toBeCloseTo(0.01, 6);
       expect(result.brightness).toBeGreaterThan(0);
     });
 
@@ -118,7 +117,7 @@ describe('Component Models', () => {
 
     it('should calculate LED resistor correctly', () => {
       const resistor = calculateLEDResistor(5, 2, 0.02);
-      expect(resistor).toBe(150); // (5-2)/0.02 = 150Ω
+      expect(resistor).toBe(150);
     });
 
     it('should check current limiting correctly', () => {

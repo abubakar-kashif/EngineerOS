@@ -3,6 +3,10 @@
  * Person 1: Simulation Engine
  */
 
+import type {
+  GraphData,
+} from '../graphData';
+
 import {
   generateOhmsLawGraph,
   generateVoltageDividerGraph,
@@ -14,11 +18,13 @@ import {
   generateAllGraphs,
   validateGraphData,
   getGraphById,
-  GraphData,
 } from '../graphData';
 
-import {
+import type {
   CircuitDefinition,
+} from '../circuitGraph';
+
+import {
   createTerminalId,
 } from '../circuitGraph';
 
@@ -99,7 +105,7 @@ describe('Graph Data', () => {
       expect(graph.id).toBe('ohms_law');
       expect(graph.type).toBe('line');
       expect(graph.series).toHaveLength(1);
-      expect(graph.series[0].points).toHaveLength(11); // Default 10 points + 1
+      expect(graph.series[0].points).toHaveLength(11);
       expect(graph.metadata?.resistance).toBe(1000);
     });
 
@@ -111,7 +117,7 @@ describe('Graph Data', () => {
       });
       
       expect(graph.title).toBe('Custom Title');
-      expect(graph.series[0].points).toHaveLength(6); // 5 points + 1
+      expect(graph.series[0].points).toHaveLength(6);
     });
   });
 
@@ -140,21 +146,20 @@ describe('Graph Data', () => {
 
   describe('generateRCGraph', () => {
     it('should generate RC graph', () => {
-      // Add capacitor to circuit
       const rcCircuit = {
         ...circuit,
         components: [
           ...circuit.components,
           {
             id: 'C1',
-            type: 'capacitor',
+            type: 'capacitor' as const,
             label: 'C1',
             position: { x: 150, y: 0 },
             rotation: 0,
             properties: { capacitance: 0.000001 },
             terminals: [
-              { id: createTerminalId('C1', 'A'), type: 'A', componentId: 'C1' },
-              { id: createTerminalId('C1', 'B'), type: 'B', componentId: 'C1' },
+              { id: createTerminalId('C1', 'A'), type: 'A' as const, componentId: 'C1' },
+              { id: createTerminalId('C1', 'B'), type: 'B' as const, componentId: 'C1' },
             ],
           },
         ],
@@ -165,14 +170,12 @@ describe('Graph Data', () => {
         ],
       };
 
-      // Need to solve with capacitor
-      // For test, we'll just check graph generation
       try {
         const graph = generateRCGraph(rcCircuit, dcResult);
         expect(graph.id).toBe('rc_charging');
-        expect(graph.series).toHaveLength(2); // Charging and Discharging
+        expect(graph.series).toHaveLength(2);
         expect(graph.metadata?.tau).toBeDefined();
-      } catch (e) {
+      } catch (_e) {
         // Skip if solver doesn't support capacitor
         console.log('RC graph test skipped - capacitor not supported in solver');
       }
@@ -181,21 +184,20 @@ describe('Graph Data', () => {
 
   describe('generateRLGraph', () => {
     it('should generate RL graph', () => {
-      // Add inductor to circuit
       const rlCircuit = {
         ...circuit,
         components: [
           ...circuit.components,
           {
             id: 'L1',
-            type: 'inductor',
+            type: 'inductor' as const,
             label: 'L1',
             position: { x: 150, y: 0 },
             rotation: 0,
             properties: { inductance: 0.001 },
             terminals: [
-              { id: createTerminalId('L1', 'A'), type: 'A', componentId: 'L1' },
-              { id: createTerminalId('L1', 'B'), type: 'B', componentId: 'L1' },
+              { id: createTerminalId('L1', 'A'), type: 'A' as const, componentId: 'L1' },
+              { id: createTerminalId('L1', 'B'), type: 'B' as const, componentId: 'L1' },
             ],
           },
         ],
@@ -211,7 +213,7 @@ describe('Graph Data', () => {
         expect(graph.id).toBe('rl_charging');
         expect(graph.series).toHaveLength(1);
         expect(graph.metadata?.tau).toBeDefined();
-      } catch (e) {
+      } catch (_e) {
         console.log('RL graph test skipped - inductor not supported in solver');
       }
     });
@@ -264,7 +266,6 @@ describe('Graph Data', () => {
       
       expect(graphs.length).toBeGreaterThan(0);
       
-      // Check for specific graphs
       const ohmGraph = getGraphById(graphs, 'ohms_law');
       expect(ohmGraph).toBeDefined();
       

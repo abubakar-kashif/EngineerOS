@@ -4,52 +4,24 @@
  * Orchestrates validation and solving
  */
 
-import {
+import type {
   CircuitDefinition,
 } from './circuitGraph';
 
 import {
   validateCircuit,
-  ValidationResult,
 } from './circuitValidator';
 
 import {
   solveDC,
-  DCResult,
+  type DCResult,
 } from './dcSolver';
 
-import {
+import type {
   SimulationResult,
-  SimulationStatus,
+  Measurements,
+  ComponentMeasurement,
 } from './types';
-
-// We'll define types here temporarily until Phase A9
-export type SimulationStatus = 'idle' | 'ready' | 'running' | 'completed' | 'invalid' | 'failed';
-
-export interface SimulationResult {
-  status: SimulationStatus;
-  validation?: ValidationResult;
-  dcResult?: DCResult;
-  error?: string;
-  measurements?: Measurements;
-}
-
-export interface Measurements {
-  totalVoltage: number;
-  totalCurrent: number;
-  totalPower: number;
-  equivalentResistance: number;
-  componentMeasurements: ComponentMeasurement[];
-}
-
-export interface ComponentMeasurement {
-  componentId: string;
-  type: string;
-  voltage: number;
-  current: number;
-  power: number;
-  resistance?: number;
-}
 
 /**
  * Main circuit solver
@@ -79,8 +51,8 @@ export function solveCircuit(circuit: CircuitDefinition): SimulationResult {
       };
     }
 
-    // Step 3: Generate measurements
-    const measurements = generateMeasurements(circuit, dcResult);
+    // Step 3: Generate measurements directly from dcResult
+    const measurements = generateMeasurementsFromDCResult(circuit, dcResult);
 
     return {
       status: 'completed',
@@ -98,20 +70,25 @@ export function solveCircuit(circuit: CircuitDefinition): SimulationResult {
 }
 
 /**
- * Generate measurements from solver results
+ * Generate measurements directly from DC result
  */
-function generateMeasurements(
+function generateMeasurementsFromDCResult(
   circuit: CircuitDefinition,
   dcResult: DCResult
 ): Measurements {
   const componentMeasurements: ComponentMeasurement[] = [];
 
-  // Get measurements for each component
-  for (const [id, result] of dcResult.componentResults) {
-    const component = circuit.components.find(c => c.id === id);
-    if (component) {
+  // Get all passive components
+  const passiveComponents = circuit.components.filter(
+    c => ['resistor', 'capacitor', 'inductor', 'diode', 'led'].includes(c.type)
+  );
+
+  // Add measurements for each passive component
+  for (const component of passiveComponents) {
+    const result = dcResult.componentResults.get(component.id);
+    if (result) {
       componentMeasurements.push({
-        componentId: id,
+        componentId: component.id,
         type: component.type,
         voltage: result.voltage,
         current: result.current,
@@ -121,9 +98,26 @@ function generateMeasurements(
     }
   }
 
-  // Find voltage source for total voltage
+  // Add voltage source
   const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
-  const totalVoltage = voltageSource?.properties.voltage || 0;
+  if (voltageSource) {
+    const result = dcResult.componentResults.get(voltageSource.id);
+    if (result) {
+      componentMeasurements.push({
+        componentId: voltageSource.id,
+        type: voltageSource.type,
+        voltage: result.voltage,
+        current: result.current,
+        power: result.power,
+      });
+    }
+  }
+
+  // Calculate total values
+  let totalVoltage = 0;
+  if (voltageSource) {
+    totalVoltage = voltageSource.properties.voltage || 0;
+  }
 
   return {
     totalVoltage,

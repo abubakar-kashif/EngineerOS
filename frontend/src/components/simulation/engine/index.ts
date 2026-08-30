@@ -18,7 +18,6 @@ export * from './circuitValidator';
 // Phase A5 - DC Solver
 export * from './dcSolver';
 export * from './circuitSolver';
-export * from './types';
 
 // Phase A6 - Component Models
 export * from './resistorAnalysis';
@@ -32,3 +31,6 @@ export * from './measurements';
 
 // Phase A8 - Graph Data
 export * from './graphData';
+
+// Phase A9 - Types (Single Source of Truth)
+export * from './types';

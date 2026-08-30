@@ -1,11 +1,12 @@
 /**
  * Simulation Types
  * Person 1: Simulation Engine
- * Core types for simulation results
+ * Core types for simulation results - SINGLE SOURCE OF TRUTH
  */
 
-import { ValidationResult } from './errors';
-import { DCResult } from './dcSolver';
+import type { ValidationResult } from './errors';
+import type { DCResult } from './dcSolver';
+import type { GraphData } from './graphData';
 
 export type SimulationStatus = 'idle' | 'ready' | 'running' | 'completed' | 'invalid' | 'failed';
 
@@ -31,5 +32,7 @@ export interface SimulationResult {
   validation?: ValidationResult;
   dcResult?: DCResult;
   measurements?: Measurements;
+  graphs?: GraphData[];
   error?: string;
+  metadata?: Record<string, any>;
 }
