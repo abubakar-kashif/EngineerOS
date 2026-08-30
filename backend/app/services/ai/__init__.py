@@ -40,6 +40,11 @@ from .protection import (
     protection_manager,
     get_protection_manager,
 )
+from .security import (
+    SecurityVerifier,
+    PromptInjectionGuard,
+    DataLeakageGuard,
+)
 
 __all__ = [
     "AIProvider",
@@ -84,4 +89,7 @@ __all__ = [
     "RetryController",
     "protection_manager",
     "get_protection_manager",
+    "SecurityVerifier",
+    "PromptInjectionGuard",
+    "DataLeakageGuard",
 ]
