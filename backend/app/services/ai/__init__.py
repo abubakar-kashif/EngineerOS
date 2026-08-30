@@ -3,6 +3,7 @@ from .provider import AIProvider
 from .providers.openai_provider import OpenAIProvider
 from .provider_factory import ProviderFactory
 from .mentor_service import MentorService
+from .context_engine import ContextEngine, ContextResult
 
 __all__ = [
     "AIProvider",
@@ -13,4 +14,6 @@ __all__ = [
     "OpenAIProvider",
     "ProviderFactory",
     "MentorService",
+    "ContextEngine",
+    "ContextResult",
 ]
