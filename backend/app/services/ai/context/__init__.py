@@ -3,6 +3,21 @@ from .quiz_context import QuizContext
 from .report_context import ReportContext
 from .user_context import UserContext
 from .conversation_context import ConversationContext
+from .simulation_contract import (
+    SimulationResult,
+    SimulationStatus,
+    ValidationResult,
+    SimulationError,
+    ErrorCode,
+    DCResult,
+    ComponentResult,
+    Measurements,
+    ComponentMeasurement,
+    Measurement,
+    GraphData,
+    GraphSeries,
+    GraphPoint,
+)
 
 __all__ = [
     "ExperimentContext",
@@ -10,4 +25,17 @@ __all__ = [
     "ReportContext",
     "UserContext",
     "ConversationContext",
+    "SimulationResult",
+    "SimulationStatus",
+    "ValidationResult",
+    "SimulationError",
+    "ErrorCode",
+    "DCResult",
+    "ComponentResult",
+    "Measurements",
+    "ComponentMeasurement",
+    "Measurement",
+    "GraphData",
+    "GraphSeries",
+    "GraphPoint",
 ]
