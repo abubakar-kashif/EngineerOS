@@ -1,53 +1,40 @@
-from datetime import datetime
-
-from sqlalchemy import JSON, DateTime, ForeignKey, String
+from sqlalchemy import Column, String, Text, DateTime, JSON, Enum, Integer
+from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column
-
 from app.db.database import Base
-from app.models.user import generate_uuid
+import enum
 
+class SimulationStatus(str, enum.Enum):
+    IDLE = "idle"
+    READY = "ready"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    INVALID = "invalid"
+    FAILED = "failed"
 
-class SimulationRun(Base):
-    """Persisted simulation session with full circuit definition + results.
+class Simulation(Base):
+    __tablename__ = "simulations"
 
-    Stores the circuit schematic, validation state, solver output, and
-    measurements so the frontend can save / load / review simulations.
-    """
-
-    __tablename__ = "simulation_runs"
-
-    id: Mapped[str] = mapped_column(
-        String(32), primary_key=True, default=generate_uuid, index=True
-    )
-    user_id: Mapped[str] = mapped_column(
-        String(32),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        index=True,
-        nullable=False,
-    )
-    experiment_id: Mapped[str] = mapped_column(
-        String(100), nullable=False, index=True
-    )
-    name: Mapped[str | None] = mapped_column(
-        String(200), nullable=True
-    )
-    configuration: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    circuit_definition: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    validation_errors: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    results: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    measurements: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    status: Mapped[str] = mapped_column(
-        String(30), nullable=False, default="created"
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
-    )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True, onupdate=datetime.utcnow
-    )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True
-    )
+    id = Column(String(100), primary_key=True, index=True)
+    user_id = Column(String(100), nullable=False, index=True)
+    experiment_id = Column(String(100), nullable=True, index=True)
+    name = Column(String(200), nullable=False, default="Untitled Simulation")
+    
+    # Circuit definition (JSON)
+    circuit_definition = Column(JSON, nullable=True)
+    
+    # Status
+    status = Column(Enum(SimulationStatus), default=SimulationStatus.IDLE)
+    
+    # Results
+    validation_errors = Column(JSON, nullable=True)  # List of validation errors
+    measurements = Column(JSON, nullable=True)       # Measurement results
+    results = Column(JSON, nullable=True)            # Full simulation results
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
     def __repr__(self):
-        return f"<SimulationRun {self.id} status={self.status}>"
+        return f"<Simulation {self.name} ({self.status})>"

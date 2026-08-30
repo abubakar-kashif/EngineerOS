@@ -1,103 +1,128 @@
-"""Simulation run persistence with full circuit definition + results.
-
-Handles CRUD for simulation sessions including circuit schematic,
-validation state, solver output, and measurements.
-"""
-
+from sqlalchemy.orm import Session
+from typing import List, Optional, Dict, Any
+import uuid
 from datetime import datetime
 
-from fastapi import HTTPException
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from app.models.simulation import Simulation, SimulationStatus
+from app.schemas.simulation import SimulationCreate, SimulationUpdate
 
-from app.models.simulation import SimulationRun
-from app.schemas.simulation import (
-    SimulationRunCreateRequest,
-    SimulationRunUpdateRequest,
-)
+def generate_id() -> str:
+    """Generate a unique simulation ID"""
+    return f"sim-{uuid.uuid4().hex[:8]}"
 
+def get_simulation(db: Session, simulation_id: str, user_id: str) -> Optional[Simulation]:
+    """Get a simulation by ID (with ownership check)"""
+    return db.query(Simulation).filter(
+        Simulation.id == simulation_id,
+        Simulation.user_id == user_id
+    ).first()
 
-def _get_owned_run(db: Session, user_id: str, run_id: str) -> SimulationRun:
-    run = (
-        db.execute(
-            select(SimulationRun).where(
-                SimulationRun.id == run_id,
-                SimulationRun.user_id == user_id,
-            )
-        )
-        .scalars()
-        .one_or_none()
-    )
-
-    if run is None:
-        raise HTTPException(status_code=404, detail="Simulation run not found")
-
-    return run
-
-
-def list_runs(db: Session, user_id: str, experiment_id: str | None = None):
-    query = select(SimulationRun).where(SimulationRun.user_id == user_id)
-    if experiment_id:
-        query = query.where(SimulationRun.experiment_id == experiment_id)
-
-    return (
-        db.execute(query.order_by(SimulationRun.created_at.desc()))
-        .scalars()
-        .all()
-    )
-
-
-def create_run(db: Session, user_id: str, payload: SimulationRunCreateRequest):
-    run = SimulationRun(
-        user_id=user_id,
-        experiment_id=payload.experiment_id,
-        name=payload.name,
-        configuration=payload.configuration,
-        circuit_definition=payload.circuit_definition,
-        status=payload.status,
-    )
-    db.add(run)
-    db.commit()
-    db.refresh(run)
-    return run
-
-
-def get_run(db: Session, user_id: str, run_id: str):
-    return _get_owned_run(db, user_id, run_id)
-
-
-def update_run(
+def get_user_simulations(
     db: Session,
     user_id: str,
-    run_id: str,
-    payload: SimulationRunUpdateRequest,
-):
-    run = _get_owned_run(db, user_id, run_id)
+    skip: int = 0,
+    limit: int = 100
+) -> List[Simulation]:
+    """Get all simulations for a user"""
+    return db.query(Simulation).filter(
+        Simulation.user_id == user_id
+    ).offset(skip).limit(limit).all()
 
-    if payload.name is not None:
-        run.name = payload.name
-    if payload.configuration is not None:
-        run.configuration = payload.configuration
-    if payload.circuit_definition is not None:
-        run.circuit_definition = payload.circuit_definition
-    if payload.validation_errors is not None:
-        run.validation_errors = payload.validation_errors
-    if payload.results is not None:
-        run.results = payload.results
-    if payload.measurements is not None:
-        run.measurements = payload.measurements
-    if payload.status is not None:
-        run.status = payload.status
-    if payload.completed:
-        run.completed_at = datetime.utcnow()
-
-    run.updated_at = datetime.utcnow()
+def create_simulation(
+    db: Session,
+    user_id: str,
+    simulation: SimulationCreate
+) -> Simulation:
+    """Create a new simulation"""
+    db_simulation = Simulation(
+        id=generate_id(),
+        user_id=user_id,
+        name=simulation.name,
+        experiment_id=simulation.experiment_id,
+        circuit_definition=simulation.circuit_definition,
+        status=SimulationStatus.IDLE
+    )
+    db.add(db_simulation)
     db.commit()
-    db.refresh(run)
-    return run
+    db.refresh(db_simulation)
+    return db_simulation
 
-
-def delete_run(db: Session, user_id: str, run_id: str) -> None:
-    run = _get_owned_run(db, user_id, run_id)
-    db.delete(run)
+def update_simulation(
+    db: Session,
+    simulation_id: str,
+    user_id: str,
+    simulation_update: SimulationUpdate
+) -> Optional[Simulation]:
+    """Update a simulation"""
+    db_simulation = get_simulation(db, simulation_id, user_id)
+    if not db_simulation:
+        return None
+    
+    update_data = simulation_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_simulation, key, value)
+    
+    db_simulation.updated_at = datetime.now()
     db.commit()
+    db.refresh(db_simulation)
+    return db_simulation
+
+def delete_simulation(
+    db: Session,
+    simulation_id: str,
+    user_id: str
+) -> bool:
+    """Delete a simulation"""
+    db_simulation = get_simulation(db, simulation_id, user_id)
+    if not db_simulation:
+        return False
+    
+    db.delete(db_simulation)
+    db.commit()
+    return True
+
+def update_simulation_status(
+    db: Session,
+    simulation_id: str,
+    user_id: str,
+    status: SimulationStatus
+) -> Optional[Simulation]:
+    """Update simulation status"""
+    db_simulation = get_simulation(db, simulation_id, user_id)
+    if not db_simulation:
+        return None
+    
+    db_simulation.status = status
+    if status == SimulationStatus.COMPLETED or status == SimulationStatus.FAILED:
+        db_simulation.completed_at = datetime.now()
+    
+    db.commit()
+    db.refresh(db_simulation)
+    return db_simulation
+
+def save_simulation_result(
+    db: Session,
+    simulation_id: str,
+    user_id: str,
+    result: Dict[str, Any]
+) -> Optional[Simulation]:
+    """Save simulation results"""
+    db_simulation = get_simulation(db, simulation_id, user_id)
+    if not db_simulation:
+        return None
+    
+    db_simulation.results = result
+    db_simulation.measurements = result.get("measurements")
+    db_simulation.validation_errors = result.get("validation_errors")
+    
+    if result.get("status") == "completed":
+        db_simulation.status = SimulationStatus.COMPLETED
+        db_simulation.completed_at = datetime.now()
+    elif result.get("status") == "invalid":
+        db_simulation.status = SimulationStatus.INVALID
+    elif result.get("status") == "failed":
+        db_simulation.status = SimulationStatus.FAILED
+    
+    db.commit()
+    db.refresh(db_simulation)
+    return db_simulation
