@@ -8,6 +8,7 @@ from .context.experiment_context import ExperimentContext
 from .context.quiz_context import QuizContext
 from .context.report_context import ReportContext
 from .context.user_context import UserContext
+from .context.conversation_context import ConversationContext
 
 __all__ = [
     "AIProvider",
@@ -24,4 +25,5 @@ __all__ = [
     "QuizContext",
     "ReportContext",
     "UserContext",
+    "ConversationContext",
 ]

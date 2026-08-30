@@ -6,6 +6,7 @@ from app.services.ai.context.experiment_context import ExperimentContext
 from app.services.ai.context.quiz_context import QuizContext
 from app.services.ai.context.report_context import ReportContext
 from app.services.ai.context.user_context import UserContext
+from app.services.ai.context.conversation_context import ConversationContext
 
 class ContextResult:
     """Result of context gathering for an AI request."""
@@ -65,8 +66,8 @@ class ContextEngine:
         self._quiz_context = QuizContext(db)
         self._report_context = ReportContext(db)
         self._user_context = UserContext(db)
+        self._conversation_context = ConversationContext(db)
         self._simulation_context = None  # Phase 13
-        self._conversation_context = None  # Phase 17
     
     def gather_context(
         self,
@@ -128,6 +129,20 @@ class ContextEngine:
                     result.user = user_data
             except Exception:
                 # Log but continue without user context
+                pass
+        # Load conversation context
+        if conversation_id:
+            try:
+                conv_data = self._conversation_context.load_with_current_question(
+                    conversation_id,
+                    question,
+                    user_id,
+                    limit=20,
+                )
+                if conv_data:
+                    result.conversation = conv_data.get("recent_messages", [])
+            except Exception:
+                # Log but continue without conversation context
                 pass
         
         # Future: load other contexts
