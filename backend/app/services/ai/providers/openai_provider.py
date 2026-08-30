@@ -74,7 +74,8 @@ class OpenAIProvider(AIProvider):
                 model=response.model,
                 usage=usage,
                 finish_reason=response.choices[0].finish_reason,
-            )
+                context_used=None,  # Will be populated by Context Engine later
+)
 
         except Exception as e:
             raise ProviderError(f"OpenAI API error: {str(e)}")
