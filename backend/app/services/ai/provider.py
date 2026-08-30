@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from .types import AIRequest, AIResponse, ProviderError, AIMessage
+from typing import Generator, Optional
+from .types import AIRequest, AIResponse, ProviderError, AIMessage, StreamEvent
 
 
 class AIProvider(ABC):
@@ -8,6 +9,22 @@ class AIProvider(ABC):
     @abstractmethod
     def generate(self, request: AIRequest) -> AIResponse:
         """Generate a response from the AI provider."""
+        pass
+
+    @abstractmethod
+    def stream(self, request: AIRequest) -> Generator[StreamEvent, None, None]:
+        """
+        Stream a response from the AI provider.
+
+        Args:
+            request: Provider-neutral request
+
+        Yields:
+            StreamEvent: START, DELTA, METADATA, COMPLETE, or ERROR events
+
+        Raises:
+            ProviderError: For provider-specific failures
+        """
         pass
 
     @abstractmethod

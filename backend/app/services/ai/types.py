@@ -1,5 +1,24 @@
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
+from enum import Enum
+
+
+class StreamEventType(str, Enum):
+    """Types of streaming events."""
+    START = "start"
+    DELTA = "delta"
+    METADATA = "metadata"
+    COMPLETE = "complete"
+    ERROR = "error"
+
+
+@dataclass
+class StreamEvent:
+    """A single streaming event."""
+    type: StreamEventType
+    content: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
 
 
 @dataclass
