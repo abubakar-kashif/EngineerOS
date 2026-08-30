@@ -18,6 +18,7 @@ from .simulation_contract import (
     GraphSeries,
     GraphPoint,
 )
+from .simulation_context import SimulationContext
 
 __all__ = [
     "ExperimentContext",
@@ -25,6 +26,7 @@ __all__ = [
     "ReportContext",
     "UserContext",
     "ConversationContext",
+    "SimulationContext",
     "SimulationResult",
     "SimulationStatus",
     "ValidationResult",

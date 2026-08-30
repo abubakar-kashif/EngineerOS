@@ -7,6 +7,7 @@ from app.services.ai.context.quiz_context import QuizContext
 from app.services.ai.context.report_context import ReportContext
 from app.services.ai.context.user_context import UserContext
 from app.services.ai.context.conversation_context import ConversationContext
+from app.services.ai.context.simulation_context import SimulationContext
 
 class ContextResult:
     """Result of context gathering for an AI request."""
@@ -67,7 +68,7 @@ class ContextEngine:
         self._report_context = ReportContext(db)
         self._user_context = UserContext(db)
         self._conversation_context = ConversationContext(db)
-        self._simulation_context = None  # Phase 13
+        self._simulation_context = SimulationContext(db)  
     
     def gather_context(
         self,
@@ -145,8 +146,14 @@ class ContextEngine:
                 # Log but continue without conversation context
                 pass
         
-        # Future: load other contexts
-        # if simulation_id:
-        #     result.simulation = self._simulation_context.load(simulation_id, user_id)
+        # Load simulation context if provided
+        if simulation_id:
+            try:
+                sim_data = self._simulation_context.load(simulation_id, user_id)
+                if sim_data:
+                    result.simulation = sim_data
+            except Exception:
+                # Log but continue without simulation context
+                pass
         
         return result
