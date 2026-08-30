@@ -57,6 +57,29 @@ def list_conversations(
     
     return conversations, total
 
+def rename_conversation(
+    db: Session,
+    conversation_id: str,
+    new_title: str,
+    user_id: Optional[str] = None,
+) -> Conversation:
+    """Rename a conversation."""
+    conv = get_conversation(db, conversation_id, user_id)
+    conv.title = new_title
+    db.commit()
+    db.refresh(conv)
+    return conv
+
+def delete_conversation(
+    db: Session,
+    conversation_id: str,
+    user_id: Optional[str] = None,
+) -> bool:
+    """Delete a conversation."""
+    conv = get_conversation(db, conversation_id, user_id)
+    db.delete(conv)
+    db.commit()
+    return True
 
 def add_message(
     db: Session,

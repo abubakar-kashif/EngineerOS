@@ -43,3 +43,6 @@ class ConversationListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+class ConversationRename(BaseModel):
+    title: str

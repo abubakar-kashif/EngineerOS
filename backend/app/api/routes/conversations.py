@@ -108,3 +108,34 @@ def get_messages_endpoint(
         limit=limit,
     )
     return [MessageResponse.model_validate(m) for m in messages]
+
+@router.patch("/{conversation_id}", response_model=ConversationResponse)
+def rename_conversation_endpoint(
+    conversation_id: str,
+    payload: ConversationCreate,  # Reuse or create Rename schema
+    user_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Rename a conversation."""
+    conv = conversation_service.rename_conversation(
+        db=db,
+        conversation_id=conversation_id,
+        new_title=payload.title,
+        user_id=user_id,
+    )
+    return ConversationResponse.model_validate(conv)
+
+@router.delete("/{conversation_id}")
+def delete_conversation_endpoint(
+    conversation_id: str,
+    user_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Delete a conversation."""
+    conversation_service.delete_conversation(
+        db=db,
+        conversation_id=conversation_id,
+        user_id=user_id,
+    )
+    return {"message": "Conversation deleted successfully"}
+
