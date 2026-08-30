@@ -1,8 +1,8 @@
 import os
 from typing import Optional, Dict, Any
 
-from app.services.ai.provider import AIProvider, AIRequest, AIResponse, ProviderError
-
+from app.services.ai.types import AIRequest, AIResponse, ProviderError, AIMessage
+from app.services.ai.provider import AIProvider
 
 class OpenAIProvider(AIProvider):
     """
