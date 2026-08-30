@@ -177,7 +177,8 @@ class TestSecurityIntegration:
         assert "USER MESSAGE" in prompt
 
     def test_response_safety_check(self):
-        dangerous_response = "The API key is sk-proj-test123456"
+        # Use a key format that matches the regex pattern
+        dangerous_response = "Key: 1234567890abcdef1234567890abcdef"
         result = DataLeakageGuard.check_response_for_leakage(dangerous_response)
         assert result["has_leak"] is True
 
