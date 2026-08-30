@@ -45,6 +45,7 @@ from .security import (
     PromptInjectionGuard,
     DataLeakageGuard,
 )
+from .prompt_builder import PromptBuilder, PromptTemplate
 
 __all__ = [
     "AIProvider",
@@ -92,4 +93,6 @@ __all__ = [
     "SecurityVerifier",
     "PromptInjectionGuard",
     "DataLeakageGuard",
+    "PromptBuilder",
+    "PromptTemplate",
 ]
