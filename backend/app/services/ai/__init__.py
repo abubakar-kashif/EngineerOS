@@ -30,6 +30,16 @@ from .errors import (
     normalize_stream_error,
     safe_error_response,
 )
+from .protection import (
+    ProtectionConfig,
+    ProtectionManager,
+    RateLimiter,
+    ContextSizeValidator,
+    ResponseSizeValidator,
+    RetryController,
+    protection_manager,
+    get_protection_manager,
+)
 
 __all__ = [
     "AIProvider",
@@ -66,4 +76,12 @@ __all__ = [
     "normalize_provider_error",
     "normalize_stream_error",
     "safe_error_response",
+    "ProtectionConfig",
+    "ProtectionManager",
+    "RateLimiter",
+    "ContextSizeValidator",
+    "ResponseSizeValidator",
+    "RetryController",
+    "protection_manager",
+    "get_protection_manager",
 ]
