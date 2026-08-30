@@ -27,8 +27,8 @@ export * from './inductorAnalysis';
 export * from './diodeAnalysis';
 export * from './componentModels';
 
-// Phase A7 - Measurements (Coming Soon)
-// export * from './measurements';
+// Phase A7 - Measurements
+export * from './measurements';
 
 // Phase A8 - Graph Data (Coming Soon)
 // export * from './graphData';
