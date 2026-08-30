@@ -5,6 +5,7 @@ from app.services.ai.types import AIMessage
 from app.services.ai.context.experiment_context import ExperimentContext
 from app.services.ai.context.quiz_context import QuizContext
 from app.services.ai.context.report_context import ReportContext
+from app.services.ai.context.user_context import UserContext
 
 class ContextResult:
     """Result of context gathering for an AI request."""
@@ -63,8 +64,8 @@ class ContextEngine:
         self._experiment_context = ExperimentContext(db)
         self._quiz_context = QuizContext(db)
         self._report_context = ReportContext(db)
+        self._user_context = UserContext(db)
         self._simulation_context = None  # Phase 13
-        self._user_context = None        # Phase 16
         self._conversation_context = None  # Phase 17
     
     def gather_context(
@@ -118,6 +119,15 @@ class ContextEngine:
                     result.report = report_data
             except Exception:
                 # Log but continue without report context
+                pass
+        # Load user context if user_id is provided
+        if user_id:
+            try:
+                user_data = self._user_context.load(user_id)
+                if user_data:
+                    result.user = user_data
+            except Exception:
+                # Log but continue without user context
                 pass
         
         # Future: load other contexts

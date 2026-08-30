@@ -7,6 +7,7 @@ from .context_engine import ContextEngine, ContextResult
 from .context.experiment_context import ExperimentContext
 from .context.quiz_context import QuizContext
 from .context.report_context import ReportContext
+from .context.user_context import UserContext
 
 __all__ = [
     "AIProvider",
@@ -22,4 +23,5 @@ __all__ = [
     "ExperimentContext",
     "QuizContext",
     "ReportContext",
+    "UserContext",
 ]
