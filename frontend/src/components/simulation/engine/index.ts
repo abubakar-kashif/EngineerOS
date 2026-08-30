@@ -7,7 +7,7 @@
 // Phase A2 - Circuit Types
 export * from './units';
 export * from './errors';
-export * circularGraph } from './circuitGraph';
+export * from './circuitGraph';
 
 // Phase A3 - Graph Builder
 export * from './circuitGraphBuilder';
@@ -20,11 +20,12 @@ export * from './dcSolver';
 export * from './circuitSolver';
 export * from './types';
 
-// Phase A6 - Component Models (Coming Soon)
-// export * from './resistorAnalysis';
-// export * from './capacitorAnalysis';
-// export * from './inductorAnalysis';
-// export * from './diodeAnalysis';
+// Phase A6 - Component Models
+export * from './resistorAnalysis';
+export * from './capacitorAnalysis';
+export * from './inductorAnalysis';
+export * from './diodeAnalysis';
+export * from './componentModels';
 
 // Phase A7 - Measurements (Coming Soon)
 // export * from './measurements';
