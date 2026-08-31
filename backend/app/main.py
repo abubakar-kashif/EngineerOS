@@ -10,7 +10,7 @@ from app.api.routes.progress import router as progress_router
 from app.api.routes.experiments import router as experiment_router
 from app.api.routes.reports import router as reports_router
 from app.api.routes.resources import router as resources_router
-from app.api.routes import conversations
+from app.api.routes import conversations, mentor  # Add mentor
 
 from app.db.database import Base, engine, SessionLocal
 from app.db.seed import seed_database
@@ -67,6 +67,7 @@ app.include_router(experiment_router)
 app.include_router(reports_router)
 app.include_router(resources_router)
 app.include_router(conversations.router)
+app.include_router(mentor.router)
 
 @app.get("/api/health")
 def health_check():
