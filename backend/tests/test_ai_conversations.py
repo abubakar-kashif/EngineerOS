@@ -78,7 +78,7 @@ class TestConversations:
     def test_add_message(self, db_session):
         """Test adding a message."""
         conv = create_conversation(db_session, user_id="user-a", title="Test")
-        msg = add_user_message(db_session, conv.id, "user", "Hello", user_id="user-a")
+        msg = add_user_message(db_session, conv.id, "Hello", user_id="user-a")  # REMOVE "user" arg
         assert msg.id is not None
         assert msg.role == "user"
         assert msg.content == "Hello"

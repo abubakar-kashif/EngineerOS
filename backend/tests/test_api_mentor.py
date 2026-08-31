@@ -51,8 +51,8 @@ def db_session():
 def test_create_conversation():
     """Test creating a conversation via HTTP."""
     response = client.post(
-        "/conversations/",
-        json={"title": "Test", "user_id": "user-a"}
+        "/conversations/?user_id=user-a",
+        json={"title": "Test"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -63,7 +63,7 @@ def test_create_conversation():
 
 def test_list_conversations():
     """Test listing conversations via HTTP."""
-    client.post("/conversations/", json={"title": "Test", "user_id": "user-a"})
+    client.post("/conversations/?user_id=user-a", json={"title": "Test"})
     
     response = client.get("/conversations/?user_id=user-a")
     assert response.status_code == 200
@@ -74,7 +74,7 @@ def test_list_conversations():
 
 def test_rename_conversation():
     """Test renaming a conversation via HTTP."""
-    create_resp = client.post("/conversations/", json={"title": "Original", "user_id": "user-a"})
+    create_resp = client.post("/conversations/?user_id=user-a", json={"title": "Original"})
     conv_id = create_resp.json()["id"]
     
     response = client.patch(
@@ -88,7 +88,7 @@ def test_rename_conversation():
 
 def test_delete_conversation():
     """Test deleting a conversation via HTTP."""
-    create_resp = client.post("/conversations/", json={"title": "To Delete", "user_id": "user-a"})
+    create_resp = client.post("/conversations/?user_id=user-a", json={"title": "To Delete"})
     conv_id = create_resp.json()["id"]
     
     response = client.delete(f"/conversations/{conv_id}?user_id=user-a")
@@ -100,7 +100,7 @@ def test_delete_conversation():
 
 def test_add_user_message_http():
     """Test adding a user message via HTTP."""
-    create_resp = client.post("/conversations/", json={"title": "Test", "user_id": "user-a"})
+    create_resp = client.post("/conversations/?user_id=user-a", json={"title": "Test"})
     conv_id = create_resp.json()["id"]
     
     response = client.post(
@@ -115,7 +115,7 @@ def test_add_user_message_http():
 
 def test_cannot_inject_assistant_message():
     """Test that client cannot inject fake assistant messages."""
-    create_resp = client.post("/conversations/", json={"title": "Test", "user_id": "user-a"})
+    create_resp = client.post("/conversations/?user_id=user-a", json={"title": "Test"})
     conv_id = create_resp.json()["id"]
     
     response = client.post(
@@ -130,7 +130,7 @@ def test_cannot_inject_assistant_message():
 
 def test_ask_endpoint():
     """Test the /ask endpoint."""
-    create_resp = client.post("/conversations/", json={"title": "Test", "user_id": "user-a"})
+    create_resp = client.post("/conversations/?user_id=user-a", json={"title": "Test"})
     conv_id = create_resp.json()["id"]
     
     response = client.post(
@@ -142,25 +142,21 @@ def test_ask_endpoint():
 
 def test_ask_stream_endpoint_serializes_events():
     """Test /ask/stream endpoint serializes events correctly."""
-    create_resp = client.post("/conversations/", json={"title": "Stream Test", "user_id": "user-a"})
+    create_resp = client.post("/conversations/?user_id=user-a", json={"title": "Stream Test"})
     conv_id = create_resp.json()["id"]
     
     response = client.post(
         f"/conversations/{conv_id}/ask/stream?user_id=user-a",
         json={"content": "Hello"}
     )
-    # SSE endpoints should return 200 with text/event-stream content type
     assert response.status_code == 200
     assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
     
-    # Check that we can parse the events (at least one valid JSON event)
     lines = response.text.strip().split("\n")
     assert len(lines) > 0
-    # Each line should start with "data: "
     for line in lines:
         if line.startswith("data: "):
-            data = json.loads(line[6:])  # Remove "data: " prefix
-            # Should have a 'type' field
+            data = json.loads(line[6:])
             assert "type" in data
 
 
@@ -178,11 +174,9 @@ def test_ask_stream_nonexistent_conversation():
 
 def test_ask_stream_wrong_owner_denied():
     """Test /ask/stream denies access to wrong owner."""
-    # User A creates conversation
-    create_resp = client.post("/conversations/", json={"title": "Test", "user_id": "user-a"})
+    create_resp = client.post("/conversations/?user_id=user-a", json={"title": "Test"})
     conv_id = create_resp.json()["id"]
     
-    # User B tries to stream
     response = client.post(
         f"/conversations/{conv_id}/ask/stream?user_id=user-b",
         json={"content": "Hello"}
