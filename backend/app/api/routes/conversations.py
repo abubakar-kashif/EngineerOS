@@ -7,7 +7,7 @@ from app.services.conversation_service import (
     create_conversation,
     get_conversation,
     list_conversations,
-    add_message,
+    add_user_message,
     get_messages,
     rename_conversation,
     delete_conversation,
@@ -115,7 +115,7 @@ def add_message_endpoint(
     """Add a user message to a conversation (role is always 'user')."""
     get_conversation(db, conversation_id, user_id)
     
-    msg = add_message(
+    msg = add_user_message(
         db=db,
         conversation_id=conversation_id,
         role="user",

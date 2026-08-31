@@ -12,7 +12,7 @@ from app.services.conversation_service import (
     create_conversation,
     get_conversation,
     list_conversations,
-    add_message,
+    add_user_message,
     get_messages,
 )
 
@@ -78,7 +78,7 @@ class TestConversations:
     def test_add_message(self, db_session):
         """Test adding a message."""
         conv = create_conversation(db_session, user_id="user-a", title="Test")
-        msg = add_message(db_session, conv.id, "user", "Hello", user_id="user-a")
+        msg = add_user_message(db_session, conv.id, "user", "Hello", user_id="user-a")
         assert msg.id is not None
         assert msg.role == "user"
         assert msg.content == "Hello"
@@ -86,8 +86,8 @@ class TestConversations:
     def test_get_messages(self, db_session):
         """Test getting messages."""
         conv = create_conversation(db_session, user_id="user-a", title="Test")
-        add_message(db_session, conv.id, "user", "Hello", user_id="user-a")
-        add_message(db_session, conv.id, "assistant", "Hi there", user_id="user-a")
+        add_user_message(db_session, conv.id, "user", "Hello", user_id="user-a")
+        add_user_message(db_session, conv.id, "assistant", "Hi there", user_id="user-a")
         msgs, total = get_messages(db_session, conv.id, user_id="user-a")
         assert total == 2
         assert len(msgs) == 2
