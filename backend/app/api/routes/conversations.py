@@ -118,7 +118,6 @@ def add_message_endpoint(
     msg = add_user_message(
         db=db,
         conversation_id=conversation_id,
-        role="user",
         content=payload.content,
         extra_data=payload.extra_data,
         user_id=user_id,
