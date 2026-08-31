@@ -4,6 +4,7 @@ AI Mentor API routes — connects MentorService to HTTP endpoints.
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -24,6 +25,13 @@ class AskRequest(BaseModel):
     simulation_id: Optional[str] = None
 
 
+class AskStreamRequest(BaseModel):
+    """Request body for /ask/stream endpoint."""
+    content: str
+    experiment_id: Optional[str] = None
+    simulation_id: Optional[str] = None
+
+
 router = APIRouter(prefix="/conversations", tags=["mentor"])
 
 
@@ -38,20 +46,6 @@ def ask_mentor(
     Ask the AI Mentor a question in the context of a conversation.
 
     This is the primary endpoint for getting real AI responses.
-
-    Args:
-        conversation_id: ID of the conversation
-        request: Question content and optional context IDs
-        user_id: Temporary user ID (replace with auth)
-        db: Database session
-
-    Returns:
-        AIResponse: Normalized AI response from the mentor
-
-    Raises:
-        404: Conversation not found
-        403: Access denied
-        500: AI provider error
     """
     try:
         mentor = MentorService(db)
@@ -73,3 +67,42 @@ def ask_mentor(
             status_code=500,
             detail=error_response.get("message", "AI service error")
         )
+
+
+@router.post("/{conversation_id}/ask/stream")
+def ask_mentor_stream(
+    conversation_id: str,
+    request: AskStreamRequest,
+    user_id: str = Query(..., description="TEMP: replace with real authenticated user"),
+    db: Session = Depends(get_db),
+):
+    """
+    Ask the AI Mentor a question with streaming response.
+
+    Returns a Server-Sent Events (SSE) stream with:
+    - start: stream started
+    - delta: text chunks
+    - metadata: model/usage info
+    - complete: stream finished
+    - error: error occurred
+    """
+    def generate():
+        try:
+            mentor = MentorService(db)
+            for event in mentor.ask_stream(
+                conversation_id=conversation_id,
+                question=request.content,
+                user_id=user_id,
+                experiment_id=request.experiment_id,
+                simulation_id=request.simulation_id,
+            ):
+                yield f"data: {event.model_dump_json()}\n\n"
+        except ConversationNotFoundError:
+            yield f"data: {{\"type\": \"error\", \"error\": \"Conversation not found\"}}\n\n"
+        except ConversationForbiddenError:
+            yield f"data: {{\"type\": \"error\", \"error\": \"Access denied\"}}\n\n"
+        except Exception as e:
+            error_response = safe_error_response(e)
+            yield f"data: {{\"type\": \"error\", \"error\": \"{error_response.get('message', 'AI service error')}\"}}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
