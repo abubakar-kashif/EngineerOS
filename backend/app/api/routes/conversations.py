@@ -39,7 +39,7 @@ def create_conversation_endpoint(
 
 @router.get("/", response_model=ConversationListResponse)
 def list_conversations_endpoint(
-    user_id: Optional[str] = Query(None, description="Filter by user ID"),
+    user_id: str = Query(..., description="TEMP: replace with real authenticated user"),  # REQUIRED
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -62,7 +62,7 @@ def list_conversations_endpoint(
 @router.get("/{conversation_id}", response_model=ConversationResponse)
 def get_conversation_endpoint(
     conversation_id: str,
-    user_id: Optional[str] = Query(None, description="User ID for ownership check"),
+    user_id: str = Query(..., description="TEMP: replace with real authenticated user"),  # REQUIRED
     db: Session = Depends(get_db),
 ):
     """Get a conversation by ID."""
@@ -74,21 +74,52 @@ def get_conversation_endpoint(
     return ConversationResponse.model_validate(conv)
 
 
+@router.patch("/{conversation_id}", response_model=ConversationResponse)
+def rename_conversation_endpoint(
+    conversation_id: str,
+    payload: ConversationCreate,
+    user_id: str = Query(..., description="TEMP: replace with real authenticated user"),  # REQUIRED
+    db: Session = Depends(get_db),
+):
+    """Rename a conversation."""
+    conv = rename_conversation(
+        db=db,
+        conversation_id=conversation_id,
+        new_title=payload.title,
+        user_id=user_id,
+    )
+    return ConversationResponse.model_validate(conv)
+
+
+@router.delete("/{conversation_id}")
+def delete_conversation_endpoint(
+    conversation_id: str,
+    user_id: str = Query(..., description="TEMP: replace with real authenticated user"),  # REQUIRED
+    db: Session = Depends(get_db),
+):
+    """Delete a conversation."""
+    delete_conversation(
+        db=db,
+        conversation_id=conversation_id,
+        user_id=user_id,
+    )
+    return {"message": "Conversation deleted successfully"}
+
+
 @router.post("/{conversation_id}/messages", response_model=MessageResponse)
 def add_message_endpoint(
     conversation_id: str,
     payload: MessageCreate,
-    user_id: Optional[str] = Query(None),
+    user_id: str = Query(..., description="TEMP: replace with real authenticated user"),  # REQUIRED
     db: Session = Depends(get_db),
 ):
     """Add a user message to a conversation (role is always 'user')."""
-    # Verify conversation exists and ownership
     get_conversation(db, conversation_id, user_id)
     
     msg = add_message(
         db=db,
         conversation_id=conversation_id,
-        role="user",  # ✅ HARD-CODED - client cannot set role
+        role="user",
         content=payload.content,
         extra_data=payload.extra_data,
         user_id=user_id,
@@ -99,7 +130,7 @@ def add_message_endpoint(
 @router.get("/{conversation_id}/messages", response_model=list[MessageResponse])
 def get_messages_endpoint(
     conversation_id: str,
-    user_id: Optional[str] = Query(None, description="User ID for ownership check"),
+    user_id: str = Query(..., description="TEMP: replace with real authenticated user"),  # REQUIRED
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -113,33 +144,3 @@ def get_messages_endpoint(
         limit=limit,
     )
     return [MessageResponse.model_validate(m) for m in messages]
-
-@router.patch("/{conversation_id}", response_model=ConversationResponse)
-def rename_conversation_endpoint(
-    conversation_id: str,
-    payload: ConversationCreate,
-    user_id: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-):
-    """Rename a conversation."""
-    conv = rename_conversation(
-        db=db,
-        conversation_id=conversation_id,
-        new_title=payload.title,
-        user_id=user_id,
-    )
-    return ConversationResponse.model_validate(conv)
-
-@router.delete("/{conversation_id}")
-def delete_conversation_endpoint(
-    conversation_id: str,
-    user_id: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-):
-    """Delete a conversation."""
-    delete_conversation(
-        db=db,
-        conversation_id=conversation_id,
-        user_id=user_id,
-    )
-    return {"message": "Conversation deleted successfully"}

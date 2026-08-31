@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -26,7 +26,7 @@ def create_conversation(
 def get_conversation(
     db: Session,
     conversation_id: str,
-    user_id: Optional[str] = None,
+    user_id: str,  # REQUIRED - no longer optional
 ) -> Conversation:
     """Get a conversation with ownership check."""
     conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
@@ -34,7 +34,8 @@ def get_conversation(
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     
-    if user_id and conv.user_id and conv.user_id != user_id:
+    # Ownership check - ALWAYS enforced
+    if conv.user_id is not None and conv.user_id != user_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
     return conv
@@ -42,26 +43,22 @@ def get_conversation(
 
 def list_conversations(
     db: Session,
-    user_id: Optional[str] = None,
+    user_id: str,  # REQUIRED
     skip: int = 0,
     limit: int = 100,
-) -> tuple[List[Conversation], int]:
+) -> Tuple[List[Conversation], int]:
     """List conversations for a user."""
-    query = db.query(Conversation)
-    
-    if user_id:
-        query = query.filter(Conversation.user_id == user_id)
-    
+    query = db.query(Conversation).filter(Conversation.user_id == user_id)
     total = query.count()
     conversations = query.order_by(Conversation.updated_at.desc()).offset(skip).limit(limit).all()
-    
     return conversations, total
+
 
 def rename_conversation(
     db: Session,
     conversation_id: str,
     new_title: str,
-    user_id: Optional[str] = None,
+    user_id: str,  # REQUIRED
 ) -> Conversation:
     """Rename a conversation."""
     conv = get_conversation(db, conversation_id, user_id)
@@ -70,10 +67,11 @@ def rename_conversation(
     db.refresh(conv)
     return conv
 
+
 def delete_conversation(
     db: Session,
     conversation_id: str,
-    user_id: Optional[str] = None,
+    user_id: str,  # REQUIRED
 ) -> bool:
     """Delete a conversation."""
     conv = get_conversation(db, conversation_id, user_id)
@@ -81,42 +79,14 @@ def delete_conversation(
     db.commit()
     return True
 
-def add_message(
-    db: Session,
-    conversation_id: str,
-    role: str,
-    content: str,
-    extra_data: Optional[dict] = None,
-    user_id: Optional[str] = None,
-) -> Message:
-    """Add a message to a conversation."""
-    # Verify conversation exists and ownership
-    conv = get_conversation(db, conversation_id, user_id)
-    
-    msg = Message(
-        id=str(uuid.uuid4()),
-        conversation_id=conversation_id,
-        role=role,
-        content=content,
-        extra_data=extra_data
-    )
-    db.add(msg)
-    db.commit()
-    db.refresh(msg)
-    
-    # Update conversation updated_at timestamp
-    db.refresh(conv)
-    
-    return msg
-
 
 def get_messages(
     db: Session,
     conversation_id: str,
-    user_id: Optional[str] = None,
+    user_id: str,  # REQUIRED
     skip: int = 0,
     limit: int = 100,
-) -> tuple[List[Message], int]:
+) -> Tuple[List[Message], int]:
     """Get messages from a conversation."""
     # Verify conversation exists and ownership
     get_conversation(db, conversation_id, user_id)
@@ -126,3 +96,78 @@ def get_messages(
     messages = query.order_by(Message.created_at.asc()).offset(skip).limit(limit).all()
     
     return messages, total
+
+
+def add_user_message(
+    db: Session,
+    conversation_id: str,
+    content: str,
+    extra_data: Optional[dict] = None,
+    user_id: str = None,  # REQUIRED
+) -> Message:
+    """Add a user message (role always 'user')."""
+    get_conversation(db, conversation_id, user_id)
+    
+    msg = Message(
+        id=str(uuid.uuid4()),
+        conversation_id=conversation_id,
+        role="user",
+        content=content,
+        extra_data=extra_data,
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
+def add_assistant_message(
+    db: Session,
+    conversation_id: str,
+    content: str,
+    extra_data: Optional[dict] = None,
+    user_id: str = None,  # REQUIRED
+) -> Message:
+    """Add an assistant message (role always 'assistant')."""
+    get_conversation(db, conversation_id, user_id)
+    
+    msg = Message(
+        id=str(uuid.uuid4()),
+        conversation_id=conversation_id,
+        role="assistant",
+        content=content,
+        extra_data=extra_data,
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
+# Keep for backward compatibility (deprecated)
+def add_message(
+    db: Session,
+    conversation_id: str,
+    role: str,
+    content: str,
+    extra_data: Optional[dict] = None,
+    user_id: str = None,  # REQUIRED
+) -> Message:
+    """Add a message (deprecated - use add_user_message/add_assistant_message)."""
+    if role == "user":
+        return add_user_message(db, conversation_id, content, extra_data, user_id)
+    elif role == "assistant":
+        return add_assistant_message(db, conversation_id, content, extra_data, user_id)
+    else:
+        get_conversation(db, conversation_id, user_id)
+        msg = Message(
+            id=str(uuid.uuid4()),
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+            extra_data=extra_data,
+        )
+        db.add(msg)
+        db.commit()
+        db.refresh(msg)
+        return msg
