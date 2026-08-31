@@ -25,6 +25,8 @@ class AskRequest(BaseModel):
     content: str
     experiment_id: Optional[str] = None
     simulation_id: Optional[str] = None
+    quiz_id: Optional[str] = None      # ADD
+    report_id: Optional[str] = None    # ADD
 
 
 class AskStreamRequest(BaseModel):
@@ -32,6 +34,8 @@ class AskStreamRequest(BaseModel):
     content: str
     experiment_id: Optional[str] = None
     simulation_id: Optional[str] = None
+    quiz_id: Optional[str] = None      # ADD
+    report_id: Optional[str] = None    # ADD
 
 
 router = APIRouter(prefix="/conversations", tags=["mentor"])
@@ -46,8 +50,6 @@ def ask_mentor(
 ):
     """
     Ask the AI Mentor a question in the context of a conversation.
-
-    This is the primary endpoint for getting real AI responses.
     """
     try:
         mentor = MentorService(db)
@@ -57,6 +59,8 @@ def ask_mentor(
             user_id=user_id,
             experiment_id=request.experiment_id,
             simulation_id=request.simulation_id,
+            quiz_id=request.quiz_id,      # ADD
+            report_id=request.report_id,  # ADD
         )
         return response
     except ConversationNotFoundError:
@@ -80,13 +84,6 @@ def ask_mentor_stream(
 ):
     """
     Ask the AI Mentor a question with streaming response.
-
-    Returns a Server-Sent Events (SSE) stream with:
-    - start: stream started
-    - delta: text chunks
-    - metadata: model/usage info
-    - complete: stream finished
-    - error: error occurred
     """
     def generate():
         try:
@@ -97,8 +94,9 @@ def ask_mentor_stream(
                 user_id=user_id,
                 experiment_id=request.experiment_id,
                 simulation_id=request.simulation_id,
+                quiz_id=request.quiz_id,      # ADD
+                report_id=request.report_id,  # ADD
             ):
-                # StreamEvent is a dataclass, not a Pydantic model
                 yield f"data: {json.dumps(asdict(event), default=str)}\n\n"
         except ConversationNotFoundError:
             yield f"data: {{\"type\": \"error\", \"error\": \"Conversation not found\"}}\n\n"

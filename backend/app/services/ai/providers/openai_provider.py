@@ -12,11 +12,19 @@ from app.services.ai.provider import AIProvider
 class OpenAIProvider(AIProvider):
     """OpenAI implementation of the AIProvider interface."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-3.5-turbo", timeout: int = 60):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = "gpt-3.5-turbo",
+        base_url: Optional[str] = None,  # ADD
+        timeout: int = 60,               # ADD
+    ):
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
         self.model = model
+        self.base_url = base_url
         self.timeout = timeout
         self._client = None
+
 
     @property
     def client(self):
@@ -29,10 +37,13 @@ class OpenAIProvider(AIProvider):
                 )
             try:
                 from openai import OpenAI
-                self._client = OpenAI(
-                    api_key=self.api_key,
-                    timeout=self.timeout,
-                )
+                client_kwargs = {
+                    "api_key": self.api_key,
+                    "timeout": self.timeout,
+                }
+                if self.base_url:
+                    client_kwargs["base_url"] = self.base_url
+                self._client = OpenAI(**client_kwargs)
             except ImportError:
                 raise ProviderError(
                     "OpenAI package not installed. Run: pip install openai"

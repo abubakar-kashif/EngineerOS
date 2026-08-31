@@ -22,20 +22,19 @@ from app.schemas.conversation import (
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
-
 @router.post("/", response_model=ConversationResponse)
 def create_conversation_endpoint(
     payload: ConversationCreate,
+    user_id: str = Query(..., description="TEMP: replace with real authenticated user"),  # ADD
     db: Session = Depends(get_db),
 ):
     """Create a new conversation."""
     conv = create_conversation(
         db=db,
-        user_id=payload.user_id,
+        user_id=user_id,  # Use route-provided user_id
         title=payload.title,
     )
     return ConversationResponse.model_validate(conv)
-
 
 @router.get("/", response_model=ConversationListResponse)
 def list_conversations_endpoint(

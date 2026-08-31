@@ -29,6 +29,8 @@ class StreamEvent:
     metadata: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     error_type: Optional[StreamErrorType] = None
+    message_id: Optional[str] = None        # ADD
+    conversation_id: Optional[str] = None   # ADD
 
 
 @dataclass
@@ -57,6 +59,8 @@ class AIResponse:
     usage: Optional[Dict[str, int]] = None
     finish_reason: Optional[str] = None
     context_used: Optional[Dict[str, Any]] = None
+    message_id: Optional[str] = None       # ADD
+    conversation_id: Optional[str] = None  # ADD
 
 
 class ProviderError(Exception):

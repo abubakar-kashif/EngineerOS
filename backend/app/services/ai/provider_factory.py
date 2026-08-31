@@ -15,6 +15,8 @@ class ProviderFactory:
             return OpenAIProvider(
                 api_key=settings.AI_API_KEY,
                 model=settings.AI_MODEL,
+                base_url=settings.AI_BASE_URL,      # ADD
+                timeout=settings.AI_TIMEOUT_SECONDS, # ADD
             )
         else:
             raise ProviderError(f"Unknown provider: {provider_name}")

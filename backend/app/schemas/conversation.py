@@ -23,7 +23,6 @@ class MessageResponse(BaseModel):
 
 class ConversationCreate(BaseModel):
     title: Optional[str] = None
-    user_id: Optional[str] = None
 
 
 class ConversationResponse(BaseModel):

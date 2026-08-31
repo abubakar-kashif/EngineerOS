@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
@@ -77,60 +79,62 @@ class ContextEngine:
         question: str,
         experiment_id: Optional[str] = None,
         simulation_id: Optional[str] = None,
+        quiz_id: Optional[str] = None,
+        report_id: Optional[str] = None,
     ) -> ContextResult:
-        """
-        Gather relevant context for a question.
-        
-        Args:
-            user_id: User ID for ownership
-            conversation_id: Current conversation
-            question: User's question
-            experiment_id: Optional experiment ID
-            simulation_id: Optional simulation ID
-            
-        Returns:
-            ContextResult: Structured context
-        """
+        """Gather relevant context for a question."""
         result = ContextResult()
         result.current_message = question
-        
+
         # Load experiment context if provided
         if experiment_id:
             try:
                 experiment_data = self._experiment_context.load(experiment_id, user_id)
                 if experiment_data:
                     result.experiment = experiment_data
-            except Exception:
-                # Log but continue without experiment context
+            except Exception as e:
+                logger.error(f"Failed to load experiment context: {e}")
+
+        # Load quiz context if provided
+        if quiz_id:
+            try:
+                # TODO: Add method to load quiz by ID directly
                 pass
-        
-        # Load quiz context if experiment_id is provided
-        if experiment_id:
+            except Exception as e:
+                logger.error(f"Failed to load quiz context: {e}")
+        elif experiment_id:
             try:
                 quiz_data = self._quiz_context.load(experiment_id)
                 if quiz_data:
                     result.quiz = quiz_data
-            except Exception:
-                # Log but continue without quiz context
-                pass
-        # Load report context if experiment_id is provided
-        if experiment_id:
+            except Exception as e:
+                logger.error(f"Failed to load quiz context: {e}")
+
+        # Load report context if provided
+        if report_id:
+            try:
+                report_data = self._report_context.load(report_id, user_id)
+                if report_data:
+                    result.report = report_data
+            except Exception as e:
+                logger.error(f"Failed to load report context: {e}")
+        elif experiment_id:
             try:
                 report_data = self._report_context.load_for_experiment(experiment_id, user_id)
                 if report_data:
                     result.report = report_data
-            except Exception:
-                # Log but continue without report context
-                pass
-        # Load user context if user_id is provided
+            except Exception as e:
+                logger.error(f"Failed to load report context: {e}")
+
+        # Load user context if provided
         if user_id:
             try:
                 user_data = self._user_context.load(user_id)
                 if user_data:
                     result.user = user_data
-            except Exception:
-                # Log but continue without user context
-                pass
+            except Exception as e:
+                logger.error(f"Failed to load user context: {e}")
+
         # Load conversation context
         if conversation_id:
             try:
@@ -142,18 +146,16 @@ class ContextEngine:
                 )
                 if conv_data:
                     result.conversation = conv_data.get("recent_messages", [])
-            except Exception:
-                # Log but continue without conversation context
-                pass
-        
+            except Exception as e:
+                logger.error(f"Failed to load conversation context: {e}")
+
         # Load simulation context if provided
         if simulation_id:
             try:
                 sim_data = self._simulation_context.load(simulation_id, user_id)
                 if sim_data:
                     result.simulation = sim_data
-            except Exception:
-                # Log but continue without simulation context
-                pass
-        
+            except Exception as e:
+                logger.error(f"Failed to load simulation context: {e}")
+
         return result

@@ -169,33 +169,3 @@ def add_assistant_message(
     db.commit()
     db.refresh(msg)
     return msg
-
-
-# Keep for backward compatibility (deprecated)
-def add_message(
-    db: Session,
-    conversation_id: str,
-    role: str,
-    content: str,
-    extra_data: Optional[dict] = None,
-    user_id: str = None,
-) -> Message:
-    """Add a message (deprecated - use add_user_message/add_assistant_message)."""
-    if role == "user":
-        return add_user_message(db, conversation_id, content, extra_data, user_id)
-    elif role == "assistant":
-        return add_assistant_message(db, conversation_id, content, extra_data, user_id)
-    else:
-        # For system messages, still verify ownership
-        verify_ownership(db, conversation_id, user_id)
-        msg = Message(
-            id=str(uuid.uuid4()),
-            conversation_id=conversation_id,
-            role=role,
-            content=content,
-            extra_data=extra_data,
-        )
-        db.add(msg)
-        db.commit()
-        db.refresh(msg)
-        return msg
