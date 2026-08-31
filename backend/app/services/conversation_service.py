@@ -23,12 +23,28 @@ def create_conversation(
     return conv
 
 
-def get_conversation(
+def verify_ownership(
     db: Session,
     conversation_id: str,
-    user_id: str,  # REQUIRED - no longer optional
+    user_id: str,
 ) -> Conversation:
-    """Get a conversation with ownership check."""
+    """
+    Verify that a user owns a conversation.
+    
+    This is the single source of truth for ownership validation.
+    All other functions should call this instead of duplicating logic.
+    
+    Args:
+        db: Database session
+        conversation_id: ID of the conversation
+        user_id: ID of the user (REQUIRED)
+        
+    Returns:
+        Conversation: The conversation if ownership is verified
+        
+    Raises:
+        HTTPException: 404 if conversation not found, 403 if access denied
+    """
     conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     
     if not conv:
@@ -41,9 +57,18 @@ def get_conversation(
     return conv
 
 
+def get_conversation(
+    db: Session,
+    conversation_id: str,
+    user_id: str,
+) -> Conversation:
+    """Get a conversation with ownership check."""
+    return verify_ownership(db, conversation_id, user_id)
+
+
 def list_conversations(
     db: Session,
-    user_id: str,  # REQUIRED
+    user_id: str,
     skip: int = 0,
     limit: int = 100,
 ) -> Tuple[List[Conversation], int]:
@@ -58,10 +83,10 @@ def rename_conversation(
     db: Session,
     conversation_id: str,
     new_title: str,
-    user_id: str,  # REQUIRED
+    user_id: str,
 ) -> Conversation:
     """Rename a conversation."""
-    conv = get_conversation(db, conversation_id, user_id)
+    conv = verify_ownership(db, conversation_id, user_id)
     conv.title = new_title
     db.commit()
     db.refresh(conv)
@@ -71,10 +96,10 @@ def rename_conversation(
 def delete_conversation(
     db: Session,
     conversation_id: str,
-    user_id: str,  # REQUIRED
+    user_id: str,
 ) -> bool:
     """Delete a conversation."""
-    conv = get_conversation(db, conversation_id, user_id)
+    conv = verify_ownership(db, conversation_id, user_id)
     db.delete(conv)
     db.commit()
     return True
@@ -83,13 +108,13 @@ def delete_conversation(
 def get_messages(
     db: Session,
     conversation_id: str,
-    user_id: str,  # REQUIRED
+    user_id: str,
     skip: int = 0,
     limit: int = 100,
 ) -> Tuple[List[Message], int]:
     """Get messages from a conversation."""
-    # Verify conversation exists and ownership
-    get_conversation(db, conversation_id, user_id)
+    # Verify ownership first
+    verify_ownership(db, conversation_id, user_id)
     
     query = db.query(Message).filter(Message.conversation_id == conversation_id)
     total = query.count()
@@ -103,10 +128,11 @@ def add_user_message(
     conversation_id: str,
     content: str,
     extra_data: Optional[dict] = None,
-    user_id: str = None,  # REQUIRED
+    user_id: str = None,
 ) -> Message:
     """Add a user message (role always 'user')."""
-    get_conversation(db, conversation_id, user_id)
+    # Verify ownership first
+    verify_ownership(db, conversation_id, user_id)
     
     msg = Message(
         id=str(uuid.uuid4()),
@@ -126,10 +152,11 @@ def add_assistant_message(
     conversation_id: str,
     content: str,
     extra_data: Optional[dict] = None,
-    user_id: str = None,  # REQUIRED
+    user_id: str = None,
 ) -> Message:
     """Add an assistant message (role always 'assistant')."""
-    get_conversation(db, conversation_id, user_id)
+    # Verify ownership first
+    verify_ownership(db, conversation_id, user_id)
     
     msg = Message(
         id=str(uuid.uuid4()),
@@ -151,7 +178,7 @@ def add_message(
     role: str,
     content: str,
     extra_data: Optional[dict] = None,
-    user_id: str = None,  # REQUIRED
+    user_id: str = None,
 ) -> Message:
     """Add a message (deprecated - use add_user_message/add_assistant_message)."""
     if role == "user":
@@ -159,7 +186,8 @@ def add_message(
     elif role == "assistant":
         return add_assistant_message(db, conversation_id, content, extra_data, user_id)
     else:
-        get_conversation(db, conversation_id, user_id)
+        # For system messages, still verify ownership
+        verify_ownership(db, conversation_id, user_id)
         msg = Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation_id,
