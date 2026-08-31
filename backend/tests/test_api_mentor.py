@@ -2,6 +2,7 @@
 HTTP-level tests for Mentor API endpoints.
 """
 
+import json
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -137,3 +138,56 @@ def test_ask_endpoint():
         json={"content": "What is Ohm's law?"}
     )
     assert response.status_code in [200, 500]
+
+
+def test_ask_stream_endpoint_serializes_events():
+    """Test /ask/stream endpoint serializes events correctly."""
+    create_resp = client.post("/conversations/", json={"title": "Stream Test", "user_id": "user-a"})
+    conv_id = create_resp.json()["id"]
+    
+    response = client.post(
+        f"/conversations/{conv_id}/ask/stream?user_id=user-a",
+        json={"content": "Hello"}
+    )
+    # SSE endpoints should return 200 with text/event-stream content type
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+    
+    # Check that we can parse the events (at least one valid JSON event)
+    lines = response.text.strip().split("\n")
+    assert len(lines) > 0
+    # Each line should start with "data: "
+    for line in lines:
+        if line.startswith("data: "):
+            data = json.loads(line[6:])  # Remove "data: " prefix
+            # Should have a 'type' field
+            assert "type" in data
+
+
+def test_ask_stream_nonexistent_conversation():
+    """Test /ask/stream with nonexistent conversation."""
+    response = client.post(
+        "/conversations/nonexistent-id/ask/stream?user_id=user-a",
+        json={"content": "Hello"}
+    )
+    assert response.status_code == 200
+    data = json.loads(response.text.replace("data: ", "").strip())
+    assert data["type"] == "error"
+    assert "Conversation not found" in data["error"]
+
+
+def test_ask_stream_wrong_owner_denied():
+    """Test /ask/stream denies access to wrong owner."""
+    # User A creates conversation
+    create_resp = client.post("/conversations/", json={"title": "Test", "user_id": "user-a"})
+    conv_id = create_resp.json()["id"]
+    
+    # User B tries to stream
+    response = client.post(
+        f"/conversations/{conv_id}/ask/stream?user_id=user-b",
+        json={"content": "Hello"}
+    )
+    assert response.status_code == 200
+    data = json.loads(response.text.replace("data: ", "").strip())
+    assert data["type"] == "error"
+    assert "Access denied" in data["error"]

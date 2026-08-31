@@ -2,7 +2,9 @@
 AI Mentor API routes — connects MentorService to HTTP endpoints.
 """
 
+import json
 from typing import Optional
+from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -96,7 +98,8 @@ def ask_mentor_stream(
                 experiment_id=request.experiment_id,
                 simulation_id=request.simulation_id,
             ):
-                yield f"data: {event.model_dump_json()}\n\n"
+                # StreamEvent is a dataclass, not a Pydantic model
+                yield f"data: {json.dumps(asdict(event), default=str)}\n\n"
         except ConversationNotFoundError:
             yield f"data: {{\"type\": \"error\", \"error\": \"Conversation not found\"}}\n\n"
         except ConversationForbiddenError:
