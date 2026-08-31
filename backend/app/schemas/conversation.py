@@ -4,9 +4,9 @@ from typing import Optional, List
 
 
 class MessageCreate(BaseModel):
-    role: str  # user, assistant, system
     content: str
     extra_data: Optional[dict] = None
+    # role removed - always "user" for client messages
 
 
 class MessageResponse(BaseModel):
@@ -43,6 +43,3 @@ class ConversationListResponse(BaseModel):
     total: int
     skip: int
     limit: int
-
-class ConversationRename(BaseModel):
-    title: str
