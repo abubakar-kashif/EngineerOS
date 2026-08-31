@@ -5,9 +5,10 @@ from fastapi import HTTPException
 
 from app.services.conversation_service import (
     create_conversation,
-    add_message,
     get_conversation,
     get_messages,
+    add_user_message,
+    add_assistant_message,
 )
 from app.services.ai.provider_factory import ProviderFactory
 from app.services.ai.types import (
@@ -111,11 +112,10 @@ class MentorService:
             limit=50
         )
 
-        # 4. Save user question
-        add_message(
+        # 4. Save user question (role is always "user")
+        add_user_message(
             self.db,
             conversation_id,
-            "user",
             question,
             user_id=user_id
         )
@@ -149,11 +149,10 @@ class MentorService:
         # 7. Validate response
         validated_content = self.protection.validate_response(response.content)
 
-        # 8. Save assistant response
-        add_message(
+        # 8. Save assistant response (role is always "assistant")
+        add_assistant_message(
             self.db,
             conversation_id,
-            "assistant",
             validated_content,
             extra_data={"model": response.model},
             user_id=user_id
@@ -216,11 +215,10 @@ class MentorService:
                 limit=50
             )
 
-            # 4. Save user question
-            add_message(
+            # 4. Save user question (role is always "user")
+            add_user_message(
                 self.db,
                 conversation_id,
-                "user",
                 question,
                 user_id=user_id
             )
@@ -254,11 +252,10 @@ class MentorService:
                             stream_success = True
                             # Validate response
                             validated_content = self.protection.validate_response(full_content)
-                            # Save the complete response
-                            add_message(
+                            # Save the complete response (role is always "assistant")
+                            add_assistant_message(
                                 self.db,
                                 conversation_id,
-                                "assistant",
                                 validated_content,
                                 extra_data={
                                     "model": final_model or "unknown",
