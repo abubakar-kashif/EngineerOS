@@ -9,6 +9,8 @@ from app.services.conversation_service import (
     list_conversations,
     add_message,
     get_messages,
+    rename_conversation,
+    delete_conversation,
 )
 from app.schemas.conversation import (
     ConversationCreate,
@@ -76,14 +78,17 @@ def get_conversation_endpoint(
 def add_message_endpoint(
     conversation_id: str,
     payload: MessageCreate,
-    user_id: Optional[str] = Query(None, description="User ID for ownership check"),
+    user_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Add a message to a conversation."""
+    """Add a user message to a conversation (role is always 'user')."""
+    # Verify conversation exists and ownership
+    get_conversation(db, conversation_id, user_id)
+    
     msg = add_message(
         db=db,
         conversation_id=conversation_id,
-        role=payload.role,
+        role="user",  # ✅ HARD-CODED - client cannot set role
         content=payload.content,
         extra_data=payload.extra_data,
         user_id=user_id,
@@ -112,12 +117,12 @@ def get_messages_endpoint(
 @router.patch("/{conversation_id}", response_model=ConversationResponse)
 def rename_conversation_endpoint(
     conversation_id: str,
-    payload: ConversationCreate,  # Reuse or create Rename schema
+    payload: ConversationCreate,
     user_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     """Rename a conversation."""
-    conv = conversation_service.rename_conversation(
+    conv = rename_conversation(
         db=db,
         conversation_id=conversation_id,
         new_title=payload.title,
@@ -132,10 +137,9 @@ def delete_conversation_endpoint(
     db: Session = Depends(get_db),
 ):
     """Delete a conversation."""
-    conversation_service.delete_conversation(
+    delete_conversation(
         db=db,
         conversation_id=conversation_id,
         user_id=user_id,
     )
     return {"message": "Conversation deleted successfully"}
-
