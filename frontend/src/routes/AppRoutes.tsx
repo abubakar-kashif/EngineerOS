@@ -11,7 +11,7 @@ import ReportsPage from "../pages/ReportsPage";
 import DashboardPage from "../pages/DashboardPage";
 import ToolsPage from "../pages/ToolsPage";
 import AboutPage from "../pages/AboutPage";
-import SimulationPage from "../pages/simulationpage";
+import SimulationPage from "../pages/SimulationPage";
 
 function AppRoutes() {
   return (
