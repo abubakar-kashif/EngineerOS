@@ -1,216 +1,421 @@
 /**
- * Circuit validator: checks structural and electrical correctness before solving.
- * Produces human-readable errors with suggestions for the student.
+ * Circuit Validator
+ * Person 1: Simulation Engine
+ * Validates circuit structure and electrical rules
  */
+
 import type {
   CircuitDefinition,
-  Net,
-  ValidationError,
-} from "./types";
-import { parseTerminalRef } from "./types";
-import {
-  computeNets,
-  isTerminalConnected,
-  getComponentsByType,
-  getAdjacentComponents,
-} from "./circuitGraph";
+  Component,
+  Connection,
+} from './circuitGraph';
 
-let errorCounter = 0;
-function makeError(
-  severity: ValidationError["severity"],
-  componentIds: string[],
-  title: string,
-  message: string,
-  suggestion: string,
-): ValidationError {
+import {
+  findTerminal,
+  findComponentByTerminal,
+  getConnectionsForTerminal,
+  ComponentTerminals,
+} from './circuitGraph';
+
+import {
+  buildElectricalNodes,
+  hasGround,
+} from './circuitGraphBuilder';
+
+import type {
+  ValidationResult,
+  SimulationError,
+} from './errors';
+
+import {
+  createErrorWithDetails,
+  ErrorMessages,
+} from './errors';
+
+export interface ValidatorOptions {
+  strictMode?: boolean;
+  checkLEDCurrentLimit?: boolean;
+}
+
+export function validateCircuit(
+  circuit: CircuitDefinition,
+  _options: ValidatorOptions = {}
+): ValidationResult {
+  const errors: SimulationError[] = [];
+  const warnings: SimulationError[] = [];
+
+  validateStructure(circuit, errors, warnings);
+  validateComponentValues(circuit, errors, warnings);
+
+  const graphResult = buildElectricalNodes(circuit);
+  
+  validateElectricalRules(circuit, graphResult, errors, warnings);
+
   return {
-    id: `err-${++errorCounter}`,
-    severity,
-    componentIds,
-    title,
-    message,
-    suggestion,
+    valid: errors.length === 0,
+    errors,
+    warnings,
   };
 }
 
-// ── Structural validation ──
-
-function validateStructure(circuit: CircuitDefinition): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  // Empty circuit
-  if (circuit.components.length === 0) {
-    errors.push(
-      makeError("error", [], "Empty Circuit", "The circuit has no components.", "Add components from the palette to begin building your circuit."),
-    );
-    return errors;
+function validateStructure(
+  _circuit: CircuitDefinition,
+  errors: SimulationError[],
+  _warnings: SimulationError[]
+): void {
+  if (_circuit.components.length === 0) {
+    errors.push(createErrorWithDetails('INVALID_COMPONENT_ID', 'Circuit has no components', {
+      suggestedFix: 'Add at least one component to the circuit.',
+    }));
+    return;
   }
 
-  // Floating (unconnected) terminals
-  for (const comp of circuit.components) {
-    if (comp.type === "ground") continue; // ground has only one terminal
-    for (const term of comp.terminals) {
-      const ref = `${comp.id}:${term.id}`;
-      if (!isTerminalConnected(circuit, ref)) {
-        errors.push(
-          makeError("warning", [comp.id], "Floating Terminal",
-            `${comp.label} terminal "${term.label}" is not connected to anything.`,
-            `Connect a wire from ${comp.label} terminal "${term.label}" to another component.`),
-        );
-      }
-    }
+  for (const component of _circuit.components) {
+    validateComponent(component, _circuit, errors, _warnings);
   }
 
-  // Dangling wires (connection with null target)
-  for (const conn of circuit.connections) {
-    if (!conn.to) {
-      const from = parseTerminalRef(conn.from);
-      errors.push(
-        makeError("warning", [from.componentId], "Dangling Wire",
-          `A wire from ${from.componentId} terminal "${from.terminalId}" is not connected to a destination.`,
-          `Complete the wire by clicking on a destination terminal, or delete the dangling wire.`),
-      );
-    }
+  for (const connection of _circuit.connections) {
+    validateConnection(connection, _circuit, errors, _warnings);
   }
 
-  return errors;
+  checkDuplicateConnections(_circuit, errors);
 }
 
-// ── Electrical validation ──
-
-function validateElectrical(circuit: CircuitDefinition, nets: Net[]): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  // Missing ground
-  const grounds = getComponentsByType(circuit, "ground");
-  if (grounds.length === 0) {
-    errors.push(
-      makeError("error", [], "No Ground",
-        "The circuit has no ground reference. Simulation requires a ground node.",
-        "Add a Ground component from the Reference category and connect it to the circuit."),
-    );
-  } else if (grounds.length > 1) {
-    errors.push(
-      makeError("warning", grounds.map((g) => g.id), "Multiple Grounds",
-        `Found ${grounds.length} ground nodes. Multiple grounds are connected together (same potential).`,
-        "Use a single ground node unless you intentionally need multiple ground references."),
-    );
+function validateComponent(
+  component: Component,
+  _circuit: CircuitDefinition,
+  errors: SimulationError[],
+  _warnings: SimulationError[]
+): void {
+  if (!component.id || component.id.trim() === '') {
+    errors.push(createErrorWithDetails('INVALID_COMPONENT_ID', 'Component has empty ID', {
+      affectedComponents: [component.id || 'unknown'],
+    }));
+    return;
   }
 
-  // No voltage/current source
-  const sources = [
-    ...getComponentsByType(circuit, "voltage_source"),
-    ...getComponentsByType(circuit, "current_source"),
+  const validTypes = [
+    'resistor', 'capacitor', 'inductor', 'diode', 'led',
+    'switch', 'voltage_source', 'current_source', 'ground',
+    'voltmeter', 'ammeter'
   ];
-  if (sources.length === 0) {
-    errors.push(
-      makeError("error", [], "No Source",
-        "The circuit has no voltage or current source.",
-        "Add a DC Voltage Source or Current Source from the Sources category."),
-    );
+  
+  if (!validTypes.includes(component.type)) {
+    errors.push(createErrorWithDetails('UNSUPPORTED_COMPONENT', 
+      `Unsupported component type: ${component.type}`,
+      {
+        affectedComponents: [component.id],
+        suggestedFix: 'Use a supported component type.',
+      }
+    ));
+    return;
   }
 
-  // LED without current-limiting resistor
-  const leds = getComponentsByType(circuit, "led");
-  for (const led of leds) {
-    const adjacent = getAdjacentComponents(circuit, led.id);
-    const hasResistor = adjacent.some((id) => {
-      const comp = circuit.components.find((c) => c.id === id);
-      return comp?.type === "resistor";
-    });
-    if (!hasResistor) {
-      // Check if the LED is directly connected to a voltage source
-      const hasDirectSource = adjacent.some((id) => {
-        const comp = circuit.components.find((c) => c.id === id);
-        return comp?.type === "voltage_source" || comp?.type === "current_source";
-      });
-      if (hasDirectSource) {
-        errors.push(
-          makeError("error", [led.id], "LED Without Resistor",
-            `${led.label} is connected directly to a source without a current-limiting resistor. This would destroy the LED in a real circuit.`,
-            `Add a resistor in series with ${led.label} to limit the current to a safe value.`),
-        );
+  const expectedTerminals = ComponentTerminals[component.type];
+  if (expectedTerminals) {
+    const terminalTypes = component.terminals.map(t => t.type);
+    const missingTerminals = expectedTerminals.filter(t => !terminalTypes.includes(t));
+    
+    if (missingTerminals.length > 0) {
+      errors.push(createErrorWithDetails('INVALID_TERMINAL_ID',
+        `Component ${component.id} missing terminals: ${missingTerminals.join(', ')}`,
+        {
+          affectedComponents: [component.id],
+          suggestedFix: `Add ${missingTerminals.join(', ')} terminal(s) to ${component.id}.`,
+        }
+      ));
+    }
+  }
+
+  for (const terminal of component.terminals) {
+    if (!terminal.id || terminal.id.trim() === '') {
+      errors.push(createErrorWithDetails('INVALID_TERMINAL_ID',
+        `Component ${component.id} has invalid terminal ID`,
+        {
+          affectedComponents: [component.id],
+          affectedTerminals: [terminal.id || 'unknown'],
+        }
+      ));
+    }
+  }
+
+  const terminalIds = component.terminals.map(t => t.id);
+  const duplicateTerminals = terminalIds.filter((id, index) => terminalIds.indexOf(id) !== index);
+  if (duplicateTerminals.length > 0) {
+    errors.push(createErrorWithDetails('DUPLICATE_CONNECTION',
+      `Component ${component.id} has duplicate terminal IDs: ${duplicateTerminals.join(', ')}`,
+      {
+        affectedComponents: [component.id],
+        affectedTerminals: duplicateTerminals,
+      }
+    ));
+  }
+
+  if (component.type === 'resistor') {
+    const resistance = component.properties.resistance;
+    if (resistance !== undefined && resistance <= 0) {
+      errors.push(createErrorWithDetails('INVALID_COMPONENT_VALUE',
+        `Resistor ${component.id} has invalid resistance: ${resistance}Ω`,
+        {
+          affectedComponents: [component.id],
+          suggestedFix: 'Resistance must be greater than 0 Ω.',
+        }
+      ));
+    }
+  }
+
+  if (component.type === 'voltage_source') {
+    const voltage = component.properties.voltage;
+    if (voltage !== undefined && voltage < 0) {
+      errors.push(createErrorWithDetails('INVALID_COMPONENT_VALUE',
+        `Voltage source ${component.id} has invalid voltage: ${voltage}V`,
+        {
+          affectedComponents: [component.id],
+          suggestedFix: 'Voltage must be >= 0 V.',
+        }
+      ));
+    }
+  }
+
+  if (component.type === 'current_source') {
+    const current = component.properties.current;
+    if (current !== undefined && current < 0) {
+      errors.push(createErrorWithDetails('INVALID_COMPONENT_VALUE',
+        `Current source ${component.id} has invalid current: ${current}A`,
+        {
+          affectedComponents: [component.id],
+          suggestedFix: 'Current must be >= 0 A.',
+        }
+      ));
+    }
+  }
+}
+
+function validateConnection(
+  connection: Connection,
+  circuit: CircuitDefinition,
+  errors: SimulationError[],
+  warnings: SimulationError[]
+): void {
+  if (!connection.id || connection.id.trim() === '') {
+    errors.push(createErrorWithDetails('INVALID_CONNECTION', 'Connection has empty ID', {}));
+    return;
+  }
+
+  const fromTerminal = findTerminal(circuit, connection.from);
+  if (!fromTerminal) {
+    errors.push(createErrorWithDetails('INVALID_TERMINAL_ID',
+      `Connection ${connection.id} has invalid 'from' terminal: ${connection.from}`,
+      {
+        affectedTerminals: [connection.from],
+        suggestedFix: `Check if terminal ${connection.from} exists.`,
+      }
+    ));
+  }
+
+  const toTerminal = findTerminal(circuit, connection.to);
+  if (!toTerminal) {
+    errors.push(createErrorWithDetails('INVALID_TERMINAL_ID',
+      `Connection ${connection.id} has invalid 'to' terminal: ${connection.to}`,
+      {
+        affectedTerminals: [connection.to],
+        suggestedFix: `Check if terminal ${connection.to} exists.`,
+      }
+    ));
+  }
+
+  if (connection.from === connection.to) {
+    errors.push(createErrorWithDetails('INVALID_CONNECTION',
+      `Connection ${connection.id} connects a terminal to itself`,
+      {
+        affectedTerminals: [connection.from],
+        suggestedFix: 'A terminal cannot be connected to itself.',
+      }
+    ));
+  }
+
+  const fromComponent = findComponentByTerminal(circuit, connection.from);
+  const toComponent = findComponentByTerminal(circuit, connection.to);
+  
+  if (fromComponent && toComponent && fromComponent.id === toComponent.id) {
+    warnings.push(createErrorWithDetails('INVALID_CONNECTION',
+      `Connection ${connection.id} connects terminals of the same component: ${fromComponent.id}`,
+      {
+        affectedComponents: [fromComponent.id],
+        affectedTerminals: [connection.from, connection.to],
+        suggestedFix: 'Consider if this is intentional (connecting component terminals together).',
+      }
+    ));
+  }
+}
+
+function checkDuplicateConnections(
+  circuit: CircuitDefinition,
+  errors: SimulationError[]
+): void {
+  const seen = new Set<string>();
+  
+  for (const conn of circuit.connections) {
+    const key = [conn.from, conn.to].sort().join('--');
+    
+    if (seen.has(key)) {
+      errors.push(createErrorWithDetails('DUPLICATE_CONNECTION',
+        `Duplicate connection detected: ${conn.from} ↔ ${conn.to}`,
+        {
+          affectedTerminals: [conn.from, conn.to],
+          suggestedFix: 'Remove duplicate connections.',
+        }
+      ));
+    }
+    seen.add(key);
+  }
+}
+
+function validateComponentValues(
+  _circuit: CircuitDefinition,
+  errors: SimulationError[],
+  _warnings: SimulationError[]
+): void {
+  for (const component of _circuit.components) {
+    if (component.type === 'resistor') {
+      const resistance = component.properties.resistance;
+      if (resistance === 0) {
+        _warnings.push(createErrorWithDetails('SHORT_CIRCUIT',
+          `Resistor ${component.id} has 0Ω resistance (short circuit)`,
+          {
+            affectedComponents: [component.id],
+            suggestedFix: 'Use a resistance greater than 0 Ω.',
+          }
+        ));
+      }
+      if (resistance === undefined || resistance === null) {
+        errors.push(createErrorWithDetails('INVALID_COMPONENT_VALUE',
+          `Resistor ${component.id} has no resistance value`,
+          {
+            affectedComponents: [component.id],
+            suggestedFix: 'Set a resistance value for the resistor.',
+          }
+        ));
+      }
+    }
+
+    if (component.type === 'led') {
+      const hasCurrentLimit = checkLEDCurrentLimit(_circuit, component);
+      if (!hasCurrentLimit) {
+        errors.push(createErrorWithDetails('LED_NO_CURRENT_LIMIT',
+          `LED ${component.id} has no current-limiting resistor`,
+          {
+            affectedComponents: [component.id],
+            suggestedFix: 'Add a current-limiting resistor in series with the LED.',
+          }
+        ));
+      }
+    }
+  }
+}
+
+function checkLEDCurrentLimit(circuit: CircuitDefinition, led: Component): boolean {
+  const ledTerminals = led.terminals.map(t => t.id);
+  let hasResistor = false;
+
+  for (const terminalId of ledTerminals) {
+    const connections = getConnectionsForTerminal(circuit, terminalId);
+    for (const conn of connections) {
+      const connectedTerminalId = conn.from === terminalId ? conn.to : conn.from;
+      const connectedComponent = findComponentByTerminal(circuit, connectedTerminalId);
+      
+      if (connectedComponent && connectedComponent.type === 'resistor') {
+        hasResistor = true;
+        break;
+      }
+    }
+    if (hasResistor) break;
+  }
+
+  return hasResistor;
+}
+
+function validateElectricalRules(
+  circuit: CircuitDefinition,
+  graphResult: { nodes: any[]; errors: string[] },
+  errors: SimulationError[],
+  warnings: SimulationError[]
+): void {
+  if (!hasGround(graphResult.nodes)) {
+    errors.push(createErrorWithDetails('MISSING_GROUND',
+      ErrorMessages.MISSING_GROUND,
+      {
+        suggestedFix: 'Add a ground component and connect it to the circuit.',
+      }
+    ));
+  }
+
+  for (const node of graphResult.nodes) {
+    if (node.terminals.length === 1 && !node.isGround) {
+      const terminal = node.terminals[0];
+      const component = findComponentByTerminal(circuit, terminal);
+      
+      if (component && !['voltmeter', 'ammeter'].includes(component.type)) {
+        warnings.push(createErrorWithDetails('FLOATING_NODE',
+          `Floating node detected: ${node.id} with terminal ${terminal}`,
+          {
+            affectedTerminals: [terminal],
+            affectedComponents: component ? [component.id] : undefined,
+            suggestedFix: 'Connect this terminal to the circuit.',
+          }
+        ));
       }
     }
   }
 
-  // Short circuit detection: voltage source terminals on the same net
+  validateSources(circuit, errors, warnings);
+
+  for (const error of graphResult.errors) {
+    warnings.push(createErrorWithDetails('DANGLING_TERMINAL',
+      error,
+      {
+        suggestedFix: 'Connect all terminals or remove unused components.',
+      }
+    ));
+  }
+}
+
+function validateSources(
+  circuit: CircuitDefinition,
+  errors: SimulationError[],
+  warnings: SimulationError[]
+): void {
+  const sources = circuit.components.filter(
+    c => c.type === 'voltage_source' || c.type === 'current_source'
+  );
+
   for (const source of sources) {
-    if (source.type === "voltage_source") {
-      const posNet = nets.find((n) =>
-        n.terminals.includes(`${source.id}:pos`),
-      );
-      const negNet = nets.find((n) =>
-        n.terminals.includes(`${source.id}:neg`),
-      );
-      if (posNet && negNet && posNet.id === negNet.id) {
-        errors.push(
-          makeError("error", [source.id], "Short Circuit",
-            `${source.label} positive and negative terminals are connected together. This creates a short circuit.`,
-            `Add components (resistors, LEDs, etc.) between the positive and negative paths of ${source.label}.`),
-        );
-      }
+    const terminals = source.terminals;
+    const positiveTerminal = terminals.find(t => t.type === 'positive');
+    const negativeTerminal = terminals.find(t => t.type === 'negative');
+
+    if (!positiveTerminal || !negativeTerminal) {
+      errors.push(createErrorWithDetails('INVALID_SOURCE_CONFIGURATION',
+        `Source ${source.id} has missing terminals`,
+        {
+          affectedComponents: [source.id],
+          suggestedFix: 'Ensure both positive and negative terminals exist.',
+        }
+      ));
+      continue;
+    }
+
+    const posConnections = getConnectionsForTerminal(circuit, positiveTerminal.id);
+    const negConnections = getConnectionsForTerminal(circuit, negativeTerminal.id);
+
+    if (posConnections.length === 0 && negConnections.length === 0) {
+      warnings.push(createErrorWithDetails('OPEN_CIRCUIT',
+        `Source ${source.id} has no connections`,
+        {
+          affectedComponents: [source.id],
+          suggestedFix: 'Connect the source to the circuit.',
+        }
+      ));
     }
   }
-
-  // Invalid component values
-  for (const comp of circuit.components) {
-    if (comp.type === "resistor") {
-      const r = comp.properties.resistance as number;
-      if (r <= 0) {
-        errors.push(
-          makeError("error", [comp.id], "Invalid Resistance",
-            `${comp.label} has a resistance of ${r} Ω. Resistance must be positive.`,
-            `Set ${comp.label} resistance to a positive value (e.g., 1000 Ω).`),
-        );
-      }
-    }
-    if (comp.type === "voltage_source") {
-      const v = comp.properties.voltage as number;
-      if (v === 0) {
-        errors.push(
-          makeError("warning", [comp.id], "Zero Voltage",
-            `${comp.label} has a voltage of 0 V. The circuit will have no current flow.`,
-            `Set ${comp.label} voltage to a non-zero value (e.g., 12 V).`),
-        );
-      }
-    }
-  }
-
-  // Voltmeter in series (should be parallel)
-  const voltmeters = getComponentsByType(circuit, "voltmeter");
-  for (const vm of voltmeters) {
-    // A voltmeter should have exactly 2 connections, one at each terminal
-    // and should not be the only path between two nets
-    const adj = getAdjacentComponents(circuit, vm.id);
-    if (adj.length < 2) {
-      errors.push(
-        makeError("warning", [vm.id], "Voltmeter Connection",
-          `${vm.label} should be connected across (in parallel with) the component being measured.`,
-          `Connect ${vm.label} terminals across the component you want to measure voltage for.`),
-      );
-    }
-  }
-
-  return errors;
-}
-
-// ── Public API ──
-
-/** Validate a complete circuit definition. Returns all errors/warnings. */
-export function validateCircuit(circuit: CircuitDefinition): ValidationError[] {
-  errorCounter = 0;
-  const nets = computeNets(circuit);
-  const structural = validateStructure(circuit);
-  // Skip electrical checks if circuit is empty
-  if (structural.some((e) => e.severity === "error" && e.componentIds.length === 0 && e.title === "Empty Circuit")) {
-    return structural;
-  }
-  const electrical = validateElectrical(circuit, nets);
-  return [...structural, ...electrical];
-}
-
-/** Check if circuit has blocking errors (severity === "error") */
-export function hasBlockingErrors(errors: ValidationError[]): boolean {
-  return errors.some((e) => e.severity === "error");
 }

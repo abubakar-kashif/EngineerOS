@@ -1,61 +1,121 @@
 /**
- * Engineering unit formatting utilities.
+ * Unit normalization for EngineerOS Simulation Engine
+ * Person 1: Simulation Engine
+ * All values stored internally in SI base units
  */
 
-/** Format a numeric value with an appropriate SI prefix and unit symbol */
-export function formatValue(value: number, unit: string): string {
-  const abs = Math.abs(value);
-  if (abs === 0) return `0 ${unit}`;
-  if (abs >= 1e9) return `${(value / 1e9).toFixed(2)} G${unit}`;
-  if (abs >= 1e6) return `${(value / 1e6).toFixed(2)} M${unit}`;
-  if (abs >= 1e3) return `${(value / 1e3).toFixed(2)} k${unit}`;
-  if (abs >= 1) return `${value.toFixed(2)} ${unit}`;
-  if (abs >= 1e-3) return `${(value * 1e3).toFixed(2)} m${unit}`;
-  if (abs >= 1e-6) return `${(value * 1e6).toFixed(2)} μ${unit}`;
-  if (abs >= 1e-9) return `${(value * 1e9).toFixed(2)} n${unit}`;
-  return `${value.toExponential(2)} ${unit}`;
+export type Unit = 'V' | 'A' | 'Ω' | 'F' | 'H' | 'W' | 's';
+
+export interface UnitValue {
+  value: number;
+  unit: Unit;
 }
 
-/** Format voltage */
-export function formatVoltage(v: number): string {
-  return formatValue(v, "V");
+/**
+ * Normalize a value to SI base unit
+ * Example: 1kΩ → 1000 Ω
+ */
+export function normalizeResistance(value: number, prefix?: string): number {
+  const multipliers: Record<string, number> = {
+    '': 1,
+    'k': 1e3,
+    'M': 1e6,
+    'm': 1e-3,
+    'µ': 1e-6,
+    'n': 1e-9,
+  };
+  return value * (multipliers[prefix || ''] || 1);
 }
 
-/** Format current */
-export function formatCurrent(i: number): string {
-  return formatValue(i, "A");
+/**
+ * Normalize voltage value
+ */
+export function normalizeVoltage(value: number, prefix?: string): number {
+  const multipliers: Record<string, number> = {
+    '': 1,
+    'k': 1e3,
+    'M': 1e6,
+    'm': 1e-3,
+    'µ': 1e-6,
+  };
+  return value * (multipliers[prefix || ''] || 1);
 }
 
-/** Format resistance */
-export function formatResistance(r: number): string {
-  return formatValue(r, "Ω");
+/**
+ * Normalize current value
+ */
+export function normalizeCurrent(value: number, prefix?: string): number {
+  const multipliers: Record<string, number> = {
+    '': 1,
+    'k': 1e3,
+    'M': 1e6,
+    'm': 1e-3,
+    'µ': 1e-6,
+  };
+  return value * (multipliers[prefix || ''] || 1);
 }
 
-/** Format power */
-export function formatPower(p: number): string {
-  return formatValue(p, "W");
+/**
+ * Normalize capacitance value
+ */
+export function normalizeCapacitance(value: number, prefix?: string): number {
+  const multipliers: Record<string, number> = {
+    '': 1,
+    'm': 1e-3,
+    'µ': 1e-6,
+    'n': 1e-9,
+    'p': 1e-12,
+  };
+  return value * (multipliers[prefix || ''] || 1);
 }
 
-/** Format capacitance */
-export function formatCapacitance(c: number): string {
-  return formatValue(c, "F");
+/**
+ * Normalize inductance value
+ */
+export function normalizeInductance(value: number, prefix?: string): number {
+  const multipliers: Record<string, number> = {
+    '': 1,
+    'm': 1e-3,
+    'µ': 1e-6,
+    'n': 1e-9,
+  };
+  return value * (multipliers[prefix || ''] || 1);
 }
 
-/** Format inductance */
-export function formatInductance(l: number): string {
-  return formatValue(l, "H");
+/**
+ * Format a value with appropriate SI prefix
+ * Example: 1000 → 1 k
+ */
+export function formatWithPrefix(value: number, baseUnit: string): string {
+  const prefixes = [
+    { prefix: 'M', divisor: 1e6 },
+    { prefix: 'k', divisor: 1e3 },
+    { prefix: '', divisor: 1 },
+    { prefix: 'm', divisor: 1e-3 },
+    { prefix: 'µ', divisor: 1e-6 },
+    { prefix: 'n', divisor: 1e-9 },
+  ];
+
+  for (const p of prefixes) {
+    const scaled = value / p.divisor;
+    if (Math.abs(scaled) >= 1 && Math.abs(scaled) < 1000) {
+      return `${scaled.toFixed(3)} ${p.prefix}${baseUnit}`;
+    }
+  }
+  return `${value.toFixed(6)} ${baseUnit}`;
 }
 
-/** Get the base SI unit label for a component property */
-export function unitForProperty(_type: string, prop: string): string {
-  if (prop === "voltage") return "V";
-  if (prop === "current") return "A";
-  if (prop === "resistance" || prop === "internalResistance") return "Ω";
-  if (prop === "capacitance") return "F";
-  if (prop === "inductance") return "H";
-  if (prop === "power" || prop === "powerRating") return "W";
-  if (prop === "forwardVoltage") return "V";
-  if (prop === "forwardCurrent" || prop === "maxCurrent") return "A";
-  if (prop === "tolerance") return "%";
-  return "";
+/**
+ * Tolerance for floating-point comparisons
+ */
+export const NUMERICAL_TOLERANCE = {
+  absolute: 1e-9,
+  relative: 1e-6,
+};
+
+export function areEqual(a: number, b: number): boolean {
+  const diff = Math.abs(a - b);
+  const maxAbs = Math.max(Math.abs(a), Math.abs(b));
+  return diff <= NUMERICAL_TOLERANCE.absolute || 
+         diff <= NUMERICAL_TOLERANCE.relative * maxAbs;
 }

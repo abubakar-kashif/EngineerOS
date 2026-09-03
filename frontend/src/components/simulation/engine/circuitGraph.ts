@@ -1,186 +1,153 @@
 /**
- * Circuit graph: builds a graph representation from a circuit definition.
- * Computes nets (electrically-connected groups of terminals) using union-find.
+ * Core circuit graph definitions for EngineerOS Simulation Engine
+ * Person 1: Simulation Engine
+ * Independent of UI — positions are for editor only
  */
-import type {
-  CircuitDefinition,
-  ComponentInstance,
-  Net,
-} from "./types";
-import { parseTerminalRef } from "./types";
 
-// ── Union-Find ──
+export type ComponentType =
+  | 'voltage_source'
+  | 'current_source'
+  | 'resistor'
+  | 'capacitor'
+  | 'inductor'
+  | 'diode'
+  | 'led'
+  | 'switch'
+  | 'ground'
+  | 'voltmeter'
+  | 'ammeter';
 
-class UnionFind {
-  private parent = new Map<string, string>();
-  private rank = new Map<string, number>();
+export type TerminalType =
+  | 'A'
+  | 'B'
+  | 'positive'
+  | 'negative'
+  | 'anode'
+  | 'cathode'
+  | 'ground'
+  | 'input'
+  | 'output';
 
-  find(x: string): string {
-    if (!this.parent.has(x)) {
-      this.parent.set(x, x);
-      this.rank.set(x, 0);
-    }
-    let root = x;
-    while (this.parent.get(root) !== root) {
-      root = this.parent.get(root)!;
-    }
-    // Path compression
-    let curr = x;
-    while (curr !== root) {
-      const next = this.parent.get(curr)!;
-      this.parent.set(curr, root);
-      curr = next;
-    }
-    return root;
-  }
+export type SwitchState = 'open' | 'closed';
 
-  union(a: string, b: string): void {
-    const ra = this.find(a);
-    const rb = this.find(b);
-    if (ra === rb) return;
-    const rankA = this.rank.get(ra) ?? 0;
-    const rankB = this.rank.get(rb) ?? 0;
-    if (rankA < rankB) {
-      this.parent.set(ra, rb);
-    } else if (rankA > rankB) {
-      this.parent.set(rb, ra);
-    } else {
-      this.parent.set(rb, ra);
-      this.rank.set(ra, rankA + 1);
-    }
-  }
-
-  groups(): Map<string, string[]> {
-    const map = new Map<string, string[]>();
-    for (const key of this.parent.keys()) {
-      const root = this.find(key);
-      if (!map.has(root)) map.set(root, []);
-      map.get(root)!.push(key);
-    }
-    return map;
-  }
+export interface Position {
+  x: number;
+  y: number;
 }
 
-// ── Build nets ──
+export interface ComponentProperties {
+  resistance?: number;      // Ω
+  voltage?: number;         // V
+  current?: number;         // A
+  capacitance?: number;     // F
+  inductance?: number;      // H
+  forwardVoltage?: number;  // V
+  state?: SwitchState;
+  [key: string]: any;
+}
+
+export interface Terminal {
+  id: string;
+  type: TerminalType;
+  componentId: string;
+  label?: string;
+}
+
+export interface Component {
+  id: string;
+  type: ComponentType;
+  label: string;
+  position: Position;
+  rotation: number; // degrees
+  properties: ComponentProperties;
+  terminals: Terminal[];
+  metadata?: Record<string, any>;
+}
+
+export interface Connection {
+  id: string;
+  from: string; // terminal ID
+  to: string;   // terminal ID
+}
+
+export interface ElectricalNode {
+  id: string;
+  terminals: string[]; // terminal IDs
+  voltage: number | null; // V (null if not solved)
+  isGround: boolean;
+}
+
+export interface CircuitDefinition {
+  id?: string;
+  name?: string;
+  experimentId?: string;
+  components: Component[];
+  connections: Connection[];
+  nodes?: ElectricalNode[];
+}
 
 /**
- * From a CircuitDefinition, compute nets by merging terminals connected
- * by wires/connections using union-find.
+ * Helper functions for circuit graph
  */
-export function computeNets(circuit: CircuitDefinition): Net[] {
-  const uf = new UnionFind();
+export function createTerminalId(componentId: string, terminalType: TerminalType): string {
+  return `${componentId}.${terminalType}`;
+}
 
-  // Initialize every terminal as its own group
+export function getComponentTerminals(component: Component): string[] {
+  return component.terminals.map(t => t.id);
+}
+
+export function findComponent(circuit: CircuitDefinition, id: string): Component | undefined {
+  return circuit.components.find(c => c.id === id);
+}
+
+export function findTerminal(circuit: CircuitDefinition, terminalId: string): Terminal | undefined {
   for (const comp of circuit.components) {
-    for (const term of comp.terminals) {
-      uf.find(`${comp.id}:${term.id}`);
-    }
+    const terminal = comp.terminals.find(t => t.id === terminalId);
+    if (terminal) return terminal;
   }
-
-  // Merge terminals that are connected by wires
-  for (const conn of circuit.connections) {
-    if (conn.to) {
-      uf.union(conn.from, conn.to);
-    }
-  }
-
-  // Group into nets
-  const groups = uf.groups();
-  const nets: Net[] = [];
-  let netId = 0;
-
-  for (const [, terminals] of groups) {
-    // Only create nets with at least one terminal
-    if (terminals.length === 0) continue;
-    nets.push({
-      id: netId++,
-      terminals,
-      wires: [], // Wire association is done later if needed
-    });
-  }
-
-  return nets;
+  return undefined;
 }
 
-// ── Graph helpers ──
+export function findComponentByTerminal(circuit: CircuitDefinition, terminalId: string): Component | undefined {
+  for (const comp of circuit.components) {
+    if (comp.terminals.some(t => t.id === terminalId)) {
+      return comp;
+    }
+  }
+  return undefined;
+}
 
-/** Get all terminal refs connected to a given terminal */
-export function getConnectedTerminals(
+export function getConnectionsForTerminal(
   circuit: CircuitDefinition,
-  terminalRef: string,
-): string[] {
-  const connected: string[] = [];
-  for (const conn of circuit.connections) {
-    if (conn.from === terminalRef && conn.to) connected.push(conn.to);
-    if (conn.to === terminalRef) connected.push(conn.from);
-  }
-  return connected;
-}
-
-/** Find the net that contains a specific terminal ref */
-export function findNetForTerminal(nets: Net[], terminalRef: string): Net | undefined {
-  return nets.find((n) => n.terminals.includes(terminalRef));
-}
-
-/** Check if a terminal is connected to anything */
-export function isTerminalConnected(circuit: CircuitDefinition, terminalRef: string): boolean {
-  return circuit.connections.some(
-    (c) => c.from === terminalRef || c.to === terminalRef,
+  terminalId: string
+): Connection[] {
+  return circuit.connections.filter(
+    c => c.from === terminalId || c.to === terminalId
   );
 }
 
-/** Get all components connected to a specific component via wires */
-export function getAdjacentComponents(
-  circuit: CircuitDefinition,
-  componentId: string,
-): string[] {
-  const adjacent = new Set<string>();
-  for (const conn of circuit.connections) {
-    const from = parseTerminalRef(conn.from);
-    const to = conn.to ? parseTerminalRef(conn.to) : null;
-    if (from.componentId === componentId && to && to.componentId !== componentId) {
-      adjacent.add(to.componentId);
-    }
-    if (to && to.componentId === componentId && from.componentId !== componentId) {
-      adjacent.add(from.componentId);
-    }
-  }
-  return Array.from(adjacent);
+export function getTerminalsForComponent(component: Component): string[] {
+  return component.terminals.map(t => t.id);
 }
 
-/** Find the ground net (net containing any ground component's terminal) */
-export function findGroundNet(
-  circuit: CircuitDefinition,
-  nets: Net[],
-): Net | undefined {
-  const ground = circuit.components.find((c) => c.type === "ground");
-  if (!ground) return undefined;
-  const termRef = `${ground.id}:${ground.terminals[0]?.id ?? "gnd"}`;
-  return nets.find((n) => n.terminals.includes(termRef));
+export function getComponentIds(circuit: CircuitDefinition): string[] {
+  return circuit.components.map(c => c.id);
 }
 
-/** Count how many connections a terminal has */
-export function countConnections(circuit: CircuitDefinition, terminalRef: string): number {
-  let count = 0;
-  for (const conn of circuit.connections) {
-    if (conn.from === terminalRef) count++;
-    if (conn.to === terminalRef) count++;
-  }
-  return count;
-}
-
-/** Get component by id */
-export function getComponent(
-  circuit: CircuitDefinition,
-  id: string,
-): ComponentInstance | undefined {
-  return circuit.components.find((c) => c.id === id);
-}
-
-/** Get all components of a specific type */
-export function getComponentsByType(
-  circuit: CircuitDefinition,
-  type: string,
-): ComponentInstance[] {
-  return circuit.components.filter((c) => c.type === type);
-}
+/**
+ * Component type to terminal mapping
+ */
+export const ComponentTerminals: Record<ComponentType, TerminalType[]> = {
+  resistor: ['A', 'B'],
+  capacitor: ['A', 'B'],
+  inductor: ['A', 'B'],
+  diode: ['anode', 'cathode'],
+  led: ['anode', 'cathode'],
+  switch: ['A', 'B'],
+  voltage_source: ['positive', 'negative'],
+  current_source: ['positive', 'negative'],
+  ground: ['ground'],
+  voltmeter: ['positive', 'negative'],
+  ammeter: ['input', 'output'],
+};
