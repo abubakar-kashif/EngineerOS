@@ -1,27 +1,35 @@
 /**
  * Core circuit editor hook: manages components, wires, connections,
  * selection, placement mode, wire drawing, and undo/redo.
+ * 
+ * Uses editor-local types; converts to engine types when running simulation.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+
+// Editor types (new)
 import type {
-  CircuitDefinition,
   ComponentInstance,
   ComponentType,
   WireConnection,
   WireSegment,
-} from "../components/simulation/engine/types";
+  EditorCircuit,
+} from "../components/simulation/editorTypes";
 import {
   DEFAULT_TERMINALS,
   DEFAULT_PROPERTIES,
-} from "../components/simulation/engine/types";
-import { nextDesignator } from "../components/simulation/engine/referenceDesignators";
+} from "../components/simulation/editorTypes";
+import { nextDesignator } from "../components/simulation/referenceDesignators";
+
+// Engine types (only needed for conversion, not for state)
+import type { CircuitDefinition } from "../components/simulation/engine";
+import { toEngineCircuit } from "../components/simulation/editorAdapters";
 
 // ── Types ──
 
 export type EditorMode = "select" | "place" | "wire";
 
 export interface EditorState {
-  circuit: CircuitDefinition;
+  circuit: EditorCircuit;
   selectedComponentId: string | null;
   selectedWireId: string | null;
   mode: EditorMode;
@@ -29,14 +37,14 @@ export interface EditorState {
   /** Wire currently being drawn */
   wireStart: { componentId: string; terminalId: string; x: number; y: number } | null;
   wirePreviewPoints: { x: number; y: number }[];
-  /** Undo/redo stacks */
-  undoStack: CircuitDefinition[];
-  redoStack: CircuitDefinition[];
+  /** Undo/redo stacks (store EditorCircuit) */
+  undoStack: EditorCircuit[];
+  redoStack: EditorCircuit[];
   /** Dirty flag for save indicator */
   dirty: boolean;
 }
 
-const EMPTY_CIRCUIT: CircuitDefinition = {
+const EMPTY_CIRCUIT: EditorCircuit = {
   components: [],
   wires: [],
   connections: [],
@@ -58,7 +66,7 @@ function uid(prefix: string): string {
 
 // ── Hook ──
 
-export function useCircuitEditor(initial?: CircuitDefinition) {
+export function useCircuitEditor(initial?: EditorCircuit) {
   const [state, setState] = useState<EditorState>({
     circuit: initial ?? { ...EMPTY_CIRCUIT },
     selectedComponentId: null,
@@ -77,7 +85,7 @@ export function useCircuitEditor(initial?: CircuitDefinition) {
   useEffect(() => { circuitRef.current = state.circuit; }, [state.circuit]);
 
   /** Push current circuit to undo stack before a mutation */
-  const pushUndo = useCallback((prev: CircuitDefinition) => {
+  const pushUndo = useCallback((prev: EditorCircuit) => {
     setState((s) => ({
       ...s,
       undoStack: [...s.undoStack.slice(-49), prev],
@@ -243,7 +251,7 @@ export function useCircuitEditor(initial?: CircuitDefinition) {
       setState((s) => {
         const wire = s.circuit.wires.find((w) => w.id === id);
         if (!wire) return s;
-        // Remove the wire itself (connections cleanup is best-effort)
+        // Remove the wire itself
         return {
           ...s,
           circuit: {
@@ -441,7 +449,7 @@ export function useCircuitEditor(initial?: CircuitDefinition) {
 
   // ── Load circuit ──
 
-  const loadCircuit = useCallback((circuit: CircuitDefinition) => {
+  const loadCircuit = useCallback((circuit: EditorCircuit) => {
     setState((s) => ({
       ...s,
       circuit,
@@ -461,6 +469,11 @@ export function useCircuitEditor(initial?: CircuitDefinition) {
   const selectedComponent = state.selectedComponentId
     ? state.circuit.components.find((c) => c.id === state.selectedComponentId) ?? null
     : null;
+
+  // ── Expose engine conversion (optional) ──
+  const getEngineCircuit = useCallback((): CircuitDefinition => {
+    return toEngineCircuit(state.circuit);
+  }, [state.circuit]);
 
   return {
     state,
@@ -487,9 +500,6 @@ export function useCircuitEditor(initial?: CircuitDefinition) {
     selectedComponent,
     canUndo: state.undoStack.length > 0,
     canRedo: state.redoStack.length > 0,
+    getEngineCircuit, // new helper for running simulation
   };
 }
-
-// ── Helpers ──
-
-// Placeholder: in a full implementation, wires and connections would be explicitly linked
