@@ -1,7 +1,7 @@
 /**
  * Renders a wire (series of orthogonal line segments) on the circuit canvas.
  */
-import type { WireSegment } from "../editorTypes";
+import type { WireSegment } from "./editorTypes";
 
 interface CircuitWireProps {
   wire: WireSegment;
@@ -14,14 +14,12 @@ function CircuitWire({ wire, selected, active, onClick }: CircuitWireProps) {
   if (wire.points.length < 2) return null;
 
   const d = wire.points
-    .map((p, i) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`)
+    .map((p: { x: number; y: number }, i: number) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`)
     .join(" ");
 
   return (
     <g className="canvas-wire" onClick={onClick} style={{ cursor: onClick ? "pointer" : undefined }}>
-      {/* Invisible wider hit area */}
       <path d={d} stroke="transparent" strokeWidth={10} fill="none" />
-      {/* Visible wire */}
       <path
         d={d}
         stroke={active ? "var(--color-primary)" : selected ? "var(--color-info)" : "currentColor"}
@@ -36,9 +34,6 @@ function CircuitWire({ wire, selected, active, onClick }: CircuitWireProps) {
 
 export default CircuitWire;
 
-/**
- * Preview wire while the user is drawing (before completion).
- */
 export function WirePreview({ points }: { points: { x: number; y: number }[] }) {
   if (points.length < 2) return null;
   const d = points

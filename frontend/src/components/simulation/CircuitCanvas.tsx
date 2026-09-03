@@ -3,9 +3,9 @@
  * Renders components, wires, junctions, and handles all mouse interaction.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ComponentInstance, ComponentType } from "../editorTypes";
-import { getTerminalWorldPosition } from "../editorUtils";
-import type { SimulationResult } from "../engine"; // changed
+import type { ComponentInstance, ComponentType } from "./editorTypes";
+import { getTerminalWorldPosition } from "./editorUtils";
+import type { SimulationResult } from "./engine";
 import type { EditorState } from "../../hooks/useCircuitEditor";
 import {
   VoltageSourceNode,
@@ -26,7 +26,7 @@ import EmptyCanvasState from "./EmptyCanvasState";
 
 interface CircuitCanvasProps {
   editor: EditorState;
-  simResult: SimulationResult | null; // changed from simOutput
+  simResult: SimulationResult | null;
   onAddComponent: (type: ComponentType, x: number, y: number) => void;
   onSelectComponent: (id: string | null) => void;
   onSelectWire: (id: string | null) => void;
@@ -61,7 +61,6 @@ function CircuitCanvas({
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
 
-  // Convert screen coords to canvas coords
   const screenToCanvas = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } => {
       const svg = svgRef.current;
@@ -77,38 +76,25 @@ function CircuitCanvas({
     [viewBox],
   );
 
-  // Snap to grid
   const snap = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
-
-  // ── Mouse handlers ──
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       const pos = screenToCanvas(e.clientX, e.clientY);
-
-      // Middle mouse or space+click = pan
       if (e.button === 1 || (e.button === 0 && e.altKey)) {
         setPanning(true);
         setPanStart({ x: e.clientX, y: e.clientY });
         return;
       }
-
       if (e.button !== 0) return;
-
-      // Placement mode
       if (placementType) {
         onAddComponent(placementType, snap(pos.x), snap(pos.y));
         return;
       }
-
-      // Wire drawing mode — check if clicking on background
       if (editor.wireStart) {
-        // Add intermediate point for orthogonal routing
         onUpdateWirePreview(snap(pos.x), snap(pos.y));
         return;
       }
-
-      // Click on empty space = deselect
       if ((e.target as Element).closest(".canvas-component")) return;
       if ((e.target as Element).closest(".canvas-terminal")) return;
       if ((e.target as Element).closest(".canvas-wire")) return;
@@ -131,13 +117,11 @@ function CircuitCanvas({
         setPanStart({ x: e.clientX, y: e.clientY });
         return;
       }
-
       if (dragging) {
         const pos = screenToCanvas(e.clientX, e.clientY);
         onMoveComponent(dragging.id, snap(pos.x), snap(pos.y));
         return;
       }
-
       if (editor.wireStart) {
         const pos = screenToCanvas(e.clientX, e.clientY);
         onUpdateWirePreview(snap(pos.x), snap(pos.y));
@@ -146,21 +130,11 @@ function CircuitCanvas({
     [panning, panStart, dragging, editor.wireStart, screenToCanvas, viewBox, onMoveComponent, onUpdateWirePreview],
   );
 
-  const handleMouseUp = useCallback(
-    () => {
-      if (panning) {
-        setPanning(false);
-        return;
-      }
-      if (dragging) {
-        setDragging(null);
-        return;
-      }
-    },
-    [panning, dragging],
-  );
+  const handleMouseUp = useCallback(() => {
+    if (panning) setPanning(false);
+    if (dragging) setDragging(null);
+  }, [panning, dragging]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -168,15 +142,11 @@ function CircuitCanvas({
         else if (placementType) onCancelPlacement();
         else onSelectComponent(null);
       }
-      if (e.key === "Delete" || e.key === "Backspace") {
-        // Delete is handled by the inspector / keyboard shortcut in parent
-      }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [editor.wireStart, placementType, onCancelWire, onCancelPlacement, onSelectComponent]);
 
-  // Zoom with mouse wheel
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
@@ -192,8 +162,6 @@ function CircuitCanvas({
     [],
   );
 
-  // ── Component terminal handlers ──
-
   const handleTerminalMouseDown = useCallback(
     (e: React.MouseEvent, compId: string, termId: string) => {
       e.stopPropagation();
@@ -201,12 +169,9 @@ function CircuitCanvas({
       if (!comp) return;
       const world = getTerminalWorldPosition(comp, termId);
       if (!world) return;
-
       if (editor.wireStart) {
-        // Complete the wire
         onCompleteWire(compId, termId);
       } else {
-        // Start a new wire
         onStartWire(compId, termId, world.x, world.y);
       }
     },
@@ -223,12 +188,10 @@ function CircuitCanvas({
     [editor.wireStart, onCompleteWire],
   );
 
-  // ── Component drag start ──
-
   const handleComponentMouseDown = useCallback(
     (e: React.MouseEvent, compId: string) => {
       if (e.button !== 0) return;
-      if (editor.wireStart) return; // Don't drag while wiring
+      if (editor.wireStart) return;
       e.stopPropagation();
       onSelectComponent(compId);
       const pos = screenToCanvas(e.clientX, e.clientY);
@@ -243,21 +206,19 @@ function CircuitCanvas({
     [editor.wireStart, editor.circuit.components, screenToCanvas, onSelectComponent],
   );
 
-  // ── Render component SVG ──
-
   const getComponentResult = (id: string) => {
     if (!simResult?.measurements) return undefined;
-    return simResult.measurements.componentMeasurements.find((m) => m.componentId === id);
+    return simResult.measurements.componentMeasurements.find((m: any) => m.componentId === id);
   };
 
   const renderComponent = (comp: ComponentInstance) => {
     const isSelected = editor.selectedComponentId === comp.id;
     const result = getComponentResult(comp.id);
-    const activeTerminal = editor.wireStart?.componentId === comp.id
+    const activeTerminal = editor.wireStart && editor.wireStart.componentId === comp.id
       ? editor.wireStart.terminalId
       : null;
 
-    const terminalData = comp.terminals.map((t) => {
+    const terminalData = comp.terminals.map((t: string) => {
       const connected = editor.circuit.connections.some(
         (conn) =>
           conn.from === `${comp.id}:${t}` ||
@@ -266,7 +227,7 @@ function CircuitCanvas({
       const world = getTerminalWorldPosition(comp, t);
       return {
         id: t,
-        x: world ? world.x - comp.x : 0, // fallback if no world
+        x: world ? world.x - comp.x : 0,
         y: world ? world.y - comp.y : 0,
         connected,
       };
@@ -310,11 +271,11 @@ function CircuitCanvas({
         break;
       }
       case "diode":
-        node = <DiodeNode {...commonProps} state={result?.state} />;
-        break;
-      case "led":
-        node = <LEDNode {...commonProps} state={result?.state} color={comp.properties.color as string} />;
-        break;
+      node = <DiodeNode {...commonProps} />;
+      break;
+    case "led":
+      node = <LEDNode {...commonProps} color={comp.properties.color as string} />;
+      break;
       case "switch":
         node = <SwitchNode {...commonProps} closed={comp.properties.closed as boolean} />;
         break;
@@ -344,8 +305,6 @@ function CircuitCanvas({
     );
   };
 
-  // ── Grid pattern ──
-
   const gridPattern = useMemo(() => {
     const size = GRID_SIZE;
     return (
@@ -357,7 +316,6 @@ function CircuitCanvas({
     );
   }, []);
 
-  // Empty state
   if (editor.circuit.components.length === 0 && !placementType) {
     return (
       <div className="sim-canvas-container">
@@ -392,7 +350,6 @@ function CircuitCanvas({
         {gridPattern}
         <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="url(#grid-dots)" />
 
-        {/* Wires */}
         {editor.circuit.wires.map((wire) => (
           <CircuitWire
             key={wire.id}
@@ -402,21 +359,17 @@ function CircuitCanvas({
           />
         ))}
 
-        {/* Wire preview */}
         {editor.wireStart && editor.wirePreviewPoints.length > 1 && (
           <WirePreview points={editor.wirePreviewPoints} />
         )}
 
-        {/* Junctions */}
         {editor.circuit.junctions?.map((j, idx) => (
           <JunctionMarker key={`junction-${idx}`} cx={j.x} cy={j.y} />
         ))}
 
-        {/* Components */}
         {editor.circuit.components.map(renderComponent)}
       </svg>
 
-      {/* Canvas mode indicator */}
       <div className="sim-canvas-mode">
         {placementType && (
           <span className="sim-mode-indicator sim-mode-indicator--place">

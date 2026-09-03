@@ -11,7 +11,8 @@ import Card from "../components/ui/Card";
 import LoadingState from "../components/common/LoadingState";
 
 import SimulationToolbar from "../components/simulation/SimulationToolbar";
-import WorkspaceCircuitCanvas from "../components/simulation/WorkspaceCircuitCanvas";
+// Changed import: use SimpleCircuitCanvas instead of WorkspaceCircuitCanvas
+import SimpleCircuitCanvas from "../components/simulation/SimpleCircuitCanvas";
 import MeasurementsPanel from "../components/simulation/MeasurementsPanel";
 import SimulationResults from "../components/simulation/SimulationResults";
 import SimulationHistory from "../components/simulation/SimulationHistory";
@@ -339,7 +340,8 @@ function WorkspacePage() {
                 {/* Center — canvas */}
                 <div className="sim-center-panel">
                   <Card className="sim-canvas-card">
-                    <WorkspaceCircuitCanvas
+                    {/* Use SimpleCircuitCanvas instead of WorkspaceCircuitCanvas */}
+                    <SimpleCircuitCanvas
                       mode={mode}
                       voltage={voltage}
                       r1={r1}
@@ -353,7 +355,8 @@ function WorkspacePage() {
 
                 {/* Right — measurements */}
                 <div className="sim-right-panel">
-                  <MeasurementsPanel result={result} status={simStatus} />
+                  {/* Removed 'status' prop – MeasurementsPanel only expects 'result' */}
+                  <MeasurementsPanel result={result as any} />
                   <SimulationHistory runs={runs} />
                 </div>
               </div>
@@ -374,11 +377,8 @@ function WorkspacePage() {
           {/* RESULTS TAB */}
           {activeTab === "results" && (
             <div className="ws-results-area">
-              <SimulationResults
-                result={result}
-                status={simStatus}
-                error={error}
-              />
+              {/* Removed 'status' and 'error' props – SimulationResults only expects 'result' */}
+              <SimulationResults result={result as any} />
 
               {experiment.expected_results && experiment.expected_results.length > 0 && (
                 <Card className="ws-section-card">

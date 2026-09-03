@@ -1,7 +1,7 @@
 /**
  * Component palette: drag-and-drop (or click) to add components to the canvas.
  */
-import type { ComponentType } from "../editorTypes";
+import type { ComponentType } from "./editorTypes";
 
 interface ComponentPaletteProps {
   onSelectType: (type: ComponentType) => void;

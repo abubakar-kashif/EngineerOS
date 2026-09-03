@@ -1,27 +1,16 @@
 /**
  * Utility functions for editor UI.
  */
-
 import type { ComponentInstance } from './editorTypes';
-import type { ComponentType } from './engine';
 
-/**
- * Compute the world position of a component's terminal on the canvas.
- * This is a simple approximation; can be refined.
- */
 export function getTerminalWorldPosition(
   component: ComponentInstance,
-  terminalId: string // e.g., "A"
+  _terminalId: string  // prefix with underscore to indicate unused
 ): { x: number; y: number } {
-  // For now, return component position.
-  // TODO: implement proper offset per component type.
   return { x: component.x, y: component.y };
 }
 
-/**
- * Return a human-readable unit for a property value.
- */
-export function unitForProperty(property: string, type: ComponentType): string {
+export function unitForProperty(property: string): string {
   switch (property) {
     case 'resistance': return 'Ω';
     case 'capacitance': return 'F';

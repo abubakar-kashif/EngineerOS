@@ -1,17 +1,10 @@
 /**
  * Adapter functions to convert between editor and engine representations.
  */
-
-import type { EditorCircuit, WireConnection } from './editorTypes';
+import type { EditorCircuit } from './editorTypes';
 import type { CircuitDefinition, Component, Connection } from './engine';
 import { createTerminalId } from './engine/circuitGraph';
 
-/**
- * Convert an editor circuit to engine CircuitDefinition.
- * - Editor components -> engine Components (map x,y to position)
- * - Editor connections -> engine Connections (format terminal IDs)
- * - Visual wires (WireSegment) are ignored for electrical topology.
- */
 export function toEngineCircuit(editor: EditorCircuit): CircuitDefinition {
   const components: Component[] = editor.components.map((comp) => ({
     id: comp.id,
@@ -45,6 +38,5 @@ export function toEngineCircuit(editor: EditorCircuit): CircuitDefinition {
   return {
     components,
     connections,
-    // nodes will be built by engine's graph builder
   };
 }

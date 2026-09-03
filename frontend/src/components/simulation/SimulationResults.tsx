@@ -1,16 +1,14 @@
 /**
  * Display simulation results in a structured format.
  */
-import type { SimulationResult } from "../engine";
+import type { SimulationResult } from "./engine";
 
 interface SimulationResultsProps {
   result: SimulationResult | null;
 }
 
 function SimulationResults({ result }: SimulationResultsProps) {
-  if (!result) {
-    return <p className="sim-results-empty">Run a simulation to see results.</p>;
-  }
+  if (!result) return <p className="sim-results-empty">Run a simulation to see results.</p>;
 
   if (result.status === "invalid" || result.status === "failed") {
     return (
@@ -27,9 +25,7 @@ function SimulationResults({ result }: SimulationResultsProps) {
   }
 
   const measurements = result.measurements;
-  if (!measurements) {
-    return <p className="sim-results-empty">No measurements returned.</p>;
-  }
+  if (!measurements) return <p className="sim-results-empty">No measurements returned.</p>;
 
   return (
     <div className="sim-results">
@@ -55,7 +51,7 @@ function SimulationResults({ result }: SimulationResultsProps) {
 
       <h5 style={{ marginTop: 16 }}>Component Details</h5>
       <div className="sim-component-results">
-        {measurements.componentMeasurements.map((comp) => (
+        {measurements.componentMeasurements.map((comp: any) => (
           <div key={comp.componentId} className="sim-comp-result-row">
             <span className="sim-comp-name">{comp.componentId}</span>
             <span className="sim-comp-details">

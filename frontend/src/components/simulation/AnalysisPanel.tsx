@@ -3,14 +3,14 @@
  * Tabbed interface: Results | Measurements | Validation.
  */
 import { useState } from "react";
-import type { CircuitDefinition } from "../engine";
-import type { SimulationResult } from "../engine";
+import type { CircuitDefinition } from "./engine";
+import type { SimulationResult } from "./engine";
 
 type AnalysisTab = "results" | "measurements" | "validation";
 
 interface AnalysisPanelProps {
   circuit: CircuitDefinition;
-  result: SimulationResult | null;   // changed from output: SimulationOutput
+  result: SimulationResult | null;
   selectedComponentId: string | null;
 }
 
@@ -21,14 +21,12 @@ function AnalysisPanel({
 }: AnalysisPanelProps) {
   const [tab, setTab] = useState<AnalysisTab>("results");
 
-  // Validation errors from the engine's ValidationResult
   const validationErrors = result?.validation?.errors ?? [];
-  const errorCount = validationErrors.filter((e) => e.severity === "error").length;
-  const warnCount = validationErrors.filter((e) => e.severity === "warning").length;
+  const errorCount = validationErrors.filter((e: any) => e.severity === "error").length;
+  const warnCount = validationErrors.filter((e: any) => e.severity === "warning").length;
 
   return (
     <div className="sim2-analysis">
-      {/* Tabs */}
       <div className="sim2-analysis-tabs">
         <TabBtn active={tab === "results"} onClick={() => setTab("results")}>
           Results
@@ -42,11 +40,8 @@ function AnalysisPanel({
         </TabBtn>
       </div>
 
-      {/* Tab content */}
       <div className="sim2-analysis-content">
-        {tab === "results" && (
-          <ResultsTab result={result} />
-        )}
+        {tab === "results" && <ResultsTab result={result} />}
         {tab === "measurements" && (
           <MeasurementsTab
             circuit={circuit}
@@ -54,9 +49,7 @@ function AnalysisPanel({
             selectedComponentId={selectedComponentId}
           />
         )}
-        {tab === "validation" && (
-          <ValidationTab errors={validationErrors} />
-        )}
+        {tab === "validation" && <ValidationTab errors={validationErrors} />}
       </div>
     </div>
   );
@@ -70,19 +63,11 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
   );
 }
 
-// ── Results tab ──
-
 function ResultsTab({ result }: { result: SimulationResult | null }) {
-  if (!result) {
-    return <p className="sim2-analysis-empty">Run the simulation to see results.</p>;
-  }
-
+  if (!result) return <p className="sim2-analysis-empty">Run the simulation to see results.</p>;
   const measurements = result.measurements;
-  if (!measurements) {
-    return <p className="sim2-analysis-empty">No measurements available.</p>;
-  }
+  if (!measurements) return <p className="sim2-analysis-empty">No measurements available.</p>;
 
-  // Build rows from measurements
   const rows = [
     { label: "Total Voltage", value: `${measurements.totalVoltage.toFixed(3)} V` },
     { label: "Total Current", value: `${measurements.totalCurrent.toFixed(4)} A` },
@@ -99,9 +84,8 @@ function ResultsTab({ result }: { result: SimulationResult | null }) {
           <span className="sim2-result-value">{r.value}</span>
         </div>
       ))}
-
       <h4 className="sim2-results-heading" style={{ marginTop: 16 }}>Component Results</h4>
-      {measurements.componentMeasurements.map((cr) => (
+      {measurements.componentMeasurements.map((cr: any) => (
         <div key={cr.componentId} className="sim2-comp-result">
           <span className="sim2-comp-result-label">{cr.componentId}</span>
           <span className="sim2-comp-result-values">
@@ -114,8 +98,6 @@ function ResultsTab({ result }: { result: SimulationResult | null }) {
   );
 }
 
-// ── Measurements tab ──
-
 function MeasurementsTab({
   circuit,
   result,
@@ -125,19 +107,13 @@ function MeasurementsTab({
   result: SimulationResult | null;
   selectedComponentId: string | null;
 }) {
-  if (!result) {
-    return <p className="sim2-analysis-empty">Run the simulation to see measurements.</p>;
-  }
-
+  if (!result) return <p className="sim2-analysis-empty">Run the simulation to see measurements.</p>;
   const measurements = result.measurements;
-  if (!measurements) {
-    return <p className="sim2-analysis-empty">No measurements available.</p>;
-  }
+  if (!measurements) return <p className="sim2-analysis-empty">No measurements available.</p>;
 
-  // If a component is selected, show its measurement details
   if (selectedComponentId) {
-    const comp = circuit.components.find((c) => c.id === selectedComponentId);
-    const compMeas = measurements.componentMeasurements.find((m) => m.componentId === selectedComponentId);
+    const comp = circuit.components.find((c: any) => c.id === selectedComponentId);
+    const compMeas = measurements.componentMeasurements.find((m: any) => m.componentId === selectedComponentId);
     if (compMeas) {
       const rows = [
         { label: "Voltage", value: `${compMeas.voltage.toFixed(3)} V` },
@@ -147,9 +123,7 @@ function MeasurementsTab({
       ];
       return (
         <div className="sim2-measurements">
-          <h4 className="sim2-results-heading">
-            {comp?.label ?? selectedComponentId}
-          </h4>
+          <h4 className="sim2-results-heading">{comp?.label ?? selectedComponentId}</h4>
           {rows.map((r) => (
             <div key={r.label} className="sim2-result-row">
               <span className="sim2-result-label">{r.label}</span>
@@ -160,15 +134,8 @@ function MeasurementsTab({
       );
     }
   }
-
-  return (
-    <div className="sim2-measurements">
-      <p className="sim2-analysis-empty">Select a component to view its measurements.</p>
-    </div>
-  );
+  return <p className="sim2-analysis-empty">Select a component to view its measurements.</p>;
 }
-
-// ── Validation tab ──
 
 function ValidationTab({ errors }: { errors: any[] }) {
   if (errors.length === 0) {
@@ -178,7 +145,6 @@ function ValidationTab({ errors }: { errors: any[] }) {
       </div>
     );
   }
-
   return (
     <div className="sim2-validation-errors">
       {errors.map((err, idx) => (

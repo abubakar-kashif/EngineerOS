@@ -1,21 +1,16 @@
 /**
  * Measurements panel: displays global and component measurements from simulation result.
  */
-import type { SimulationResult } from "../engine";
+import type { SimulationResult } from "./engine";
 
 interface MeasurementsPanelProps {
   result: SimulationResult | null;
 }
 
 function MeasurementsPanel({ result }: MeasurementsPanelProps) {
-  if (!result) {
-    return <p className="sim-measurements-empty">Run simulation to see measurements.</p>;
-  }
-
+  if (!result) return <p className="sim-measurements-empty">Run simulation to see measurements.</p>;
   const measurements = result.measurements;
-  if (!measurements) {
-    return <p className="sim-measurements-empty">No measurements available.</p>;
-  }
+  if (!measurements) return <p className="sim-measurements-empty">No measurements available.</p>;
 
   const globalRows = [
     { label: "Total Voltage", value: `${measurements.totalVoltage.toFixed(3)} V` },
@@ -41,7 +36,7 @@ function MeasurementsPanel({ result }: MeasurementsPanelProps) {
         <p>No component measurements.</p>
       ) : (
         <div className="sim-component-measurements">
-          {measurements.componentMeasurements.map((comp) => (
+          {measurements.componentMeasurements.map((comp: any) => (
             <div key={comp.componentId} className="sim-comp-measurement">
               <span className="sim-comp-id">{comp.componentId}</span>
               <span className="sim-comp-values">

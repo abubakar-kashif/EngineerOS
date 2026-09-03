@@ -1,8 +1,8 @@
 /**
  * Inspector panel: shows details of the selected component and allows property editing.
  */
-import type { ComponentInstance } from "../editorTypes";
-import { unitForProperty } from "../editorUtils";
+import type { ComponentInstance } from "./editorTypes";
+import { unitForProperty } from "./editorUtils";
 
 interface ComponentInspectorProps {
   component: ComponentInstance | null;
@@ -26,7 +26,6 @@ function ComponentInspector({
   }
 
   const handlePropertyChange = (key: string, value: string) => {
-    // Parse numeric values
     const num = parseFloat(value);
     const finalValue = isNaN(num) ? value : num;
     onUpdateProperty(component.id, key, finalValue);
@@ -50,7 +49,6 @@ function ComponentInspector({
         </div>
 
         {Object.entries(component.properties).map(([key, value]) => {
-          // Skip internal/read-only properties
           if (key === "state" || key === "closed") return null;
           const displayValue = typeof value === "number" ? value.toString() : String(value);
           return (
@@ -62,7 +60,7 @@ function ComponentInspector({
                   value={displayValue}
                   onChange={(e) => handlePropertyChange(key, e.target.value)}
                 />
-                <span className="sim-inspector-unit">{unitForProperty(key, component.type)}</span>
+                <span className="sim-inspector-unit">{unitForProperty(key)}</span>
               </div>
             </div>
           );

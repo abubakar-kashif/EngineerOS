@@ -5,7 +5,6 @@ import { useState, useCallback } from "react";
 import { useCircuitEditor } from "../hooks/useCircuitEditor";
 import { validateCircuit, solveCircuit } from "../components/simulation/engine";
 import type { SimulationResult } from "../components/simulation/engine";
-import type { ComponentType } from "../components/simulation/editorTypes";
 import AnalysisPanel from "../components/simulation/AnalysisPanel";
 import ComponentInspector from "../components/simulation/ComponentInspector";
 import ComponentPalette from "../components/simulation/ComponentPalette";
@@ -14,14 +13,11 @@ import WorkspaceCircuitCanvas from "../components/simulation/WorkspaceCircuitCan
 import SimulationResults from "../components/simulation/SimulationResults";
 
 function SimulationPage() {
-  // Use the editor hook
   const {
     state,
     addComponent,
     moveComponent,
-    rotateComponent,
     deleteComponent,
-    deleteWire,
     duplicateComponent,
     updateProperty,
     startWire,
@@ -32,7 +28,6 @@ function SimulationPage() {
     setPlacementType,
     selectComponent,
     selectWire,
-    clearSelection,
     undo,
     redo,
     clearCircuit,
@@ -42,19 +37,15 @@ function SimulationPage() {
     selectedComponent,
   } = useCircuitEditor();
 
-  // Simulation state
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
 
-  // Run simulation
   const runSimulation = useCallback(async () => {
     setIsRunning(true);
     try {
-      // Convert editor circuit to engine CircuitDefinition
       const engineCircuit = getEngineCircuit();
-      // Validate
       const validation = validateCircuit(engineCircuit);
-      if (!validation.isValid) {
+      if (!validation.valid) {
         setSimResult({
           status: "invalid",
           validation,
@@ -63,7 +54,6 @@ function SimulationPage() {
         setIsRunning(false);
         return;
       }
-      // Solve
       const result = solveCircuit(engineCircuit);
       setSimResult(result);
     } catch (err) {
@@ -75,12 +65,12 @@ function SimulationPage() {
     setIsRunning(false);
   }, [getEngineCircuit]);
 
-  // Reset simulation results
-  const resetSimulation = useCallback(() => {
-    setSimResult(null);
+  const stopSimulation = useCallback(() => {
+    setIsRunning(false);
+    // If needed, you can cancel any ongoing simulation here.
   }, []);
 
-  // Clear all (circuit + results)
+  const resetSimulation = useCallback(() => setSimResult(null), []);
   const handleClearAll = useCallback(() => {
     clearCircuit();
     setSimResult(null);
@@ -88,23 +78,21 @@ function SimulationPage() {
 
   return (
     <div className="sim-page">
-      {/* Toolbar / Controls */}
       <div className="sim-page-toolbar">
         <SimulationControls
           onRun={runSimulation}
+          onStop={stopSimulation}
           onReset={resetSimulation}
           onUndo={undo}
           onRedo={redo}
           onClear={handleClearAll}
           canUndo={canUndo}
           canRedo={canRedo}
-          isRunning={isRunning}
-          hasResult={simResult !== null}
+          running={isRunning}
         />
       </div>
 
       <div className="sim-page-layout">
-        {/* Left panel: Palette */}
         <div className="sim-page-palette">
           <ComponentPalette
             onSelectType={setPlacementType}
@@ -112,7 +100,6 @@ function SimulationPage() {
           />
         </div>
 
-        {/* Center: Canvas */}
         <div className="sim-page-canvas">
           <WorkspaceCircuitCanvas
             editor={state}
@@ -130,9 +117,7 @@ function SimulationPage() {
           />
         </div>
 
-        {/* Right panel: Inspector + Analysis */}
         <div className="sim-page-panels">
-          {/* Component Inspector */}
           <div className="sim-page-inspector">
             <ComponentInspector
               component={selectedComponent}
@@ -142,7 +127,6 @@ function SimulationPage() {
             />
           </div>
 
-          {/* Analysis / Results */}
           <div className="sim-page-analysis">
             {simResult ? (
               <SimulationResults result={simResult} />
