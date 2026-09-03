@@ -3,8 +3,9 @@
  * Renders components, wires, junctions, and handles all mouse interaction.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ComponentInstance, ComponentType, SimulationOutput } from "./engine/types";
-import { getTerminalWorldPosition } from "./engine/types";
+import type { ComponentInstance, ComponentType } from "../editorTypes";
+import { getTerminalWorldPosition } from "../editorUtils";
+import type { SimulationResult } from "../engine"; // changed
 import type { EditorState } from "../../hooks/useCircuitEditor";
 import {
   VoltageSourceNode,
@@ -25,7 +26,7 @@ import EmptyCanvasState from "./EmptyCanvasState";
 
 interface CircuitCanvasProps {
   editor: EditorState;
-  simOutput: SimulationOutput | null;
+  simResult: SimulationResult | null; // changed from simOutput
   onAddComponent: (type: ComponentType, x: number, y: number) => void;
   onSelectComponent: (id: string | null) => void;
   onSelectWire: (id: string | null) => void;
@@ -42,7 +43,7 @@ const GRID_SIZE = 20;
 
 function CircuitCanvas({
   editor,
-  simOutput,
+  simResult,
   onAddComponent,
   onSelectComponent,
   onSelectWire,
@@ -244,8 +245,10 @@ function CircuitCanvas({
 
   // ── Render component SVG ──
 
-  const getComponentResult = (id: string) =>
-    simOutput?.components.find((r) => r.componentId === id);
+  const getComponentResult = (id: string) => {
+    if (!simResult?.measurements) return undefined;
+    return simResult.measurements.componentMeasurements.find((m) => m.componentId === id);
+  };
 
   const renderComponent = (comp: ComponentInstance) => {
     const isSelected = editor.selectedComponentId === comp.id;
@@ -257,14 +260,14 @@ function CircuitCanvas({
     const terminalData = comp.terminals.map((t) => {
       const connected = editor.circuit.connections.some(
         (conn) =>
-          conn.from === `${comp.id}:${t.id}` ||
-          conn.to === `${comp.id}:${t.id}`,
+          conn.from === `${comp.id}:${t}` ||
+          conn.to === `${comp.id}:${t}`,
       );
-      const world = getTerminalWorldPosition(comp, t.id);
+      const world = getTerminalWorldPosition(comp, t);
       return {
-        id: t.id,
-        x: world ? world.x - comp.x : t.x,
-        y: world ? world.y - comp.y : t.y,
+        id: t,
+        x: world ? world.x - comp.x : 0, // fallback if no world
+        y: world ? world.y - comp.y : 0,
         connected,
       };
     });
@@ -324,6 +327,8 @@ function CircuitCanvas({
       case "ammeter":
         node = <AmmeterNode {...commonProps} reading={result ? `${(result.current * 1000).toFixed(2)}mA` : undefined} />;
         break;
+      default:
+        node = null;
     }
 
     return (
@@ -403,8 +408,8 @@ function CircuitCanvas({
         )}
 
         {/* Junctions */}
-        {editor.circuit.junctions.map((j) => (
-          <JunctionMarker key={j.id} cx={j.x} cy={j.y} />
+        {editor.circuit.junctions?.map((j, idx) => (
+          <JunctionMarker key={`junction-${idx}`} cx={j.x} cy={j.y} />
         ))}
 
         {/* Components */}

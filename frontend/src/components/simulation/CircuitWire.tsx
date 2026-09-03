@@ -1,7 +1,7 @@
 /**
  * Renders a wire (series of orthogonal line segments) on the circuit canvas.
  */
-import type { WireSegment } from "./engine/types";
+import type { WireSegment } from "../editorTypes";
 
 interface CircuitWireProps {
   wire: WireSegment;
