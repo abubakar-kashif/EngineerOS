@@ -1,127 +1,162 @@
 /**
- * Phase 10 — Professional circuit simulator page.
- * Workstation layout: palette | canvas | inspector + analysis.
+ * Simulation Page: full simulation workspace with canvas, palette, inspector, and analysis.
  */
-import { useCallback, useMemo, useState } from "react";
-
+import { useState, useCallback } from "react";
 import { useCircuitEditor } from "../hooks/useCircuitEditor";
-import { validateCircuit, hasBlockingErrors } from "../components/simulation/engine/circuitValidator";
-import { solveDC } from "../components/simulation/engine/dcSolver";
-import type { SimulationOutput, ValidationError } from "../components/simulation/engine/types";
-
-import SimToolbar from "../components/simulation/SimToolbar";
-import ComponentPalette from "../components/simulation/ComponentPalette";
-import CircuitCanvas from "../components/simulation/CircuitCanvas";
-import ComponentInspector from "../components/simulation/ComponentInspector";
+import { validateCircuit, solveCircuit } from "../components/simulation/engine";
+import type { SimulationResult } from "../components/simulation/engine";
+import type { ComponentType } from "../components/simulation/editorTypes";
 import AnalysisPanel from "../components/simulation/AnalysisPanel";
+import ComponentInspector from "../components/simulation/ComponentInspector";
+import ComponentPalette from "../components/simulation/ComponentPalette";
+import SimulationControls from "../components/simulation/SimulationControls";
+import WorkspaceCircuitCanvas from "../components/simulation/WorkspaceCircuitCanvas";
+import SimulationResults from "../components/simulation/SimulationResults";
 
 function SimulationPage() {
-  const editor = useCircuitEditor();
-  const [simOutput, setSimOutput] = useState<SimulationOutput | null>(null);
-  const [simStatus, setSimStatus] = useState<"idle" | "running" | "completed" | "error">("idle");
+  // Use the editor hook
+  const {
+    state,
+    addComponent,
+    moveComponent,
+    rotateComponent,
+    deleteComponent,
+    deleteWire,
+    duplicateComponent,
+    updateProperty,
+    startWire,
+    updateWirePreview,
+    completeWire,
+    cancelWire,
+    cancelPlacement,
+    setPlacementType,
+    selectComponent,
+    selectWire,
+    clearSelection,
+    undo,
+    redo,
+    clearCircuit,
+    getEngineCircuit,
+    canUndo,
+    canRedo,
+    selectedComponent,
+  } = useCircuitEditor();
 
-  // ── Validation (recomputed on every circuit change) ──
-  const validationErrors: ValidationError[] = useMemo(
-    () => validateCircuit(editor.state.circuit),
-    [editor.state.circuit],
-  );
+  // Simulation state
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
 
-  const canRun = !hasBlockingErrors(validationErrors) && editor.state.circuit.components.length > 0;
-
-  // ── Run simulation ──
-  const handleRun = useCallback(() => {
-    if (!canRun) {
-      setSimStatus("error");
-      return;
-    }
-    setSimStatus("running");
-    // Solve synchronously (educational scope)
+  // Run simulation
+  const runSimulation = useCallback(async () => {
+    setIsRunning(true);
     try {
-      const output = solveDC(editor.state.circuit);
-      setSimOutput(output);
-      setSimStatus("completed");
-    } catch {
-      setSimStatus("error");
+      // Convert editor circuit to engine CircuitDefinition
+      const engineCircuit = getEngineCircuit();
+      // Validate
+      const validation = validateCircuit(engineCircuit);
+      if (!validation.isValid) {
+        setSimResult({
+          status: "invalid",
+          validation,
+          error: "Circuit validation failed",
+        });
+        setIsRunning(false);
+        return;
+      }
+      // Solve
+      const result = solveCircuit(engineCircuit);
+      setSimResult(result);
+    } catch (err) {
+      setSimResult({
+        status: "failed",
+        error: String(err),
+      });
     }
-  }, [canRun, editor.state.circuit]);
+    setIsRunning(false);
+  }, [getEngineCircuit]);
 
-  const handleStop = useCallback(() => {
-    setSimStatus("idle");
+  // Reset simulation results
+  const resetSimulation = useCallback(() => {
+    setSimResult(null);
   }, []);
 
-  // ── Save (placeholder — backend integration later) ──
-  const handleSave = useCallback(() => {
-    // TODO: persist via API
-    console.log("Save circuit:", editor.state.circuit);
-  }, [editor.state.circuit]);
-
-  // ── Zoom / fit placeholders ──
-  const handleZoomIn = useCallback(() => {} , []);
-  const handleZoomOut = useCallback(() => {}, []);
-  const handleFit = useCallback(() => {}, []);
+  // Clear all (circuit + results)
+  const handleClearAll = useCallback(() => {
+    clearCircuit();
+    setSimResult(null);
+  }, [clearCircuit]);
 
   return (
-    <main className="sim2-page">
-      {/* Toolbar */}
-      <SimToolbar
-        status={simStatus}
-        canRun={canRun}
-        canUndo={editor.canUndo}
-        canRedo={editor.canRedo}
-        dirty={editor.state.dirty}
-        onRun={handleRun}
-        onStop={handleStop}
-        onUndo={editor.undo}
-        onRedo={editor.redo}
-        onClear={editor.clearCircuit}
-        onSave={handleSave}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onFit={handleFit}
-      />
+    <div className="sim-page">
+      {/* Toolbar / Controls */}
+      <div className="sim-page-toolbar">
+        <SimulationControls
+          onRun={runSimulation}
+          onReset={resetSimulation}
+          onUndo={undo}
+          onRedo={redo}
+          onClear={handleClearAll}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          isRunning={isRunning}
+          hasResult={simResult !== null}
+        />
+      </div>
 
-      {/* Three-panel layout */}
-      <div className="sim2-layout">
-        {/* Left: Component palette + Inspector */}
-        <aside className="sim2-sidebar">
+      <div className="sim-page-layout">
+        {/* Left panel: Palette */}
+        <div className="sim-page-palette">
           <ComponentPalette
-            selectedType={editor.state.placementType}
-            onSelect={editor.setPlacementType}
-          />
-          <ComponentInspector
-            component={editor.selectedComponent}
-            onChange={editor.updateProperty}
-            onDelete={editor.deleteComponent}
-            onDuplicate={editor.duplicateComponent}
-            onRotate={editor.rotateComponent}
-          />
-        </aside>
-
-        {/* Center: Canvas + Analysis */}
-        <div className="sim2-main">
-          <CircuitCanvas
-            editor={editor.state}
-            simOutput={simOutput}
-            onAddComponent={editor.addComponent}
-            onSelectComponent={editor.selectComponent}
-            onSelectWire={editor.selectWire}
-            onMoveComponent={editor.moveComponent}
-            onStartWire={editor.startWire}
-            onCompleteWire={editor.completeWire}
-            onUpdateWirePreview={editor.updateWirePreview}
-            onCancelWire={editor.cancelWire}
-            onCancelPlacement={editor.cancelPlacement}
-            placementType={editor.state.placementType}
-          />
-          <AnalysisPanel
-            circuit={editor.state.circuit}
-            output={simOutput}
-            validationErrors={validationErrors}
-            selectedComponentId={editor.state.selectedComponentId}
+            onSelectType={setPlacementType}
+            selectedType={state.placementType}
           />
         </div>
+
+        {/* Center: Canvas */}
+        <div className="sim-page-canvas">
+          <WorkspaceCircuitCanvas
+            editor={state}
+            simResult={simResult}
+            onAddComponent={addComponent}
+            onSelectComponent={selectComponent}
+            onSelectWire={selectWire}
+            onMoveComponent={moveComponent}
+            onStartWire={startWire}
+            onCompleteWire={completeWire}
+            onUpdateWirePreview={updateWirePreview}
+            onCancelWire={cancelWire}
+            onCancelPlacement={cancelPlacement}
+            placementType={state.placementType}
+          />
+        </div>
+
+        {/* Right panel: Inspector + Analysis */}
+        <div className="sim-page-panels">
+          {/* Component Inspector */}
+          <div className="sim-page-inspector">
+            <ComponentInspector
+              component={selectedComponent}
+              onUpdateProperty={updateProperty}
+              onDeleteComponent={deleteComponent}
+              onDuplicateComponent={duplicateComponent}
+            />
+          </div>
+
+          {/* Analysis / Results */}
+          <div className="sim-page-analysis">
+            {simResult ? (
+              <SimulationResults result={simResult} />
+            ) : (
+              <AnalysisPanel
+                circuit={getEngineCircuit()}
+                result={simResult}
+                selectedComponentId={state.selectedComponentId}
+              />
+            )}
+          </div>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
 

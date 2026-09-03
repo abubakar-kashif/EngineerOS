@@ -1,71 +1,70 @@
-import { CheckCircle2, AlertTriangle } from "lucide-react";
-import Card from "../ui/Card";
-import Badge from "../ui/Badge";
-import type { SimulationResult as SimResultType, SimulationStatus } from "../../types/simulation";
+/**
+ * Display simulation results in a structured format.
+ */
+import type { SimulationResult } from "../engine";
 
-type SimulationResultsProps = {
-  result: SimResultType | null;
-  status: SimulationStatus;
-  error: string;
-};
-
-function SimulationResults({ result, status, error }: SimulationResultsProps) {
-  const isActive = status === "running" || status === "completed";
-
-  return (
-    <Card className="sim-results-card">
-      <div className="sim-results-header">
-        <div>
-          <h2 className="sim-results-title">Simulation Results</h2>
-          <p className="sim-results-subtitle">Calculated electrical values</p>
-        </div>
-        <Badge variant={isActive ? "info" : "default"}>
-          {isActive ? (status === "completed" ? "Completed" : "Running") : "Stopped"}
-        </Badge>
-      </div>
-
-      {error && (
-        <div className="sim-results-error" role="alert">
-          <AlertTriangle size={14} />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {result ? (
-        <>
-          <div className="sim-results-grid">
-            <ResultItem label="Total Resistance" value={`${result.totalResistance.toFixed(3)} Ω`} />
-            <ResultItem label="Current" value={`${result.current.toFixed(3)} A`} />
-            <ResultItem label="Power" value={`${result.power.toFixed(3)} W`} />
-          </div>
-
-          <div className="sim-results-formula">
-            <strong>Formula:</strong> I = V / R
-          </div>
-
-          {status === "completed" && (
-            <div className="sim-results-status">
-              <CheckCircle2 size={14} className="sim-results-ok-icon" />
-              <span>Within expected range</span>
-            </div>
-          )}
-        </>
-      ) : (
-        <p className="sim-results-empty">
-          {status === "error"
-            ? "Simulation could not be completed. Check your inputs and try again."
-            : "Run the simulation to view calculated results."}
-        </p>
-      )}
-    </Card>
-  );
+interface SimulationResultsProps {
+  result: SimulationResult | null;
 }
 
-function ResultItem({ label, value }: { label: string; value: string }) {
+function SimulationResults({ result }: SimulationResultsProps) {
+  if (!result) {
+    return <p className="sim-results-empty">Run a simulation to see results.</p>;
+  }
+
+  if (result.status === "invalid" || result.status === "failed") {
+    return (
+      <div className="sim-results-error">
+        <h4>Simulation {result.status}</h4>
+        <p>{result.error || "Invalid circuit or solver error."}</p>
+        {result.validation && (
+          <div className="sim-results-validation">
+            <p>Validation errors: {result.validation.errors?.length || 0}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const measurements = result.measurements;
+  if (!measurements) {
+    return <p className="sim-results-empty">No measurements returned.</p>;
+  }
+
   return (
-    <div className="sim-result-item">
-      <span className="sim-result-item-label">{label}</span>
-      <strong className="sim-result-item-value">{value}</strong>
+    <div className="sim-results">
+      <h4>Simulation Results</h4>
+      <div className="sim-results-grid">
+        <div className="sim-result-item">
+          <span className="sim-result-label">Total Voltage</span>
+          <span className="sim-result-value">{measurements.totalVoltage.toFixed(3)} V</span>
+        </div>
+        <div className="sim-result-item">
+          <span className="sim-result-label">Total Current</span>
+          <span className="sim-result-value">{measurements.totalCurrent.toFixed(4)} A</span>
+        </div>
+        <div className="sim-result-item">
+          <span className="sim-result-label">Total Power</span>
+          <span className="sim-result-value">{measurements.totalPower.toFixed(4)} W</span>
+        </div>
+        <div className="sim-result-item">
+          <span className="sim-result-label">Equivalent Resistance</span>
+          <span className="sim-result-value">{measurements.equivalentResistance.toFixed(2)} Ω</span>
+        </div>
+      </div>
+
+      <h5 style={{ marginTop: 16 }}>Component Details</h5>
+      <div className="sim-component-results">
+        {measurements.componentMeasurements.map((comp) => (
+          <div key={comp.componentId} className="sim-comp-result-row">
+            <span className="sim-comp-name">{comp.componentId}</span>
+            <span className="sim-comp-details">
+              {comp.voltage.toFixed(3)} V &nbsp; {comp.current.toFixed(4)} A &nbsp; {comp.power.toFixed(4)} W
+              {comp.resistance !== undefined && ` (${comp.resistance.toFixed(2)} Ω)`}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
