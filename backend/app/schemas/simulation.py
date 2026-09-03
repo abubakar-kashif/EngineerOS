@@ -1,33 +1,60 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from enum import Enum
+from app.models.simulation import SimulationStatus
 
-class SimulationStatus(str, Enum):
-    IDLE = "idle"
-    READY = "ready"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    INVALID = "invalid"
-    FAILED = "failed"
+# === Validation sub-schemas ===
+class ValidationError(BaseModel):
+    code: str
+    severity: str
+    message: str
+    suggestedFix: Optional[str] = None
 
-# === Base Schema ===
+class ValidationResult(BaseModel):
+    valid: bool
+    errors: List[ValidationError] = []
+    warnings: List[ValidationError] = []
+
+# === DC analysis results ===
+class DCResult(BaseModel):
+    nodeVoltages: Dict[str, float]
+    branchCurrents: Dict[str, float]
+    power: Optional[float] = None  # <-- make optional
+
+class ComponentMeasurement(BaseModel):
+    componentId: str
+    type: str
+    voltage: float
+    current: float
+    power: float
+    resistance: Optional[float] = None
+
+class Measurements(BaseModel):
+    totalVoltage: float
+    totalCurrent: float
+    totalPower: float
+    equivalentResistance: float
+    componentMeasurements: List[ComponentMeasurement]
+
+class GraphData(BaseModel):
+    # adjust based on engine's graphData.ts
+    nodes: List[Dict[str, Any]]
+    edges: List[Dict[str, Any]]
+
+# === Core simulation schemas ===
 class SimulationBase(BaseModel):
     name: str = "Untitled Simulation"
     experiment_id: Optional[str] = None
     circuit_definition: Optional[Dict[str, Any]] = None
 
-# === Create Simulation ===
 class SimulationCreate(SimulationBase):
     pass
 
-# === Update Simulation ===
 class SimulationUpdate(BaseModel):
     name: Optional[str] = None
     circuit_definition: Optional[Dict[str, Any]] = None
     status: Optional[SimulationStatus] = None
 
-# === Response Schema ===
 class SimulationResponse(SimulationBase):
     id: str
     user_id: str
@@ -42,20 +69,24 @@ class SimulationResponse(SimulationBase):
     class Config:
         from_attributes = True
 
-# === Run Simulation Request ===
+# === Request schemas ===
 class RunSimulationRequest(BaseModel):
     circuit_definition: Dict[str, Any]
 
-# === Validation Response ===
+# === Validation response (updated) ===
 class ValidationResponse(BaseModel):
     valid: bool
-    errors: List[Dict[str, Any]] = []
-    warnings: List[Dict[str, Any]] = []
+    errors: List[ValidationError] = []
+    warnings: List[ValidationError] = []
 
-# === Simulation Result ===
+# === Simulation result (replaced with new structure) ===
 class SimulationResult(BaseModel):
     status: SimulationStatus
-    measurements: Optional[Dict[str, Any]] = None
-    results: Optional[Dict[str, Any]] = None
-    validation_errors: Optional[List[Dict[str, Any]]] = None
-    warnings: Optional[List[Dict[str, Any]]] = None
+    validation: Optional[ValidationResult] = None
+    dcResult: Optional[DCResult] = None
+    measurements: Optional[Measurements] = None
+    graphs: Optional[List[GraphData]] = None
+    error: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(from_attributes=True)

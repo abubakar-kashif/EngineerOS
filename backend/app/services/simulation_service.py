@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import func
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime
@@ -108,60 +107,97 @@ def save_simulation_result(
     user_id: str,
     result: Dict[str, Any]
 ) -> Optional[Simulation]:
-    """Save simulation results"""
+    """Save simulation results (full result)"""
     db_simulation = get_simulation(db, simulation_id, user_id)
     if not db_simulation:
         return None
     
+    # Store the full result
     db_simulation.results = result
     db_simulation.measurements = result.get("measurements")
-    db_simulation.validation_errors = result.get("validation_errors")
     
-    if result.get("status") == "completed":
+    # Extract validation errors from the new nested structure
+    validation = result.get("validation", {})
+    db_simulation.validation_errors = validation.get("errors", [])
+    
+    # Map engine status to our enum
+    status = result.get("status")
+    if status == "completed":
         db_simulation.status = SimulationStatus.COMPLETED
         db_simulation.completed_at = datetime.now()
-    elif result.get("status") == "invalid":
+    elif status == "invalid":
         db_simulation.status = SimulationStatus.INVALID
-    elif result.get("status") == "failed":
+    elif status == "failed":
         db_simulation.status = SimulationStatus.FAILED
+    else:
+        db_simulation.status = SimulationStatus.READY  # fallback
     
     db.commit()
     db.refresh(db_simulation)
     return db_simulation
 
 def validate_simulation(db: Session, simulation_id: str, user_id: str):
-    """Validate a simulation circuit using the engine"""
+    """
+    Validate a simulation circuit using the engine.
+    Returns only the validation result (valid, errors, warnings).
+    Updates simulation status and validation_errors, but does NOT store full results/measurements.
+    """
     simulation = get_simulation(db, simulation_id, user_id)
     if not simulation:
         return None
     if not simulation.circuit_definition:
         return {"valid": False, "errors": [{"message": "No circuit definition"}]}
     
-    result = run_engine(simulation.circuit_definition)
-    validation = result.get("validation", {})
+    # Run the engine – this returns the full result, but we only care about validation
+    full_result = run_engine(simulation.circuit_definition)
+    validation = full_result.get("validation", {})
     
-    # Update simulation status
-    simulation.status = "invalid" if not validation.get("valid") else "ready"
+    # Update simulation status based on validation
+    if validation.get("valid", False):
+        simulation.status = SimulationStatus.READY
+    else:
+        simulation.status = SimulationStatus.INVALID
     simulation.validation_errors = validation.get("errors", [])
     db.commit()
     
+    # Return only the validation part (matches ValidationResponse schema)
     return validation
 
 def run_simulation(db: Session, simulation_id: str, user_id: str):
-    """Run a simulation using the engine"""
+    """
+    Run a simulation using the engine.
+    Returns the full result, persists it (results, measurements, validation_errors, status, completed_at).
+    """
     simulation = get_simulation(db, simulation_id, user_id)
     if not simulation:
         return None
     if not simulation.circuit_definition:
         return {"status": "failed", "error": "No circuit definition"}
     
+    # Execute the engine
     result = run_engine(simulation.circuit_definition)
     
-    # Save results
-    simulation.status = result.get("status", "failed")
-    simulation.results = result
-    simulation.measurements = result.get("measurements", {})
-    simulation.completed_at = func.now()
+    # Persist the full result
+    db_simulation = simulation  # alias for clarity
+    db_simulation.results = result
+    db_simulation.measurements = result.get("measurements", {})
+    
+    # Extract validation errors from the new nested structure
+    validation = result.get("validation", {})
+    db_simulation.validation_errors = validation.get("errors", [])
+    
+    # Map engine status to our enum
+    engine_status = result.get("status")
+    if engine_status == "completed":
+        db_simulation.status = SimulationStatus.COMPLETED
+        db_simulation.completed_at = datetime.now()
+    elif engine_status == "invalid":
+        db_simulation.status = SimulationStatus.INVALID
+    elif engine_status == "failed":
+        db_simulation.status = SimulationStatus.FAILED
+    else:
+        db_simulation.status = SimulationStatus.READY  # fallback
+    
     db.commit()
     
     return result

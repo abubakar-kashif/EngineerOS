@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.api.routes.experiments import router as experiments_router
+from app.api.routes.simulations import router as simulations_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.conversations import router as conversations_router
 from app.api.routes.notifications import router as notifications_router
@@ -126,6 +128,8 @@ def phase9_client(tmp_path):
         quiz_router,
         progress_router,
         reports_router,
+        experiments_router,      # <-- Add this
+        simulations_router,      
     ):
         app.include_router(router)
 
