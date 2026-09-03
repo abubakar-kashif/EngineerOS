@@ -1,105 +1,44 @@
 /**
- * Component palette: categorized list of available circuit components.
- * User clicks a category to expand, then clicks a component to select it for placement.
+ * Component palette: drag-and-drop (or click) to add components to the canvas.
  */
-import { useState } from "react";
-import type { ComponentType } from "./engine/types";
-
-interface PaletteItem {
-  type: ComponentType;
-  label: string;
-  symbol: string;
-}
-
-const CATEGORIES: { name: string; items: PaletteItem[] }[] = [
-  {
-    name: "Sources",
-    items: [
-      { type: "voltage_source", label: "DC Voltage", symbol: "V" },
-      { type: "current_source", label: "Current", symbol: "I" },
-    ],
-  },
-  {
-    name: "Passive",
-    items: [
-      { type: "resistor", label: "Resistor", symbol: "R" },
-      { type: "capacitor", label: "Capacitor", symbol: "C" },
-      { type: "inductor", label: "Inductor", symbol: "L" },
-    ],
-  },
-  {
-    name: "Semiconductors",
-    items: [
-      { type: "diode", label: "Diode", symbol: "D" },
-      { type: "led", label: "LED", symbol: "LED" },
-    ],
-  },
-  {
-    name: "Control",
-    items: [
-      { type: "switch", label: "Switch", symbol: "SW" },
-    ],
-  },
-  {
-    name: "Reference",
-    items: [
-      { type: "ground", label: "Ground", symbol: "GND" },
-    ],
-  },
-  {
-    name: "Measurement",
-    items: [
-      { type: "voltmeter", label: "Voltmeter", symbol: "V" },
-      { type: "ammeter", label: "Ammeter", symbol: "A" },
-    ],
-  },
-];
+import type { ComponentType } from "../editorTypes";
 
 interface ComponentPaletteProps {
+  onSelectType: (type: ComponentType) => void;
   selectedType: ComponentType | null;
-  onSelect: (type: ComponentType) => void;
 }
 
-function ComponentPalette({ selectedType, onSelect }: ComponentPaletteProps) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(["Sources", "Passive", "Semiconductors", "Control", "Reference", "Measurement"]));
+const COMPONENTS: { type: ComponentType; label: string; icon: string }[] = [
+  { type: "resistor", label: "Resistor", icon: "R" },
+  { type: "capacitor", label: "Capacitor", icon: "C" },
+  { type: "inductor", label: "Inductor", icon: "L" },
+  { type: "diode", label: "Diode", icon: "D" },
+  { type: "led", label: "LED", icon: "LED" },
+  { type: "switch", label: "Switch", icon: "SW" },
+  { type: "voltage_source", label: "Voltage Source", icon: "V" },
+  { type: "current_source", label: "Current Source", icon: "I" },
+  { type: "ground", label: "Ground", icon: "GND" },
+  { type: "voltmeter", label: "Voltmeter", icon: "VM" },
+  { type: "ammeter", label: "Ammeter", icon: "AM" },
+];
 
-  function toggleCategory(name: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }
-
+function ComponentPalette({ onSelectType, selectedType }: ComponentPaletteProps) {
   return (
     <div className="sim-palette">
-      <p className="eyebrow">COMPONENT LIBRARY</p>
-      {CATEGORIES.map((cat) => (
-        <div key={cat.name} className="sim-palette-cat">
+      <h4 className="sim-palette-title">Components</h4>
+      <div className="sim-palette-grid">
+        {COMPONENTS.map((comp) => (
           <button
-            className="sim-palette-cat-btn"
-            onClick={() => toggleCategory(cat.name)}
+            key={comp.type}
+            className={`sim-palette-item ${selectedType === comp.type ? "sim-palette-item--selected" : ""}`}
+            onClick={() => onSelectType(comp.type)}
+            title={comp.label}
           >
-            <span>{cat.name}</span>
-            <span className="sim-palette-arrow">{expanded.has(cat.name) ? "▾" : "▸"}</span>
+            <span className="sim-palette-icon">{comp.icon}</span>
+            <span className="sim-palette-label">{comp.label}</span>
           </button>
-          {expanded.has(cat.name) && (
-            <div className="sim-palette-items">
-              {cat.items.map((item) => (
-                <button
-                  key={item.type}
-                  className={`sim-palette-item ${selectedType === item.type ? "sim-palette-item--active" : ""}`}
-                  onClick={() => onSelect(item.type)}
-                >
-                  <span className="sim-palette-symbol">{item.symbol}</span>
-                  <span className="sim-palette-label">{item.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

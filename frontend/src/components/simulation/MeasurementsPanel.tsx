@@ -1,66 +1,58 @@
-import { Activity } from "lucide-react";
-import Card from "../ui/Card";
-import type { SimulationResult, SimulationStatus } from "../../types/simulation";
+/**
+ * Measurements panel: displays global and component measurements from simulation result.
+ */
+import type { SimulationResult } from "../engine";
 
 interface MeasurementsPanelProps {
   result: SimulationResult | null;
-  status: SimulationStatus;
 }
 
-function formatValue(value: number, unit: string): string {
-  if (unit === "A" && value < 1) {
-    return `${(value * 1000).toFixed(2)} mA`;
+function MeasurementsPanel({ result }: MeasurementsPanelProps) {
+  if (!result) {
+    return <p className="sim-measurements-empty">Run simulation to see measurements.</p>;
   }
-  if (unit === "W" && value < 1) {
-    return `${(value * 1000).toFixed(2)} mW`;
+
+  const measurements = result.measurements;
+  if (!measurements) {
+    return <p className="sim-measurements-empty">No measurements available.</p>;
   }
-  return `${value.toFixed(3)} ${unit}`;
-}
 
-function MeasurementsPanel({ result, status }: MeasurementsPanelProps) {
-  const isActive = status === "running" || status === "completed";
-
-  const measurements = result
-    ? [
-        { label: "Voltage", value: result.current * result.totalResistance, unit: "V" },
-        { label: "Current", value: result.current, unit: "A" },
-        { label: "Resistance", value: result.totalResistance, unit: "Ω" },
-        { label: "Power", value: result.power, unit: "W" },
-      ]
-    : [];
+  const globalRows = [
+    { label: "Total Voltage", value: `${measurements.totalVoltage.toFixed(3)} V` },
+    { label: "Total Current", value: `${measurements.totalCurrent.toFixed(4)} A` },
+    { label: "Total Power", value: `${measurements.totalPower.toFixed(4)} W` },
+    { label: "Equivalent Resistance", value: `${measurements.equivalentResistance.toFixed(2)} Ω` },
+  ];
 
   return (
-    <Card className="sim-measurements">
-      <div className="sim-measurements-inner">
-        <div className="sim-measurements-header">
-          <Activity size={16} />
-          <span>Measurements</span>
-        </div>
-
-        {!result && (
-          <p className="sim-measurements-empty">
-            {status === "ready"
-              ? "Run the simulation to see measurements."
-              : status === "error"
-                ? "Unable to compute measurements."
-                : "Waiting for results..."}
-          </p>
-        )}
-
-        {result && (
-          <div className="sim-measurements-list">
-            {measurements.map((m) => (
-              <div key={m.label} className="sim-measurement-row">
-                <span className="sim-measurement-label">{m.label}</span>
-                <span className={`sim-measurement-value ${isActive ? "sim-measurement-value--active" : ""}`}>
-                  {formatValue(m.value, m.unit)}
-                </span>
-              </div>
-            ))}
+    <div className="sim-measurements-panel">
+      <h4>Global Measurements</h4>
+      <div className="sim-measurements-grid">
+        {globalRows.map((row) => (
+          <div key={row.label} className="sim-measurement-row">
+            <span className="sim-measurement-label">{row.label}</span>
+            <span className="sim-measurement-value">{row.value}</span>
           </div>
-        )}
+        ))}
       </div>
-    </Card>
+
+      <h4 style={{ marginTop: 16 }}>Component Measurements</h4>
+      {measurements.componentMeasurements.length === 0 ? (
+        <p>No component measurements.</p>
+      ) : (
+        <div className="sim-component-measurements">
+          {measurements.componentMeasurements.map((comp) => (
+            <div key={comp.componentId} className="sim-comp-measurement">
+              <span className="sim-comp-id">{comp.componentId}</span>
+              <span className="sim-comp-values">
+                {comp.voltage.toFixed(3)} V &nbsp; {comp.current.toFixed(4)} A &nbsp; {comp.power.toFixed(4)} W
+                {comp.resistance !== undefined && ` (${comp.resistance.toFixed(2)} Ω)`}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

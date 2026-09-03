@@ -1,109 +1,87 @@
 /**
- * Component inspector: displays and edits the properties of the selected component.
+ * Inspector panel: shows details of the selected component and allows property editing.
  */
-import type { ComponentInstance } from "./engine/types";
-import { unitForProperty } from "./engine/units";
+import type { ComponentInstance } from "../editorTypes";
+import { unitForProperty } from "../editorUtils";
 
 interface ComponentInspectorProps {
   component: ComponentInstance | null;
-  onChange: (id: string, property: string, value: number | string | boolean) => void;
-  onDelete: (id: string) => void;
-  onDuplicate: (id: string) => void;
-  onRotate: (id: string) => void;
+  onUpdateProperty: (id: string, property: string, value: number | string | boolean) => void;
+  onDeleteComponent: (id: string) => void;
+  onDuplicateComponent: (id: string) => void;
 }
 
-function ComponentInspector({ component, onChange, onDelete, onDuplicate, onRotate }: ComponentInspectorProps) {
+function ComponentInspector({
+  component,
+  onUpdateProperty,
+  onDeleteComponent,
+  onDuplicateComponent,
+}: ComponentInspectorProps) {
   if (!component) {
     return (
-      <div className="sim-inspector">
-        <p className="eyebrow">INSPECTOR</p>
-        <p className="sim-inspector-empty">Select a component to view its properties.</p>
+      <div className="sim-inspector-empty">
+        <p>Select a component to inspect</p>
       </div>
     );
   }
 
-  const editableProps = Object.entries(component.properties).filter(
-    ([key]) => key !== "color",
-  );
+  const handlePropertyChange = (key: string, value: string) => {
+    // Parse numeric values
+    const num = parseFloat(value);
+    const finalValue = isNaN(num) ? value : num;
+    onUpdateProperty(component.id, key, finalValue);
+  };
+
+  const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdateProperty(component.id, "__label__", e.target.value);
+  };
 
   return (
     <div className="sim-inspector">
-      <p className="eyebrow">INSPECTOR</p>
-      <h3 className="sim-inspector-title">{component.label}</h3>
-      <div className="sim-inspector-type">
-        Type: <strong>{component.type.replace(/_/g, " ")}</strong>
+      <div className="sim-inspector-header">
+        <h4>{component.label}</h4>
+        <span className="sim-inspector-type">{component.type.replace(/_/g, " ")}</span>
       </div>
 
-      <div className="sim-inspector-fields">
-        {editableProps.map(([key, val]) => {
-          const unit = unitForProperty(component.type, key);
-          const inputId = `insp-${component.id}-${key}`;
+      <div className="sim-inspector-body">
+        <div className="sim-inspector-field">
+          <label>Label</label>
+          <input type="text" value={component.label} onChange={handleLabelChange} />
+        </div>
+
+        {Object.entries(component.properties).map(([key, value]) => {
+          // Skip internal/read-only properties
+          if (key === "state" || key === "closed") return null;
+          const displayValue = typeof value === "number" ? value.toString() : String(value);
           return (
             <div key={key} className="sim-inspector-field">
-              <label htmlFor={inputId} className="sim-inspector-label">
-                {key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
-              </label>
-              <div className="sim-inspector-input-row">
-                {typeof val === "boolean" ? (
-                  <button
-                    className={`sim-inspector-toggle ${val ? "sim-inspector-toggle--on" : ""}`}
-                    onClick={() => onChange(component.id, key, !val)}
-                  >
-                    {val ? "ON / Closed" : "OFF / Open"}
-                  </button>
-                ) : (
-                  <>
-                    <input
-                      id={inputId}
-                      type="number"
-                      className="sim-inspector-input"
-                      value={val as number}
-                      step={typeof val === "number" && val < 1 ? 0.001 : 1}
-                      onChange={(e) => {
-                        const n = parseFloat(e.target.value);
-                        if (!isNaN(n)) onChange(component.id, key, n);
-                      }}
-                    />
-                    {unit && <span className="sim-inspector-unit">{unit}</span>}
-                  </>
-                )}
+              <label>{key.charAt(0).toUpperCase() + key.slice(1)}</label>
+              <div className="sim-inspector-field-row">
+                <input
+                  type="text"
+                  value={displayValue}
+                  onChange={(e) => handlePropertyChange(key, e.target.value)}
+                />
+                <span className="sim-inspector-unit">{unitForProperty(key, component.type)}</span>
               </div>
             </div>
           );
         })}
 
-        {/* Label (read-only reference designator) */}
-        <div className="sim-inspector-field">
-          <label className="sim-inspector-label">Label</label>
-          <div className="sim-inspector-input-row">
-            <input
-              type="text"
-              className="sim-inspector-input"
-              value={component.label}
-              onChange={(e) => onChange(component.id, "__label__", e.target.value)}
-            />
-          </div>
+        <div className="sim-inspector-actions">
+          <button
+            className="sim-inspector-btn sim-inspector-btn--duplicate"
+            onClick={() => onDuplicateComponent(component.id)}
+          >
+            Duplicate
+          </button>
+          <button
+            className="sim-inspector-btn sim-inspector-btn--delete"
+            onClick={() => onDeleteComponent(component.id)}
+          >
+            Delete
+          </button>
         </div>
-
-        {/* Rotation */}
-        <div className="sim-inspector-field">
-          <label className="sim-inspector-label">Rotation</label>
-          <div className="sim-inspector-input-row">
-            <span className="sim-inspector-value">{component.rotation}°</span>
-            <button className="sim-inspector-btn" onClick={() => onRotate(component.id)}>
-              Rotate 90°
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="sim-inspector-actions">
-        <button className="sim-inspector-btn" onClick={() => onDuplicate(component.id)}>
-          Duplicate
-        </button>
-        <button className="sim-inspector-btn sim-inspector-btn--danger" onClick={() => onDelete(component.id)}>
-          Delete
-        </button>
       </div>
     </div>
   );
