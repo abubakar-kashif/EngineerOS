@@ -1,158 +1,66 @@
-import Card from "../ui/Card";
-import Badge from "../ui/Badge";
-import type { SimulationResult } from "../../types/simulation";
+/**
+ * Display simulation results in a structured format.
+ */
+import type { SimulationResult } from "./engine";
 
-type SimulationResultsProps = {
+interface SimulationResultsProps {
   result: SimulationResult | null;
-  running: boolean;
-  switchOn: boolean;
-  error: string;
-};
-
-function SimulationResults({
-  result,
-  running,
-  switchOn,
-  error,
-}: SimulationResultsProps) {
-  const isActive = running && switchOn;
-
-  return (
-    <Card>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "16px",
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "20px",
-            }}
-          >
-            Simulation Results
-          </h2>
-
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "#6b7280",
-              fontSize: "14px",
-            }}
-          >
-            Calculated electrical values
-          </p>
-        </div>
-
-        <Badge>
-          {isActive ? "Running" : "Stopped"}
-        </Badge>
-      </div>
-
-      {error && (
-        <div
-          role="alert"
-          style={{
-            marginTop: "18px",
-            padding: "12px 14px",
-            borderRadius: "8px",
-            background: "#fef2f2",
-            color: "#b91c1c",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {result ? (
-        <>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(150px, 1fr))",
-              gap: "14px",
-              marginTop: "20px",
-            }}
-          >
-            <ResultItem
-              label="Total Resistance"
-              value={`${result.totalResistance.toFixed(3)} Ω`}
-            />
-
-            <ResultItem
-              label="Current"
-              value={`${result.current.toFixed(3)} A`}
-            />
-
-            <ResultItem
-              label="Power"
-              value={`${result.power.toFixed(3)} W`}
-            />
-          </div>
-
-          <div
-            style={{
-              marginTop: "18px",
-              padding: "14px",
-              borderRadius: "8px",
-              background: "#f9fafb",
-              color: "#374151",
-            }}
-          >
-            <strong>Formula:</strong> I = V / R
-          </div>
-        </>
-      ) : (
-        <p
-          style={{
-            marginTop: "20px",
-            color: "#6b7280",
-          }}
-        >
-          Run the simulation to view calculated results.
-        </p>
-      )}
-    </Card>
-  );
 }
 
-type ResultItemProps = {
-  label: string;
-  value: string;
-};
+function SimulationResults({ result }: SimulationResultsProps) {
+  if (!result) return <p className="sim-results-empty">Run a simulation to see results.</p>;
 
-function ResultItem({ label, value }: ResultItemProps) {
+  if (result.status === "invalid" || result.status === "failed") {
+    return (
+      <div className="sim-results-error">
+        <h4>Simulation {result.status}</h4>
+        <p>{result.error || "Invalid circuit or solver error."}</p>
+        {result.validation && (
+          <div className="sim-results-validation">
+            <p>Validation errors: {result.validation.errors?.length || 0}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const measurements = result.measurements;
+  if (!measurements) return <p className="sim-results-empty">No measurements returned.</p>;
+
   return (
-    <div
-      style={{
-        padding: "16px",
-        borderRadius: "8px",
-        background: "#f9fafb",
-      }}
-    >
-      <div
-        style={{
-          color: "#6b7280",
-          fontSize: "13px",
-          marginBottom: "6px",
-        }}
-      >
-        {label}
+    <div className="sim-results">
+      <h4>Simulation Results</h4>
+      <div className="sim-results-grid">
+        <div className="sim-result-item">
+          <span className="sim-result-label">Total Voltage</span>
+          <span className="sim-result-value">{measurements.totalVoltage.toFixed(3)} V</span>
+        </div>
+        <div className="sim-result-item">
+          <span className="sim-result-label">Total Current</span>
+          <span className="sim-result-value">{measurements.totalCurrent.toFixed(4)} A</span>
+        </div>
+        <div className="sim-result-item">
+          <span className="sim-result-label">Total Power</span>
+          <span className="sim-result-value">{measurements.totalPower.toFixed(4)} W</span>
+        </div>
+        <div className="sim-result-item">
+          <span className="sim-result-label">Equivalent Resistance</span>
+          <span className="sim-result-value">{measurements.equivalentResistance.toFixed(2)} Ω</span>
+        </div>
       </div>
 
-      <strong
-        style={{
-          fontSize: "18px",
-        }}
-      >
-        {value}
-      </strong>
+      <h5 style={{ marginTop: 16 }}>Component Details</h5>
+      <div className="sim-component-results">
+        {measurements.componentMeasurements.map((comp: any) => (
+          <div key={comp.componentId} className="sim-comp-result-row">
+            <span className="sim-comp-name">{comp.componentId}</span>
+            <span className="sim-comp-details">
+              {comp.voltage.toFixed(3)} V &nbsp; {comp.current.toFixed(4)} A &nbsp; {comp.power.toFixed(4)} W
+              {comp.resistance !== undefined && ` (${comp.resistance.toFixed(2)} Ω)`}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

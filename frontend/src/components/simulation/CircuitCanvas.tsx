@@ -1,256 +1,387 @@
-import type { SimulationMode } from "../../types/simulation";
+/**
+ * Main circuit canvas: SVG-based editor with grid, snap, pan, zoom.
+ * Renders components, wires, junctions, and handles all mouse interaction.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ComponentInstance, ComponentType } from "./editorTypes";
+import { getTerminalWorldPosition } from "./editorUtils";
+import type { SimulationResult } from "./engine";
+import type { EditorState } from "../../hooks/useCircuitEditor";
+import {
+  VoltageSourceNode,
+  CurrentSourceNode,
+  ResistorNode,
+  CapacitorNode,
+  InductorNode,
+  DiodeNode,
+  LEDNode,
+  SwitchNode,
+  GroundNode,
+  VoltmeterNode,
+  AmmeterNode,
+  JunctionMarker,
+} from "./nodes/ComponentNodes";
+import CircuitWire, { WirePreview } from "./CircuitWire";
+import EmptyCanvasState from "./EmptyCanvasState";
 
-type CircuitCanvasProps = {
-  mode: SimulationMode;
-  voltage: string;
-  r1: string;
-  r2: string;
-  running: boolean;
-  switchOn: boolean;
-  onToggleSwitch: () => void;
-};
+interface CircuitCanvasProps {
+  editor: EditorState;
+  simResult: SimulationResult | null;
+  onAddComponent: (type: ComponentType, x: number, y: number) => void;
+  onSelectComponent: (id: string | null) => void;
+  onSelectWire: (id: string | null) => void;
+  onMoveComponent: (id: string, x: number, y: number) => void;
+  onStartWire: (compId: string, termId: string, x: number, y: number) => void;
+  onCompleteWire: (compId: string, termId: string) => void;
+  onUpdateWirePreview: (x: number, y: number) => void;
+  onCancelWire: () => void;
+  onCancelPlacement: () => void;
+  placementType: ComponentType | null;
+}
+
+const GRID_SIZE = 20;
 
 function CircuitCanvas({
-  mode,
-  voltage,
-  r1,
-  r2,
-  running,
-  switchOn,
-  onToggleSwitch,
+  editor,
+  simResult,
+  onAddComponent,
+  onSelectComponent,
+  onSelectWire,
+  onMoveComponent,
+  onStartWire,
+  onCompleteWire,
+  onUpdateWirePreview,
+  onCancelWire,
+  onCancelPlacement,
+  placementType,
 }: CircuitCanvasProps) {
-  const active = running && switchOn;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [viewBox, setViewBox] = useState({ x: -40, y: -40, w: 880, h: 560 });
+  const [panning, setPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
 
-  return (
-    <div
-      style={{
-        width: "100%",
-        overflowX: "auto",
-      }}
-    >
-      {mode === "series" ? (
-        <div
-          style={{
-            minWidth: "min(100%, 620px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "clamp(12px, 3vw, 32px)",
-            padding: "30px 15px",
-            boxSizing: "border-box",
-            flexWrap: "wrap",
-          }}
+  const screenToCanvas = useCallback(
+    (clientX: number, clientY: number): { x: number; y: number } => {
+      const svg = svgRef.current;
+      if (!svg) return { x: 0, y: 0 };
+      const rect = svg.getBoundingClientRect();
+      const scaleX = viewBox.w / rect.width;
+      const scaleY = viewBox.h / rect.height;
+      return {
+        x: (clientX - rect.left) * scaleX + viewBox.x,
+        y: (clientY - rect.top) * scaleY + viewBox.y,
+      };
+    },
+    [viewBox],
+  );
+
+  const snap = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      if (e.button === 1 || (e.button === 0 && e.altKey)) {
+        setPanning(true);
+        setPanStart({ x: e.clientX, y: e.clientY });
+        return;
+      }
+      if (e.button !== 0) return;
+      if (placementType) {
+        onAddComponent(placementType, snap(pos.x), snap(pos.y));
+        return;
+      }
+      if (editor.wireStart) {
+        onUpdateWirePreview(snap(pos.x), snap(pos.y));
+        return;
+      }
+      if ((e.target as Element).closest(".canvas-component")) return;
+      if ((e.target as Element).closest(".canvas-terminal")) return;
+      if ((e.target as Element).closest(".canvas-wire")) return;
+      onSelectComponent(null);
+    },
+    [screenToCanvas, placementType, editor.wireStart, onAddComponent, onSelectComponent, onUpdateWirePreview],
+  );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (panning) {
+        const dx = e.clientX - panStart.x;
+        const dy = e.clientY - panStart.y;
+        const svg = svgRef.current;
+        if (!svg) return;
+        const rect = svg.getBoundingClientRect();
+        const scaleX = viewBox.w / rect.width;
+        const scaleY = viewBox.h / rect.height;
+        setViewBox((v) => ({ ...v, x: v.x - dx * scaleX, y: v.y - dy * scaleY }));
+        setPanStart({ x: e.clientX, y: e.clientY });
+        return;
+      }
+      if (dragging) {
+        const pos = screenToCanvas(e.clientX, e.clientY);
+        onMoveComponent(dragging.id, snap(pos.x), snap(pos.y));
+        return;
+      }
+      if (editor.wireStart) {
+        const pos = screenToCanvas(e.clientX, e.clientY);
+        onUpdateWirePreview(snap(pos.x), snap(pos.y));
+      }
+    },
+    [panning, panStart, dragging, editor.wireStart, screenToCanvas, viewBox, onMoveComponent, onUpdateWirePreview],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    if (panning) setPanning(false);
+    if (dragging) setDragging(null);
+  }, [panning, dragging]);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (editor.wireStart) onCancelWire();
+        else if (placementType) onCancelPlacement();
+        else onSelectComponent(null);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [editor.wireStart, placementType, onCancelWire, onCancelPlacement, onSelectComponent]);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 1.1 : 0.9;
+      setViewBox((v) => {
+        const newW = Math.max(200, Math.min(4000, v.w * factor));
+        const newH = Math.max(200, Math.min(4000, v.h * factor));
+        const cx = v.x + v.w / 2;
+        const cy = v.y + v.h / 2;
+        return { x: cx - newW / 2, y: cy - newH / 2, w: newW, h: newH };
+      });
+    },
+    [],
+  );
+
+  const handleTerminalMouseDown = useCallback(
+    (e: React.MouseEvent, compId: string, termId: string) => {
+      e.stopPropagation();
+      const comp = editor.circuit.components.find((c) => c.id === compId);
+      if (!comp) return;
+      const world = getTerminalWorldPosition(comp, termId);
+      if (!world) return;
+      if (editor.wireStart) {
+        onCompleteWire(compId, termId);
+      } else {
+        onStartWire(compId, termId, world.x, world.y);
+      }
+    },
+    [editor.circuit.components, editor.wireStart, onStartWire, onCompleteWire],
+  );
+
+  const handleTerminalMouseUp = useCallback(
+    (e: React.MouseEvent, compId: string, termId: string) => {
+      e.stopPropagation();
+      if (editor.wireStart && editor.wireStart.componentId !== compId) {
+        onCompleteWire(compId, termId);
+      }
+    },
+    [editor.wireStart, onCompleteWire],
+  );
+
+  const handleComponentMouseDown = useCallback(
+    (e: React.MouseEvent, compId: string) => {
+      if (e.button !== 0) return;
+      if (editor.wireStart) return;
+      e.stopPropagation();
+      onSelectComponent(compId);
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      const comp = editor.circuit.components.find((c) => c.id === compId);
+      if (!comp) return;
+      setDragging({
+        id: compId,
+        offsetX: pos.x - comp.x,
+        offsetY: pos.y - comp.y,
+      });
+    },
+    [editor.wireStart, editor.circuit.components, screenToCanvas, onSelectComponent],
+  );
+
+  const getComponentResult = (id: string) => {
+    if (!simResult?.measurements) return undefined;
+    return simResult.measurements.componentMeasurements.find((m: any) => m.componentId === id);
+  };
+
+  const renderComponent = (comp: ComponentInstance) => {
+    const isSelected = editor.selectedComponentId === comp.id;
+    const result = getComponentResult(comp.id);
+    const activeTerminal = editor.wireStart && editor.wireStart.componentId === comp.id
+      ? editor.wireStart.terminalId
+      : null;
+
+    const terminalData = comp.terminals.map((t: string) => {
+      const connected = editor.circuit.connections.some(
+        (conn) =>
+          conn.from === `${comp.id}:${t}` ||
+          conn.to === `${comp.id}:${t}`,
+      );
+      const world = getTerminalWorldPosition(comp, t);
+      return {
+        id: t,
+        x: world ? world.x - comp.x : 0,
+        y: world ? world.y - comp.y : 0,
+        connected,
+      };
+    });
+
+    const commonProps = {
+      label: comp.label,
+      selected: isSelected,
+      terminals: terminalData,
+      activeTerminal,
+      onTerminalMouseDown: (e: React.MouseEvent, termId: string) =>
+        handleTerminalMouseDown(e, comp.id, termId),
+      onTerminalMouseUp: (e: React.MouseEvent, termId: string) =>
+        handleTerminalMouseUp(e, comp.id, termId),
+    };
+
+    let node: React.ReactNode;
+    switch (comp.type) {
+      case "voltage_source":
+        node = <VoltageSourceNode {...commonProps} voltage={`${comp.properties.voltage}V`} />;
+        break;
+      case "current_source":
+        node = <CurrentSourceNode {...commonProps} currentValue={`${comp.properties.current}A`} />;
+        break;
+      case "resistor": {
+        const r = comp.properties.resistance as number;
+        const label = r >= 1000 ? `${(r / 1000).toFixed(r % 1000 === 0 ? 0 : 1)}kΩ` : `${r}Ω`;
+        node = <ResistorNode {...commonProps} value={label} />;
+        break;
+      }
+      case "capacitor": {
+        const c = comp.properties.capacitance as number;
+        const label = c >= 0.001 ? `${(c * 1000).toFixed(1)}mF` : c >= 1e-6 ? `${(c * 1e6).toFixed(1)}μF` : `${c}F`;
+        node = <CapacitorNode {...commonProps} value={label} />;
+        break;
+      }
+      case "inductor": {
+        const l = comp.properties.inductance as number;
+        const label = l >= 1 ? `${l}H` : `${(l * 1000).toFixed(1)}mH`;
+        node = <InductorNode {...commonProps} value={label} />;
+        break;
+      }
+      case "diode":
+      node = <DiodeNode {...commonProps} />;
+      break;
+    case "led":
+      node = <LEDNode {...commonProps} color={comp.properties.color as string} />;
+      break;
+      case "switch":
+        node = <SwitchNode {...commonProps} closed={comp.properties.closed as boolean} />;
+        break;
+      case "ground":
+        node = <GroundNode {...commonProps} />;
+        break;
+      case "voltmeter":
+        node = <VoltmeterNode {...commonProps} reading={result ? `${result.voltage.toFixed(2)}V` : undefined} />;
+        break;
+      case "ammeter":
+        node = <AmmeterNode {...commonProps} reading={result ? `${(result.current * 1000).toFixed(2)}mA` : undefined} />;
+        break;
+      default:
+        node = null;
+    }
+
+    return (
+      <g
+        key={comp.id}
+        className="canvas-component"
+        transform={`translate(${comp.x}, ${comp.y}) rotate(${comp.rotation})`}
+        onMouseDown={(e) => handleComponentMouseDown(e, comp.id)}
+        style={{ cursor: dragging?.id === comp.id ? "grabbing" : "grab" }}
+      >
+        {node}
+      </g>
+    );
+  };
+
+  const gridPattern = useMemo(() => {
+    const size = GRID_SIZE;
+    return (
+      <defs>
+        <pattern id="grid-dots" width={size} height={size} patternUnits="userSpaceOnUse">
+          <circle cx={size / 2} cy={size / 2} r={0.8} fill="var(--color-border)" />
+        </pattern>
+      </defs>
+    );
+  }, []);
+
+  if (editor.circuit.components.length === 0 && !placementType) {
+    return (
+      <div className="sim-canvas-container">
+        <svg
+          ref={svgRef}
+          className="sim-canvas-svg"
+          viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onWheel={handleWheel}
         >
-          <CircuitNode
-            type="battery"
-            label={`${voltage || "0"} V`}
-            active={active}
-          />
-
-          <Wire active={active} />
-
-          <SwitchControl
-            switchOn={switchOn}
-            onToggle={onToggleSwitch}
-          />
-
-          <Wire active={active} />
-
-          <Resistor label={`R1 = ${r1 || "0"} Ω`} active={active} />
-
-          <Wire active={active} />
-
-          <CircuitNode
-            type="load"
-            label="Load"
-            active={active}
-          />
-        </div>
-      ) : (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "24px",
-            padding: "30px 15px",
-            flexWrap: "wrap",
-          }}
-        >
-          <CircuitNode
-            type="battery"
-            label={`${voltage || "0"} V`}
-            active={active}
-          />
-
-          <Wire active={active} />
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "14px",
-              minWidth: "150px",
-            }}
-          >
-            <Resistor
-              label={`R1 = ${r1 || "0"} Ω`}
-              active={active}
-            />
-
-            <Resistor
-              label={`R2 = ${r2 || "0"} Ω`}
-              active={active}
-            />
-          </div>
-
-          <Wire active={active} />
-
-          <CircuitNode
-            type="load"
-            label="Load"
-            active={active}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Wire({ active }: { active: boolean }) {
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        width: "clamp(30px, 7vw, 70px)",
-        height: "4px",
-        flexShrink: 0,
-        borderRadius: "4px",
-        backgroundColor: active ? "#7c3aed" : "#9ca3af",
-      }}
-    />
-  );
-}
-
-function SwitchControl({
-  switchOn,
-  onToggle,
-}: {
-  switchOn: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div style={{ textAlign: "center" }}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-pressed={switchOn}
-        aria-label={`Circuit switch ${switchOn ? "on" : "off"}`}
-        style={{
-          minWidth: "70px",
-          minHeight: "42px",
-          padding: "8px 14px",
-          borderRadius: "8px",
-          border: `2px solid ${
-            switchOn ? "#16a34a" : "#dc2626"
-          }`,
-          backgroundColor: switchOn ? "#f0fdf4" : "#fef2f2",
-          color: switchOn ? "#166534" : "#991b1b",
-          fontWeight: 700,
-          cursor: "pointer",
-        }}
-      >
-        {switchOn ? "ON" : "OFF"}
-      </button>
-
-      <div
-        style={{
-          marginTop: "6px",
-          fontSize: "12px",
-          color: "#6b7280",
-        }}
-      >
-        Switch
+          {gridPattern}
+          <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="url(#grid-dots)" />
+        </svg>
+        <EmptyCanvasState />
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function CircuitNode({
-  type,
-  label,
-  active,
-}: {
-  type: "battery" | "load";
-  label: string;
-  active: boolean;
-}) {
   return (
-    <div
-      style={{
-        minWidth: "75px",
-        textAlign: "center",
-      }}
-    >
-      <div
-        aria-hidden="true"
-        style={{
-          width: "58px",
-          height: "58px",
-          margin: "0 auto",
-          borderRadius: "50%",
-          border: `2px solid ${
-            active ? "#7c3aed" : "#9ca3af"
-          }`,
-          backgroundColor: active ? "#f5f3ff" : "#f9fafb",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: active ? "#6d28d9" : "#4b5563",
-          fontSize: "11px",
-          fontWeight: 700,
-        }}
+    <div className="sim-canvas-container">
+      <svg
+        ref={svgRef}
+        className="sim-canvas-svg"
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onWheel={handleWheel}
       >
-        {type === "battery" ? "SOURCE" : "LOAD"}
-      </div>
+        {gridPattern}
+        <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="url(#grid-dots)" />
 
-      <div
-        style={{
-          marginTop: "7px",
-          color: "#6b7280",
-          fontSize: "13px",
-        }}
-      >
-        {label}
-      </div>
-    </div>
-  );
-}
+        {editor.circuit.wires.map((wire) => (
+          <CircuitWire
+            key={wire.id}
+            wire={wire}
+            selected={wire.id === editor.selectedWireId}
+            onClick={() => onSelectWire(wire.id)}
+          />
+        ))}
 
-function Resistor({
-  label,
-  active,
-}: {
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <div
-      style={{
-        minWidth: "125px",
-        padding: "14px 18px",
-        boxSizing: "border-box",
-        borderRadius: "8px",
-        border: `2px solid ${
-          active ? "#7c3aed" : "#9ca3af"
-        }`,
-        backgroundColor: active ? "#f5f3ff" : "#f9fafb",
-        color: "#374151",
-        textAlign: "center",
-        fontWeight: 600,
-      }}
-    >
-      {label}
+        {editor.wireStart && editor.wirePreviewPoints.length > 1 && (
+          <WirePreview points={editor.wirePreviewPoints} />
+        )}
+
+        {editor.circuit.junctions?.map((j, idx) => (
+          <JunctionMarker key={`junction-${idx}`} cx={j.x} cy={j.y} />
+        ))}
+
+        {editor.circuit.components.map(renderComponent)}
+      </svg>
+
+      <div className="sim-canvas-mode">
+        {placementType && (
+          <span className="sim-mode-indicator sim-mode-indicator--place">
+            Click to place {placementType.replace(/_/g, " ")} • Esc to cancel
+          </span>
+        )}
+        {editor.wireStart && (
+          <span className="sim-mode-indicator sim-mode-indicator--wire">
+            Click terminal to connect • Esc to cancel
+          </span>
+        )}
+      </div>
     </div>
   );
 }

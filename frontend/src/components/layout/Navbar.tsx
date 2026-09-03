@@ -1,44 +1,33 @@
-import { Bell, Search } from "lucide-react";
+import { useState } from "react";
+import { Menu } from "lucide-react";
+import NotificationCenter from "./NotificationCenter";
+import ProfileMenu from "./ProfileMenu";
+import MobileNav from "./MobileNav";
 
 function Navbar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
-    <header className="navbar">
-      <div className="global-search">
-        <Search
-          className="search-icon"
-          size={18}
-          strokeWidth={2}
-          aria-hidden="true"
-        />
-
-        <input
-          type="text"
-          placeholder="Search experiments..."
-          aria-label="Search experiments"
-        />
-      </div>
-
-      <div className="navbar-actions">
+    <>
+      <header className="navbar">
         <button
-          className="icon-btn"
+          className="icon-btn mobile-menu-btn"
           type="button"
-          aria-label="Notifications"
+          aria-label="Open navigation"
+          onClick={() => setMobileOpen(true)}
         >
-          <Bell size={18} strokeWidth={2} />
+          <Menu size={20} strokeWidth={2} />
         </button>
 
-        <div className="navbar-divider"></div>
+        <div className="navbar-actions">
+          <NotificationCenter />
+          <div className="navbar-divider"></div>
+          <ProfileMenu />
+        </div>
+      </header>
 
-        <button
-          className="user-profile"
-          type="button"
-          aria-label="Student profile"
-        >
-          <span className="user-avatar">S</span>
-          <span className="user-name">Student</span>
-        </button>
-      </div>
-    </header>
+      <MobileNav open={mobileOpen} onClose={() => setMobileOpen(false)} />
+    </>
   );
 }
 

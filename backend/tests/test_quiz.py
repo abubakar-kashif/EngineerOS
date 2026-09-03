@@ -18,6 +18,25 @@ seed_quizzes()
 
 client = TestClient(app)
 
+ANSWER_LETTERS = ("A", "B", "C", "D")
+
+
+def seeded_answer_key(experiment_id="ohms-law"):
+    """The answer key as stored in the seeded database."""
+    with SessionLocal() as db:
+        rows = (
+            db.query(QuizQuestion)
+            .filter(QuizQuestion.experiment_id == experiment_id)
+            .order_by(QuizQuestion.id)
+            .all()
+        )
+    return {row.id: row.correct_answer for row in rows}
+
+
+def wrong_letter(correct):
+    """Any letter except the correct one."""
+    return ANSWER_LETTERS[(ANSWER_LETTERS.index(correct) + 1) % 4]
+
 
 def test_health():
     response = client.get("/api/health")
@@ -30,7 +49,7 @@ def test_get_quiz_success():
     assert response.status_code == 200
     data = response.json()
     assert data["experiment_id"] == "ohms-law"
-    assert len(data["questions"]) == 10
+    assert len(data["questions"]) == 40
     assert "correct_answer" not in data["questions"][0]
     assert "explanation" not in data["questions"][0]
 
@@ -54,30 +73,33 @@ def test_successful_submission():
 
 
 def test_correct_score():
+    key = seeded_answer_key()
     questions = client.get("/api/quizzes/ohms-law").json()["questions"]
-    correct = ["A", "B", "C", "B", "C", "A", "B", "C", "A", "A"]
-    answers = [{"question_id": q["id"], "answer": a} for q, a in zip(questions, correct)]
+    answers = [{"question_id": q["id"], "answer": key[q["id"]]} for q in questions]
     response = client.post("/api/quizzes/ohms-law/submit", json={"answers": answers})
     assert response.json()["score"] == 100.0
-    assert response.json()["correct_answers"] == 10
-    assert response.json()["total_questions"] == 10
+    assert response.json()["correct_answers"] == 40
+    assert response.json()["total_questions"] == 40
     assert response.json()["passed"] is True
 
 
 def test_incorrect_score():
+    key = seeded_answer_key()
     questions = client.get("/api/quizzes/ohms-law").json()["questions"]
-    answers = [{"question_id": q["id"], "answer": "D"} for q in questions]
+    answers = [
+        {"question_id": q["id"], "answer": wrong_letter(key[q["id"]])}
+        for q in questions
+    ]
     response = client.post("/api/quizzes/ohms-law/submit", json={"answers": answers})
     assert response.json()["score"] == 0.0
     assert response.json()["passed"] is False
 
 
 def test_answer_choice_is_normalized():
+    key = seeded_answer_key()
     questions = client.get("/api/quizzes/ohms-law").json()["questions"]
-    correct = ["A", "B", "C", "B", "C", "A", "B", "C", "A", "A"]
     answers = [
-        {"question_id": q["id"], "answer": a.lower()}
-        for q, a in zip(questions, correct)
+        {"question_id": q["id"], "answer": key[q["id"]].lower()} for q in questions
     ]
     response = client.post("/api/quizzes/ohms-law/submit", json={"answers": answers})
     assert response.status_code == 200
@@ -119,24 +141,50 @@ def test_partial_submission_rejected():
         json={"answers": [{"question_id": questions[0]["id"], "answer": "A"}]},
     )
     assert response.status_code == 400
-    assert response.json()["detail"] == "All quiz questions must be answered"
+    assert "at least 20 of 40 questions" in response.json()["detail"]
 
 
-def test_passing_threshold():
-    questions = client.get("/api/quizzes/ohms-law").json()["questions"]
-    correct = ["A", "B", "C", "B", "C", "A", "B", "C", "A", "A"]
-    answers = [{"question_id": q["id"], "answer": a} for q, a in zip(questions, correct)]
+def test_attempt_size_submission_grades_over_attempt():
+    """Phase 6: a 20-question attempt is graded over its own size."""
+    key = seeded_answer_key()
+    questions = client.get("/api/quizzes/ohms-law").json()["questions"][:20]
+    answers = [{"question_id": q["id"], "answer": key[q["id"]]} for q in questions]
     response = client.post("/api/quizzes/ohms-law/submit", json={"answers": answers})
-    assert response.json()["score"] >= 70
+    assert response.status_code == 200
+    assert response.json()["total_questions"] == 20
+    assert response.json()["correct_answers"] == 20
+    assert response.json()["score"] == 100.0
     assert response.json()["passed"] is True
 
 
-def test_quiz_bank_has_100_questions():
+def test_passing_threshold():
+    key = seeded_answer_key()
+    questions = client.get("/api/quizzes/ohms-law").json()["questions"]
+    # 14 of 20 attempted questions correct — exactly the 70% threshold.
+    answers = [
+        {
+            "question_id": q["id"],
+            "answer": key[q["id"]] if index < 14 else wrong_letter(key[q["id"]]),
+        }
+        for index, q in enumerate(questions[:20])
+    ]
+    response = client.post("/api/quizzes/ohms-law/submit", json={"answers": answers})
+    assert response.json()["score"] == 70.0
+    assert response.json()["passed"] is True
+
+
+def test_quiz_bank_has_40_questions_per_experiment():
     from app.data.quiz_bank import QUIZ_BANK
 
     assert len(QUIZ_BANK) == 10
-    assert all(len(questions) == 10 for questions in QUIZ_BANK.values())
-    assert sum(len(questions) for questions in QUIZ_BANK.values()) == 100
+    assert all(len(questions) == 40 for questions in QUIZ_BANK.values())
+    assert sum(len(questions) for questions in QUIZ_BANK.values()) == 400
+
+    # The original ten ohms-law answers keep their order, so question IDs
+    # stay stable against the frontend mirror.
+    assert [q["correct_answer"] for q in QUIZ_BANK["ohms-law"][:10]] == [
+        "A", "B", "C", "B", "C", "A", "B", "C", "A", "A",
+    ]
 
 
 def test_seed_is_idempotent_and_repairs_partial_seed():
@@ -152,5 +200,23 @@ def test_seed_is_idempotent_and_repairs_partial_seed():
     seed_quizzes()
 
     with SessionLocal() as db:
-        assert db.query(QuizQuestion).count() == 100
+        assert db.query(QuizQuestion).count() == 400
+
+
+def test_seed_refreshes_stale_rows():
+    """Databases seeded from an older bank get their rows reconciled."""
+    from app.data.quiz_bank import QUIZ_BANK
+
+    with SessionLocal() as db:
+        row = db.query(QuizQuestion).filter(QuizQuestion.id == 1).first()
+        row.question = "STALE question text"
+        row.correct_answer = "D"
+        db.commit()
+
+    seed_quizzes()
+
+    with SessionLocal() as db:
+        row = db.query(QuizQuestion).filter(QuizQuestion.id == 1).first()
+        assert row.question == QUIZ_BANK["ohms-law"][0]["question"]
+        assert row.correct_answer == QUIZ_BANK["ohms-law"][0]["correct_answer"]
 
