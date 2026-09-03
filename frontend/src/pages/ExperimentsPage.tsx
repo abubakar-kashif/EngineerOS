@@ -1,305 +1,194 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import SectionHeading from "../components/ui/SectionHeading";
 import ExperimentCard from "../components/experiments/ExperimentCard";
+import ExperimentFilters, { type SortOption } from "../components/experiments/ExperimentFilters";
+import ExperimentSkeleton from "../components/experiments/ExperimentSkeleton";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
 import type { Experiment, ExperimentDifficulty } from "../types/experiment";
 import { mockExperiments } from "../data/mockExperiments";
 import { getExperiments } from "../services/experimentService";
+import { getStatusMap } from "../services/progressService";
+import { getAuthToken } from "../services/api";
+import { getAllProgress, type UserProgress } from "../utils/experimentProgress";
+
+const DIFFICULTY_ORDER: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 };
 
 function ExperimentsPage() {
-  const [experiments, setExperiments] = useState<Experiment[]>(mockExperiments);
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  const [difficulty, setDifficulty] = useState<"All" | ExperimentDifficulty>(
-    "All",
-  );
+  // URL-synced filter state
+  const search = searchParams.get("q") ?? "";
+  const difficulty = (searchParams.get("difficulty") ?? "All") as "All" | ExperimentDifficulty;
+  const status = (searchParams.get("status") ?? "All") as "All" | "not_started" | "in_progress" | "completed";
+  const sort = (searchParams.get("sort") ?? "recommended") as SortOption;
 
-  const [category, setCategory] = useState("All");
+  function updateParam(key: string, value: string) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (!value || value === "All" || value === "recommended") {
+        next.delete(key);
+      } else {
+        next.set(key, value);
+      }
+      return next;
+    }, { replace: true });
+  }
+
   useEffect(() => {
-    async function loadExperiments() {
+    let cancelled = false;
+
+    async function load() {
       try {
         setLoading(true);
-
+        setError(false);
         const response = await getExperiments();
-
-        setExperiments(response.items);
-      } catch (error) {
-        console.error("Failed to load experiments:", error);
+        if (cancelled) return;
+        setExperiments(response.items.length > 0 ? response.items : mockExperiments);
+      } catch {
+        if (cancelled) return;
         setExperiments(mockExperiments);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
-    loadExperiments();
+    load();
+    return () => { cancelled = true; };
   }, []);
 
-  const categories = useMemo(() => {
-    const uniqueCategories = Array.from(
-      new Set(experiments.map((experiment) => experiment.category)),
-    );
+  // Statuses are account-scoped: the signed-in user's server rows, or this
+  // device's local tracking for anonymous visitors.
+  const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>(() =>
+    getAuthToken() ? {} : getAllProgress(),
+  );
 
-    return ["All", ...uniqueCategories];
-  }, [experiments]);
+  useEffect(() => {
+    if (!getAuthToken()) return;
+    let cancelled = false;
+    getStatusMap()
+      .then((map) => {
+        if (!cancelled) setProgressMap(map);
+      })
+      .catch(() => {
+        // Backend unavailable — statuses stay "not started" instead of
+        // showing another session's local history.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const filteredExperiments = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
 
-    return experiments.filter((experiment) => {
-      const searchableText = [
-        experiment.id,
-        experiment.slug,
-        experiment.title,
-        experiment.short_description ?? "",
-        experiment.description ?? "",
-        experiment.category,
-      ]
-        .join(" ")
-        .toLowerCase();
+    let result = experiments.filter((exp) => {
+      // Text search
+      if (q) {
+        const haystack = [exp.title, exp.short_description ?? "", exp.description ?? "", exp.category, exp.id].join(" ").toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
 
-      const matchesSearch = query === "" || searchableText.includes(query);
+      // Difficulty filter
+      if (difficulty !== "All" && exp.difficulty !== difficulty) return false;
 
-      const matchesDifficulty =
-        difficulty === "All" || experiment.difficulty === difficulty;
+      // Status filter
+      if (status !== "All") {
+        const expStatus = progressMap[exp.id] ?? "not_started";
+        if (expStatus !== status) return false;
+      }
 
-      const matchesCategory =
-        category === "All" || experiment.category === category;
-
-      return matchesSearch && matchesDifficulty && matchesCategory;
+      return true;
     });
-  }, [experiments, searchQuery, difficulty, category]);
+
+    // Sort
+    switch (sort) {
+      case "title":
+        result = [...result].sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case "duration":
+        result = [...result].sort((a, b) => a.duration_minutes - b.duration_minutes);
+        break;
+      case "difficulty":
+        result = [...result].sort((a, b) => (DIFFICULTY_ORDER[a.difficulty] ?? 9) - (DIFFICULTY_ORDER[b.difficulty] ?? 9));
+        break;
+      default:
+        // recommended — keep original order (beginner first from data)
+        break;
+    }
+
+    return result;
+  }, [experiments, search, difficulty, status, sort, progressMap]);
 
   return (
-    <main className="min-h-screen w-full min-w-0 bg-[#f8f9fc] px-6 py-8 sm:px-8 lg:px-10 xl:px-12">
-      <div className="mx-auto w-full max-w-[1280px]">
-        {/* HEADER */}
-        <div className="mb-6">
-          <SectionHeading
-            eyebrow="EXPERIMENTS"
-            title="Explore electrical engineering experiments"
-            description="Learn concepts by working through practical electrical engineering experiments."
-          />
+    <div className="page">
+      <SectionHeading
+        eyebrow="EXPERIMENTS"
+        title="Explore engineering experiments"
+        description="Search, filter, and discover practical experiments to build your understanding step by step."
+      />
+
+      <ExperimentFilters
+        search={search}
+        onSearchChange={(v) => updateParam("q", v)}
+        difficulty={difficulty}
+        onDifficultyChange={(v) => updateParam("difficulty", v)}
+        status={status}
+        onStatusChange={(v) => updateParam("status", v)}
+        sort={sort}
+        onSortChange={(v) => updateParam("sort", v)}
+        resultCount={filtered.length}
+      />
+
+      {loading && (
+        <div className="exp-grid">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ExperimentSkeleton key={i} />
+          ))}
         </div>
+      )}
 
-        {/* FILTERS */}
-        <section
-          className="
-          mb-6
-          rounded-xl
-          border border-slate-200
-          bg-white
-          p-4
-          shadow-[0_2px_10px_rgba(15,23,42,0.04)]
-        "
-          aria-label="Experiment filters"
-        >
-          <div
-            className="
-            grid
-            grid-cols-1
-            gap-4
-            lg:grid-cols-[minmax(0,1fr)_220px_220px]
-          "
-          >
-            {/* SEARCH */}
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="experiment-search"
-                className="text-sm font-semibold text-slate-700"
-              >
-                Search experiments
-              </label>
-
-              <input
-                id="experiment-search"
-                type="search"
-                placeholder="Search experiments..."
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                className="
-                w-full
-                rounded-xl
-                border border-slate-300
-                bg-slate-50
-                px-4
-                py-3
-                text-sm
-                text-slate-900
-                outline-none
-                transition
-                placeholder:text-slate-400
-                focus:border-violet-500
-                focus:bg-white
-                focus:ring-4
-                focus:ring-violet-100
-              "
-              />
-            </div>
-
-            {/* DIFFICULTY */}
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="difficulty-filter"
-                className="text-sm font-semibold text-slate-700"
-              >
-                Difficulty
-              </label>
-
-              <select
-                id="difficulty-filter"
-                value={difficulty}
-                onChange={(event) =>
-                  setDifficulty(
-                    event.target.value as "All" | ExperimentDifficulty,
-                  )
-                }
-                className="
-                w-full
-                rounded-xl
-                border border-slate-300
-                bg-slate-50
-                px-4
-                py-3
-                text-sm
-                text-slate-800
-                outline-none
-                transition
-                focus:border-violet-500
-                focus:bg-white
-                focus:ring-4
-                focus:ring-violet-100
-              "
-              >
-                <option value="All">All difficulties</option>
-                <option value="Beginner">Beginner</option>
-                <option value="Intermediate">Intermediate</option>
-                <option value="Advanced">Advanced</option>
-              </select>
-            </div>
-
-            {/* CATEGORY */}
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="category-filter"
-                className="text-sm font-semibold text-slate-700"
-              >
-                Category
-              </label>
-
-              <select
-                id="category-filter"
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                className="
-                w-full
-                rounded-xl
-                border border-slate-300
-                bg-slate-50
-                px-4
-                py-3
-                text-sm
-                text-slate-800
-                outline-none
-                transition
-                focus:border-violet-500
-                focus:bg-white
-                focus:ring-4
-                focus:ring-violet-100
-              "
-              >
-                {categories.map((item) => (
-                  <option key={item} value={item}>
-                    {item === "All" ? "All categories" : item}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {!loading && error && (
+        <Card className="exp-error-state">
+          <h3>Unable to load experiments</h3>
+          <p>Something went wrong while loading the experiment library.</p>
+          <div className="exp-error-action">
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
           </div>
-        </section>
+        </Card>
+      )}
 
-        {/* RESULTS COUNT */}
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm font-medium text-slate-500">
-            Showing{" "}
-            <span className="font-semibold text-slate-800">
-              {filteredExperiments.length}
-            </span>{" "}
-            experiment
-            {filteredExperiments.length !== 1 ? "s" : ""}
-          </p>
+      {!loading && !error && filtered.length === 0 && (
+        <Card className="exp-empty-state">
+          <h3>No experiments found</h3>
+          <p>We couldn&apos;t find an experiment matching your current search and filters.</p>
+          <div className="exp-empty-action">
+            <Button variant="secondary" onClick={() => setSearchParams({})}>
+              Clear Filters
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {!loading && !error && filtered.length > 0 && (
+        <div className="exp-grid">
+          {filtered.map((exp) => (
+            <ExperimentCard
+              key={exp.id}
+              experiment={exp}
+              progress={progressMap[exp.id]}
+            />
+          ))}
         </div>
-        {loading && (
-          <div className="mb-4 text-sm font-medium text-slate-500">
-            Loading experiments...
-          </div>
-        )}
-
-        {/* EMPTY STATE */}
-        {filteredExperiments.length === 0 && (
-          <div
-            className="
-            flex
-            min-h-[300px]
-            items-center
-            justify-center
-            rounded-2xl
-            border border-slate-200
-            bg-white
-            p-8
-            shadow-sm
-          "
-          >
-            <div className="text-center">
-              <div
-                className="
-                mx-auto
-                mb-4
-                flex
-                h-12
-                w-12
-                items-center
-                justify-center
-                rounded-full
-                bg-violet-100
-                text-xl
-                text-violet-600
-              "
-              >
-                ?
-              </div>
-
-              <h3 className="mb-2 text-lg font-bold text-slate-900">
-                No experiments found
-              </h3>
-
-              <p className="text-sm text-slate-500">
-                Try changing your search or filter options.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* EXPERIMENT CARDS */}
-        {filteredExperiments.length > 0 && (
-          <section
-            className="
-            grid
-            w-full
-            grid-cols-1
-            gap-5
-            sm:grid-cols-2
-            lg:grid-cols-3
-          "
-            aria-label="Available electrical engineering experiments"
-          >
-            {filteredExperiments.map((experiment) => (
-              <ExperimentCard key={experiment.id} experiment={experiment} />
-            ))}
-          </section>
-        )}
-      </div>
-    </main>
+      )}
+    </div>
   );
 }
 

@@ -22,10 +22,12 @@ def test_post_progress_response_contract(progress_client):
 
     assert response.status_code == 200
     data = response.json()
-    assert set(data) == {"id", "experiment_id", "status"}
+    assert set(data) == {"id", "experiment_id", "status", "updated_at"}
     assert isinstance(data["id"], int)
     assert data["experiment_id"] == "ohms-law"
     assert data["status"] == "completed"
+    # Timezone-aware ISO timestamp so clients read it as UTC.
+    assert data["updated_at"].endswith(("Z", "+00:00"))
 
 
 def test_invalid_experiment_id_returns_404(progress_client):

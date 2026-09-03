@@ -1,13 +1,14 @@
+import Spinner from "../ui/Spinner";
+
 type LoadingStateProps = {
   message?: string;
 };
 
-function LoadingState({
-  message = "Loading...",
-}: LoadingStateProps) {
+function LoadingState({ message = "Loading..." }: LoadingStateProps) {
   return (
     <div className="state-container" role="status">
-      <p>{message}</p>
+      <Spinner size="lg" />
+      <p className="state-description">{message}</p>
     </div>
   );
 }

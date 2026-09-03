@@ -1,158 +1,71 @@
+import { CheckCircle2, AlertTriangle } from "lucide-react";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
-import type { SimulationResult } from "../../types/simulation";
+import type { SimulationResult as SimResultType, SimulationStatus } from "../../types/simulation";
 
 type SimulationResultsProps = {
-  result: SimulationResult | null;
-  running: boolean;
-  switchOn: boolean;
+  result: SimResultType | null;
+  status: SimulationStatus;
   error: string;
 };
 
-function SimulationResults({
-  result,
-  running,
-  switchOn,
-  error,
-}: SimulationResultsProps) {
-  const isActive = running && switchOn;
+function SimulationResults({ result, status, error }: SimulationResultsProps) {
+  const isActive = status === "running" || status === "completed";
 
   return (
-    <Card>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "16px",
-          flexWrap: "wrap",
-        }}
-      >
+    <Card className="sim-results-card">
+      <div className="sim-results-header">
         <div>
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "20px",
-            }}
-          >
-            Simulation Results
-          </h2>
-
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "#6b7280",
-              fontSize: "14px",
-            }}
-          >
-            Calculated electrical values
-          </p>
+          <h2 className="sim-results-title">Simulation Results</h2>
+          <p className="sim-results-subtitle">Calculated electrical values</p>
         </div>
-
-        <Badge>
-          {isActive ? "Running" : "Stopped"}
+        <Badge variant={isActive ? "info" : "default"}>
+          {isActive ? (status === "completed" ? "Completed" : "Running") : "Stopped"}
         </Badge>
       </div>
 
       {error && (
-        <div
-          role="alert"
-          style={{
-            marginTop: "18px",
-            padding: "12px 14px",
-            borderRadius: "8px",
-            background: "#fef2f2",
-            color: "#b91c1c",
-          }}
-        >
-          {error}
+        <div className="sim-results-error" role="alert">
+          <AlertTriangle size={14} />
+          <span>{error}</span>
         </div>
       )}
 
       {result ? (
         <>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(150px, 1fr))",
-              gap: "14px",
-              marginTop: "20px",
-            }}
-          >
-            <ResultItem
-              label="Total Resistance"
-              value={`${result.totalResistance.toFixed(3)} Ω`}
-            />
-
-            <ResultItem
-              label="Current"
-              value={`${result.current.toFixed(3)} A`}
-            />
-
-            <ResultItem
-              label="Power"
-              value={`${result.power.toFixed(3)} W`}
-            />
+          <div className="sim-results-grid">
+            <ResultItem label="Total Resistance" value={`${result.totalResistance.toFixed(3)} Ω`} />
+            <ResultItem label="Current" value={`${result.current.toFixed(3)} A`} />
+            <ResultItem label="Power" value={`${result.power.toFixed(3)} W`} />
           </div>
 
-          <div
-            style={{
-              marginTop: "18px",
-              padding: "14px",
-              borderRadius: "8px",
-              background: "#f9fafb",
-              color: "#374151",
-            }}
-          >
+          <div className="sim-results-formula">
             <strong>Formula:</strong> I = V / R
           </div>
+
+          {status === "completed" && (
+            <div className="sim-results-status">
+              <CheckCircle2 size={14} className="sim-results-ok-icon" />
+              <span>Within expected range</span>
+            </div>
+          )}
         </>
       ) : (
-        <p
-          style={{
-            marginTop: "20px",
-            color: "#6b7280",
-          }}
-        >
-          Run the simulation to view calculated results.
+        <p className="sim-results-empty">
+          {status === "error"
+            ? "Simulation could not be completed. Check your inputs and try again."
+            : "Run the simulation to view calculated results."}
         </p>
       )}
     </Card>
   );
 }
 
-type ResultItemProps = {
-  label: string;
-  value: string;
-};
-
-function ResultItem({ label, value }: ResultItemProps) {
+function ResultItem({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      style={{
-        padding: "16px",
-        borderRadius: "8px",
-        background: "#f9fafb",
-      }}
-    >
-      <div
-        style={{
-          color: "#6b7280",
-          fontSize: "13px",
-          marginBottom: "6px",
-        }}
-      >
-        {label}
-      </div>
-
-      <strong
-        style={{
-          fontSize: "18px",
-        }}
-      >
-        {value}
-      </strong>
+    <div className="sim-result-item">
+      <span className="sim-result-item-label">{label}</span>
+      <strong className="sim-result-item-value">{value}</strong>
     </div>
   );
 }

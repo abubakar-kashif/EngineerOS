@@ -6,20 +6,9 @@ type SimulationModeSelectorProps = {
   onChange: (mode: SimulationMode) => void;
 };
 
-function SimulationModeSelector({
-  mode,
-  onChange,
-}: SimulationModeSelectorProps) {
+function SimulationModeSelector({ mode, onChange }: SimulationModeSelectorProps) {
   return (
-    <div
-      role="group"
-      aria-label="Circuit simulation mode"
-      style={{
-        display: "flex",
-        gap: "10px",
-        flexWrap: "wrap",
-      }}
-    >
+    <div className="sim-mode-selector" role="group" aria-label="Circuit simulation mode">
       <Button
         type="button"
         variant={mode === "series" ? "primary" : "secondary"}
@@ -27,7 +16,6 @@ function SimulationModeSelector({
       >
         Series Circuit
       </Button>
-
       <Button
         type="button"
         variant={mode === "parallel" ? "primary" : "secondary"}

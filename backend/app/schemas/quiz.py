@@ -1,6 +1,7 @@
+from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 
 AnswerChoice = Literal["A", "B", "C", "D"]
@@ -44,3 +45,22 @@ class QuizSubmitResponse(BaseModel):
     total_questions: int
     correct_answers: int
     passed: bool
+
+
+class QuizAttemptResponse(BaseModel):
+    """One graded attempt from the user's persisted quiz history."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    experiment_id: str
+    score: float
+    total_questions: int
+    correct_answers: int
+    passed: bool
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def _serialize_created_at(self, value: datetime) -> datetime:
+        # Naive UTC (SQLite default) → timezone-aware so clients read it as UTC.
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value

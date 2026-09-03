@@ -1,8 +1,23 @@
+import sys
+
 from sqlalchemy.orm import Session
-from app.models.experiment import Experiment
+from app.core.config import settings
+from app.core.security import hash_password
+from app.data.experiment_content import EXPERIMENTS
 from app.data.quiz_bank import iter_questions
+from app.models.experiment import Experiment
 from app.models.quiz import QuizQuestion
+from app.models.user import User
 from app.db.database import SessionLocal, Base, engine
+from app.services.user_service import ensure_preferences
+
+DEMO_EMAIL = "demo@engineeros.dev"
+DEMO_PASSWORD = "demo1234"
+
+# Windows consoles/pipes often default to a legacy code page (cp1252) that
+# cannot encode the emoji below; degrade gracefully instead of crashing.
+if sys.stdout is not None and sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout.reconfigure(errors="replace")
 
 
 def init_db():
@@ -11,164 +26,61 @@ def init_db():
 
 
 def seed_quizzes():
-    """Seed quiz questions from quiz_bank"""
+    """Seed or refresh quiz questions from quiz_bank.
+
+    Rows are matched by primary key and reconciled field by field, so
+    databases seeded from an older snapshot (the 100-question pre-Phase-6
+    bank) pick up new questions, edits, and removals on the next start.
+    """
+    bank = list(iter_questions())
+    bank_ids = {item["id"] for item in bank}
+
     with SessionLocal() as db:
-        existing_ids = set(db.query(QuizQuestion.id).all())
-        existing_ids = {id for id, in existing_ids}
+        existing = {row.id: row for row in db.query(QuizQuestion).all()}
 
         added = 0
-        for item in iter_questions():
-            if item["id"] in existing_ids:
+        updated = 0
+        for item in bank:
+            row = existing.get(item["id"])
+            if row is None:
+                db.add(QuizQuestion(**item))
+                added += 1
                 continue
-            db.add(QuizQuestion(**item))
-            added += 1
+            changed = False
+            for key, value in item.items():
+                if getattr(row, key) != value:
+                    setattr(row, key, value)
+                    changed = True
+            if changed:
+                updated += 1
 
-        if added:
+        removed = 0
+        for question_id, row in existing.items():
+            if question_id not in bank_ids:
+                db.delete(row)
+                removed += 1
+
+        if added or updated or removed:
             db.commit()
-            print(f"  ✅ Added {added} quiz questions")
+            print(
+                f"  ✅ Quiz questions: {added} added, {updated} updated, "
+                f"{removed} removed"
+            )
         else:
-            print("  ℹ️ No new quiz questions to add")
+            print("  ℹ️ Quiz questions up to date")
 
 
 def seed_experiments(db: Session):
-    """Add the initial experiments to the database without duplicates."""
+    """Add or refresh the experiment catalog from the content module.
 
-    experiments = [
-        {
-            "id": "ohms-law",
-            "title": "Ohm's Law",
-            "slug": "ohms-law",
-            "short_description": "Explore the relationship between voltage, current, and resistance.",
-            "description": "In this experiment, you will investigate Ohm's Law, which states that the current through a conductor between two points is directly proportional to the voltage across the two points.",
-            "objective": "Understand the relationship between voltage, current, and resistance in a simple circuit.",
-            "theory": "Ohm's Law is a fundamental principle in electronics. It states that V = I × R, where V is voltage, I is current, and R is resistance.",
-            "difficulty": "Beginner",
-            "category": "Circuit Fundamentals",
-            "duration_minutes": 30,
-            "status": "published",
-        },
-        {
-            "id": "series-circuit",
-            "title": "Series Circuit",
-            "slug": "series-circuit",
-            "short_description": "Analyze the behavior of components connected in series.",
-            "description": "This experiment explores how resistors behave when connected in series.",
-            "objective": "Understand how voltage divides across series components and how current remains constant.",
-            "theory": "In a series circuit, components are connected end-to-end. The total resistance is the sum of individual resistances.",
-            "difficulty": "Beginner",
-            "category": "Circuit Fundamentals",
-            "duration_minutes": 35,
-            "status": "published",
-        },
-        {
-            "id": "parallel-circuit",
-            "title": "Parallel Circuit",
-            "slug": "parallel-circuit",
-            "short_description": "Analyze the behavior of components connected in parallel.",
-            "description": "This experiment explores how resistors behave when connected in parallel.",
-            "objective": "Understand how current divides across parallel branches and how voltage remains constant.",
-            "theory": "In a parallel circuit, components are connected across the same voltage source. The total resistance is less than the smallest individual resistance.",
-            "difficulty": "Beginner",
-            "category": "Circuit Fundamentals",
-            "duration_minutes": 35,
-            "status": "published",
-        },
-        {
-            "id": "kvl",
-            "title": "Kirchhoff's Voltage Law",
-            "slug": "kvl",
-            "short_description": "Verify Kirchhoff's Voltage Law in a circuit.",
-            "description": "This experiment verifies Kirchhoff's Voltage Law.",
-            "objective": "Validate Kirchhoff's Voltage Law by measuring voltages.",
-            "theory": "Kirchhoff's Voltage Law (KVL) states that the sum of voltages around any closed loop is zero.",
-            "difficulty": "Intermediate",
-            "category": "Circuit Fundamentals",
-            "duration_minutes": 40,
-            "status": "published",
-        },
-        {
-            "id": "kcl",
-            "title": "Kirchhoff's Current Law",
-            "slug": "kcl",
-            "short_description": "Verify Kirchhoff's Current Law in a circuit.",
-            "description": "This experiment verifies Kirchhoff's Current Law.",
-            "objective": "Validate Kirchhoff's Current Law by measuring currents.",
-            "theory": "Kirchhoff's Current Law (KCL) states that the sum of currents entering a node equals the sum leaving it.",
-            "difficulty": "Intermediate",
-            "category": "Circuit Fundamentals",
-            "duration_minutes": 40,
-            "status": "published",
-        },
-        {
-            "id": "voltage-divider",
-            "title": "Voltage Divider",
-            "slug": "voltage-divider",
-            "short_description": "Explore the voltage divider circuit.",
-            "description": "This experiment investigates the voltage divider circuit.",
-            "objective": "Understand how to calculate and measure voltage division.",
-            "theory": "V_out = V_in × (R2 / (R1 + R2))",
-            "difficulty": "Intermediate",
-            "category": "Circuit Fundamentals",
-            "duration_minutes": 35,
-            "status": "published",
-        },
-        {
-            "id": "current-divider",
-            "title": "Current Divider",
-            "slug": "current-divider",
-            "short_description": "Explore the current divider circuit.",
-            "description": "This experiment investigates the current divider circuit.",
-            "objective": "Understand how current divides between parallel resistors.",
-            "theory": "Current divides inversely proportional to resistance.",
-            "difficulty": "Intermediate",
-            "category": "Circuit Fundamentals",
-            "duration_minutes": 35,
-            "status": "published",
-        },
-        {
-            "id": "rc-circuit",
-            "title": "RC Circuit",
-            "slug": "rc-circuit",
-            "short_description": "Analyze the behavior of an RC circuit.",
-            "description": "This experiment explores the charging and discharging of a capacitor.",
-            "objective": "Understand the time-dependent behavior of RC circuits.",
-            "theory": "The time constant τ = RC determines the rate of change.",
-            "difficulty": "Intermediate",
-            "category": "Circuit Fundamentals",
-            "duration_minutes": 45,
-            "status": "published",
-        },
-        {
-            "id": "diode-characteristics",
-            "title": "Diode Characteristics",
-            "slug": "diode-characteristics",
-            "short_description": "Explore the characteristics of a semiconductor diode.",
-            "description": "This experiment investigates the I-V characteristics of a diode.",
-            "objective": "Understand how diodes conduct current in one direction.",
-            "theory": "A diode allows current to flow only in one direction with a forward voltage drop of ~0.7V.",
-            "difficulty": "Advanced",
-            "category": "Semiconductors",
-            "duration_minutes": 45,
-            "status": "published",
-        },
-        {
-            "id": "led-circuit",
-            "title": "LED Circuit",
-            "slug": "LED Circuit",
-            "short_description": "Design and analyze circuits using LEDs.",
-            "description": "This experiment explores how to properly use LEDs in circuits.",
-            "objective": "Design LED circuits with appropriate current limiting.",
-            "theory": "LEDs require a current-limiting resistor to prevent damage.",
-            "difficulty": "Advanced",
-            "category": "Semiconductors",
-            "duration_minutes": 40,
-            "status": "published",
-        },
-    ]
+    Existing rows are updated so the canonical content (theory, procedure,
+    safety notes, …) reaches databases created before Phase 4.
+    """
 
     added = 0
+    updated = 0
 
-    for exp_data in experiments:
+    for exp_data in EXPERIMENTS:
         existing = (
             db.query(Experiment)
             .filter(Experiment.id == exp_data["id"])
@@ -176,16 +88,47 @@ def seed_experiments(db: Session):
         )
 
         if existing:
-            continue
+            for key, value in exp_data.items():
+                setattr(existing, key, value)
+            updated += 1
+        else:
+            db.add(Experiment(**exp_data))
+            added += 1
 
-        db.add(Experiment(**exp_data))
-        added += 1
+    db.commit()
 
-    if added:
-        db.commit()
-        print(f"  ✅ Added {added} experiment(s)")
+    if added or updated:
+        print(f"  ✅ Experiments: {added} added, {updated} updated")
     else:
-        print("  ℹ️ All experiments already exist")
+        print("  ℹ️ No experiments to seed")
+
+
+def seed_demo_user(db: Session):
+    """Create a ready-to-use demo account (development only).
+
+    The account is pre-verified so the login flow can be exercised
+    immediately after seeding; it is only created when DEBUG is enabled.
+    """
+    if not settings.DEBUG:
+        return
+
+    existing = db.query(User).filter(User.email == DEMO_EMAIL).first()
+    if existing:
+        print("  ℹ️ Demo user already exists")
+        return
+
+    user = User(
+        name="Demo Student",
+        email=DEMO_EMAIL,
+        password_hash=hash_password(DEMO_PASSWORD),
+        email_verified=True,
+    )
+    db.add(user)
+    db.commit()
+
+    ensure_preferences(db, user)
+
+    print(f"  ✅ Demo user ready: {DEMO_EMAIL} / {DEMO_PASSWORD}")
 
 
 def seed_database(db: Session):
@@ -194,5 +137,8 @@ def seed_database(db: Session):
 
     print("🌱 Seeding quizzes...")
     seed_quizzes()
+
+    print("🌱 Seeding demo user...")
+    seed_demo_user(db)
 
     print("✅ Database seeding complete!")

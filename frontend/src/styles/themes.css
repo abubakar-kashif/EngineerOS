@@ -1,0 +1,110 @@
+/* =========================================================
+   ENGINEEROS — THEME DEFINITIONS
+   Dark-first with light and system support
+   ========================================================= */
+
+/* ----- DARK THEME (default) ----- */
+[data-theme="dark"] {
+  /* Surfaces */
+  --color-bg: #0b0f17;
+  --color-surface: #121821;
+  --color-surface-elevated: #1a2231;
+  --color-surface-muted: #0f141c;
+
+  /* Text */
+  --color-text: #e8ecf4;
+  --color-text-secondary: #8a95a8;
+  --color-text-muted: #5a6478;
+
+  /* Brand */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-muted: rgba(59, 130, 246, 0.12);
+  --color-accent: #22d3ee;
+  --color-accent-muted: rgba(34, 211, 238, 0.1);
+
+  /* Semantic */
+  --color-success: #22c55e;
+  --color-success-muted: rgba(34, 197, 94, 0.12);
+  --color-warning: #f59e0b;
+  --color-warning-muted: rgba(245, 158, 11, 0.12);
+  --color-danger: #ef4444;
+  --color-danger-muted: rgba(239, 68, 68, 0.12);
+  --color-info: #3b82f6;
+  --color-info-muted: rgba(59, 130, 246, 0.12);
+
+  /* Borders */
+  --color-border: #1e293b;
+  --color-border-strong: #334155;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4);
+
+  /* Focus */
+  --color-focus-ring: rgba(59, 130, 246, 0.5);
+
+  /* Overlay */
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Selection */
+  --color-selection: rgba(59, 130, 246, 0.35);
+
+  /* Scrollbar */
+  --color-scrollbar: #334155;
+  --color-scrollbar-track: transparent;
+}
+
+/* ----- LIGHT THEME ----- */
+[data-theme="light"] {
+  /* Surfaces */
+  --color-bg: #f6f8fc;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-muted: #eef1f6;
+
+  /* Text */
+  --color-text: #152033;
+  --color-text-secondary: #6b7790;
+  --color-text-muted: #99a3b4;
+
+  /* Brand */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-muted: rgba(37, 99, 235, 0.08);
+  --color-accent: #06b6d4;
+  --color-accent-muted: rgba(6, 182, 212, 0.08);
+
+  /* Semantic */
+  --color-success: #16a34a;
+  --color-success-muted: rgba(22, 163, 74, 0.08);
+  --color-warning: #d97706;
+  --color-warning-muted: rgba(217, 119, 6, 0.08);
+  --color-danger: #dc2626;
+  --color-danger-muted: rgba(220, 38, 38, 0.08);
+  --color-info: #2563eb;
+  --color-info-muted: rgba(37, 99, 235, 0.08);
+
+  /* Borders */
+  --color-border: #e1e6ef;
+  --color-border-strong: #cbd5e1;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.1);
+
+  /* Focus */
+  --color-focus-ring: rgba(37, 99, 235, 0.4);
+
+  /* Overlay */
+  --color-overlay: rgba(0, 0, 0, 0.4);
+
+  /* Selection */
+  --color-selection: rgba(37, 99, 235, 0.2);
+
+  /* Scrollbar */
+  --color-scrollbar: #c5cdd8;
+  --color-scrollbar-track: transparent;
+}

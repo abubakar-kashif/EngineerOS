@@ -5,179 +5,451 @@ export const mockExperiments: Experiment[] = [
     id: "ohms-law",
     title: "Ohm's Law",
     slug: "ohms-law",
-    short_description:
-      "Understand the relationship between voltage, current, and resistance.",
-    description:
-      "Explore the relationship between voltage, current, and resistance using Ohm's Law.",
-    objective:
-      "Understand how voltage, current, and resistance are related in a basic electrical circuit.",
-    theory:
-      "Ohm's Law states that voltage is equal to current multiplied by resistance: V = I × R.",
+    short_description: "Understand the relationship between voltage, current, and resistance.",
+    description: "Explore the relationship between voltage, current, and resistance using Ohm's Law.",
+    objective: "Understand how voltage, current, and resistance are related in a basic electrical circuit.",
+    theory: "Ohm's Law states that voltage is equal to current multiplied by resistance: V = I × R. This fundamental relationship is the cornerstone of circuit analysis and applies to any resistive element in a DC circuit.",
     difficulty: "Beginner",
     category: "Circuit Fundamentals",
     duration_minutes: 30,
     status: "active",
+    formulas: [
+      { expression: "V = I × R", variables: [
+        { symbol: "V", name: "Voltage (volts)" },
+        { symbol: "I", name: "Current (amperes)" },
+        { symbol: "R", name: "Resistance (ohms)" },
+      ]},
+    ],
+    components: [
+      { name: "DC voltage source", quantity: 1, spec: "0–12 V adjustable" },
+      { name: "Resistor R", quantity: 1, spec: "1 kΩ, 1/4 W" },
+      { name: "Digital multimeter", quantity: 2, spec: "Voltmeter + ammeter duty" },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Connect the voltage source to the breadboard.",
+      "Place the resistor across the circuit.",
+      "Connect the ammeter in series to measure current.",
+      "Connect the voltmeter in parallel across the resistor.",
+      "Apply a known voltage and record the current reading.",
+      "Compare measured V and I×R to verify Ohm's Law.",
+    ],
+    expected_results: [
+      "You should observe that V ≈ I × R. Small differences may occur because of component tolerance or measurement instrument accuracy.",
+    ],
+    prerequisites: [],
+    learning_outcomes: [
+      "Understand the V = IR relationship",
+      "Measure voltage and current in a simple circuit",
+      "Verify theoretical predictions with real measurements",
+    ],
   },
-
   {
     id: "series-circuit",
     title: "Series Circuit",
     slug: "series-circuit",
-    short_description:
-      "Explore current and voltage behavior in a series circuit.",
-    description:
-      "Study how current and voltage behave when electrical components are connected in series.",
-    objective:
-      "Understand current flow and voltage distribution in a series circuit.",
-    theory:
-      "In a series circuit, the same current flows through every component while the supply voltage is divided across components.",
+    short_description: "Explore current and voltage behavior in a series circuit.",
+    description: "Study how current and voltage behave when electrical components are connected in series.",
+    objective: "Understand current flow and voltage distribution in a series circuit.",
+    theory: "In a series circuit, the same current flows through every component while the supply voltage is divided across components. The total resistance is the sum of individual resistances.",
     difficulty: "Beginner",
     category: "Circuit Analysis",
     duration_minutes: 30,
     status: "active",
+    formulas: [
+      { expression: "R_total = R₁ + R₂ + ... + Rₙ", variables: [
+        { symbol: "R_total", name: "Total resistance" },
+        { symbol: "Rₙ", name: "Individual resistances" },
+      ]},
+      { expression: "V_total = V₁ + V₂ + ... + Vₙ", variables: [
+        { symbol: "V_total", name: "Supply voltage" },
+        { symbol: "Vₙ", name: "Voltage across each component" },
+      ]},
+    ],
+    components: [
+      { name: "DC voltage source", quantity: 1, spec: "9 V fixed" },
+      { name: "Resistor R1", quantity: 1, spec: "1 kΩ, 1/4 W" },
+      { name: "Resistor R2", quantity: 1, spec: "2.2 kΩ, 1/4 W" },
+      { name: "Digital multimeter", quantity: 2, spec: "Voltmeter + ammeter duty" },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Connect two resistors in series on the breadboard.",
+      "Connect the voltage source across the series combination.",
+      "Measure the total current flowing through the circuit.",
+      "Measure voltage across each resistor individually.",
+      "Verify that voltages sum to the supply voltage.",
+    ],
+    expected_results: [
+      "Current should be the same through all components.",
+      "The sum of voltages across each resistor should equal the supply voltage.",
+    ],
+    prerequisites: ["ohms-law"],
+    learning_outcomes: [
+      "Understand that current is constant in a series circuit",
+      "Verify that voltages add up to the supply voltage",
+      "Calculate total resistance in series",
+    ],
   },
-
   {
     id: "parallel-circuit",
     title: "Parallel Circuit",
     slug: "parallel-circuit",
-    short_description:
-      "Analyze voltage and current distribution in parallel circuits.",
-    description:
-      "Explore voltage and current behavior across multiple parallel branches.",
-    objective:
-      "Understand how current divides and how voltage behaves across parallel branches.",
-    theory:
-      "In a parallel circuit, each branch has the same voltage while the total current is divided between branches.",
+    short_description: "Analyze voltage and current distribution in parallel circuits.",
+    description: "Explore voltage and current behavior across multiple parallel branches.",
+    objective: "Understand how current divides and how voltage behaves across parallel branches.",
+    theory: "In a parallel circuit, each branch has the same voltage while the total current is divided between branches. The reciprocal of total resistance equals the sum of reciprocals of individual resistances.",
     difficulty: "Beginner",
     category: "Circuit Analysis",
     duration_minutes: 30,
     status: "active",
+    formulas: [
+      { expression: "1/R_total = 1/R₁ + 1/R₂ + ... + 1/Rₙ", variables: [
+        { symbol: "R_total", name: "Total equivalent resistance" },
+        { symbol: "Rₙ", name: "Individual resistances" },
+      ]},
+      { expression: "I_total = I₁ + I₂ + ... + Iₙ", variables: [
+        { symbol: "I_total", name: "Total current" },
+        { symbol: "Iₙ", name: "Branch currents" },
+      ]},
+    ],
+    components: [
+      { name: "DC voltage source", quantity: 1, spec: "9 V fixed" },
+      { name: "Resistor R1", quantity: 1, spec: "1 kΩ, 1/4 W" },
+      { name: "Resistor R2", quantity: 1, spec: "2.2 kΩ, 1/4 W" },
+      { name: "Digital multimeter", quantity: 2, spec: "Voltmeter + ammeter duty" },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Connect two resistors in parallel on the breadboard.",
+      "Connect the voltage source across the parallel combination.",
+      "Measure the voltage across each branch.",
+      "Measure the current through each branch.",
+      "Measure the total current supplied by the source.",
+      "Verify that branch currents sum to the total current.",
+    ],
+    expected_results: [
+      "Voltage should be the same across all parallel branches.",
+      "The sum of branch currents should equal the total current.",
+    ],
+    prerequisites: ["ohms-law"],
+    learning_outcomes: [
+      "Understand that voltage is constant across parallel branches",
+      "Verify current division in parallel circuits",
+      "Calculate equivalent parallel resistance",
+    ],
   },
-
   {
     id: "kvl",
     title: "Kirchhoff's Voltage Law",
     slug: "kvl",
-    short_description:
-      "Apply KVL to analyze voltage relationships around a circuit loop.",
-    description:
-      "Learn how Kirchhoff's Voltage Law can be used to analyze voltage around a closed circuit loop.",
-    objective:
-      "Verify that the algebraic sum of voltages around a closed loop is zero.",
-    theory:
-      "Kirchhoff's Voltage Law states that the algebraic sum of all voltage rises and drops around a closed loop is zero.",
+    short_description: "Apply KVL to analyze voltage relationships around a circuit loop.",
+    description: "Learn how Kirchhoff's Voltage Law can be used to analyze voltage around a closed circuit loop.",
+    objective: "Verify that the algebraic sum of voltages around a closed loop is zero.",
+    theory: "Kirchhoff's Voltage Law states that the algebraic sum of all voltage rises and drops around a closed loop is zero. This is a consequence of conservation of energy in electrical circuits.",
     difficulty: "Intermediate",
     category: "Circuit Analysis",
     duration_minutes: 30,
     status: "active",
+    formulas: [
+      { expression: "ΣV = 0 (around any closed loop)", variables: [
+        { symbol: "ΣV", name: "Sum of all voltages in the loop" },
+      ]},
+    ],
+    components: [
+      { name: "DC voltage source", quantity: 1, spec: "9 V fixed" },
+      { name: "Resistor R1", quantity: 1, spec: "1 kΩ, 1/4 W" },
+      { name: "Resistor R2", quantity: 1, spec: "2.2 kΩ, 1/4 W" },
+      { name: "Resistor R3", quantity: 1, spec: "3.3 kΩ, 1/4 W" },
+      { name: "Digital multimeter", quantity: 1, spec: "Voltmeter duty" },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Build a circuit with three resistors in series with a voltage source.",
+      "Measure the voltage across each component.",
+      "Sum all voltages around the loop (with correct signs).",
+      "Verify that the algebraic sum equals zero.",
+    ],
+    expected_results: [
+      "The algebraic sum of all voltages around the closed loop should be approximately zero, confirming KVL.",
+    ],
+    prerequisites: ["series-circuit"],
+    learning_outcomes: [
+      "Apply KVL to analyze multi-component circuits",
+      "Understand voltage sign conventions",
+      "Verify energy conservation in circuits",
+    ],
   },
-
   {
     id: "kcl",
     title: "Kirchhoff's Current Law",
     slug: "kcl",
-    short_description:
-      "Analyze current entering and leaving a circuit node.",
-    description:
-      "Study current relationships at circuit nodes using Kirchhoff's Current Law.",
-    objective:
-      "Verify that the total current entering a node equals the total current leaving it.",
-    theory:
-      "Kirchhoff's Current Law states that the algebraic sum of currents at a circuit node is zero.",
+    short_description: "Analyze current entering and leaving a circuit node.",
+    description: "Study current relationships at circuit nodes using Kirchhoff's Current Law.",
+    objective: "Verify that the total current entering a node equals the total current leaving it.",
+    theory: "Kirchhoff's Current Law states that the algebraic sum of currents at a circuit node is zero. This is a consequence of conservation of charge.",
     difficulty: "Intermediate",
     category: "Circuit Analysis",
     duration_minutes: 30,
     status: "active",
+    formulas: [
+      { expression: "ΣI_in = ΣI_out (at any node)", variables: [
+        { symbol: "ΣI_in", name: "Sum of currents entering the node" },
+        { symbol: "ΣI_out", name: "Sum of currents leaving the node" },
+      ]},
+    ],
+    components: [
+      { name: "DC voltage source", quantity: 1, spec: "9 V fixed" },
+      { name: "Resistor R1", quantity: 1, spec: "1 kΩ, 1/4 W" },
+      { name: "Resistor R2", quantity: 1, spec: "2.2 kΩ, 1/4 W" },
+      { name: "Resistor R3", quantity: 1, spec: "3.3 kΩ, 1/4 W" },
+      { name: "Digital multimeter", quantity: 1, spec: "Ammeter duty" },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Build a circuit with a node where three branches meet.",
+      "Measure the current in each branch at the node.",
+      "Sum currents entering and leaving the node.",
+      "Verify that entering currents equal leaving currents.",
+    ],
+    expected_results: [
+      "The sum of currents entering the node should equal the sum of currents leaving, confirming KCL.",
+    ],
+    prerequisites: ["parallel-circuit"],
+    learning_outcomes: [
+      "Apply KCL to analyze current at circuit nodes",
+      "Understand charge conservation",
+      "Verify current relationships at multi-branch nodes",
+    ],
   },
-
   {
     id: "voltage-divider",
     title: "Voltage Divider",
     slug: "voltage-divider",
-    short_description:
-      "Learn how voltage is distributed across series resistors.",
-    description:
-      "Explore how a pair of resistors can be used to produce a fraction of an input voltage.",
-    objective:
-      "Understand and calculate output voltage using a voltage divider.",
-    theory:
-      "A voltage divider produces an output voltage determined by the ratio of resistor values in a series network.",
+    short_description: "Learn how voltage is distributed across series resistors.",
+    description: "Explore how a pair of resistors can be used to produce a fraction of an input voltage.",
+    objective: "Understand and calculate output voltage using a voltage divider.",
+    theory: "A voltage divider produces an output voltage determined by the ratio of resistor values in a series network. This is one of the most commonly used circuits in electronics.",
     difficulty: "Beginner",
     category: "Circuit Fundamentals",
     duration_minutes: 25,
     status: "active",
+    formulas: [
+      { expression: "V_out = V_in × R₂ / (R₁ + R₂)", variables: [
+        { symbol: "V_out", name: "Output voltage" },
+        { symbol: "V_in", name: "Input voltage" },
+        { symbol: "R₁", name: "Upper resistor" },
+        { symbol: "R₂", name: "Lower resistor" },
+      ]},
+    ],
+    components: [
+      { name: "DC voltage source", quantity: 1, spec: "9 V fixed" },
+      { name: "Resistor R1", quantity: 1, spec: "1 kΩ, 1/4 W" },
+      { name: "Resistor R2", quantity: 1, spec: "2.2 kΩ, 1/4 W" },
+      { name: "Digital multimeter", quantity: 1, spec: "Voltmeter duty" },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Connect R1 and R2 in series across the voltage source.",
+      "Measure the voltage across R2 (the output).",
+      "Calculate the expected output using the divider formula.",
+      "Compare measured and calculated values.",
+    ],
+    expected_results: [
+      "The measured output voltage should closely match V_in × R₂/(R₁ + R₂).",
+    ],
+    prerequisites: ["ohms-law", "series-circuit"],
+    learning_outcomes: [
+      "Design a voltage divider for a target output",
+      "Understand the resistor ratio relationship",
+      "Apply series circuit analysis",
+    ],
   },
-
   {
     id: "current-divider",
     title: "Current Divider",
     slug: "current-divider",
-    short_description:
-      "Understand how current divides between parallel branches.",
-    description:
-      "Explore how total current is distributed across parallel resistive branches.",
-    objective:
-      "Calculate branch currents in a parallel resistor network.",
-    theory:
-      "A current divider distributes total current among parallel branches according to their resistance values.",
+    short_description: "Understand how current divides between parallel branches.",
+    description: "Explore how total current is distributed across parallel resistive branches.",
+    objective: "Calculate branch currents in a parallel resistor network.",
+    theory: "A current divider distributes total current among parallel branches according to their resistance values. Lower resistance branches carry more current.",
     difficulty: "Intermediate",
     category: "Circuit Fundamentals",
     duration_minutes: 25,
     status: "active",
+    formulas: [
+      { expression: "I₁ = I_total × R₂ / (R₁ + R₂)", variables: [
+        { symbol: "I₁", name: "Current through R1" },
+        { symbol: "I_total", name: "Total current" },
+        { symbol: "R₁", name: "Resistance of branch 1" },
+        { symbol: "R₂", name: "Resistance of branch 2" },
+      ]},
+    ],
+    components: [
+      { name: "DC voltage source", quantity: 1, spec: "9 V fixed" },
+      { name: "Resistor R1", quantity: 1, spec: "1 kΩ, 1/4 W" },
+      { name: "Resistor R2", quantity: 1, spec: "2.2 kΩ, 1/4 W" },
+      { name: "Digital multimeter", quantity: 1, spec: "Ammeter duty" },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Connect R1 and R2 in parallel.",
+      "Apply a known total current.",
+      "Measure the current through each branch.",
+      "Calculate expected branch currents using the divider formula.",
+      "Compare measured and calculated values.",
+    ],
+    expected_results: [
+      "Branch currents should match the current divider formula.",
+      "The lower-resistance branch carries more current.",
+    ],
+    prerequisites: ["ohms-law", "parallel-circuit"],
+    learning_outcomes: [
+      "Apply the current divider formula",
+      "Understand inverse relationship between resistance and current",
+      "Verify parallel circuit current distribution",
+    ],
   },
-
   {
     id: "rc-circuit",
     title: "RC Circuit",
     slug: "rc-circuit",
-    short_description:
-      "Explore charging and discharging behavior in an RC circuit.",
-    description:
-      "Study the transient response of a resistor-capacitor circuit.",
-    objective:
-      "Understand the charging and discharging behavior of a capacitor through a resistor.",
-    theory:
-      "The capacitor voltage in an RC circuit changes exponentially according to the circuit time constant.",
+    short_description: "Explore charging and discharging behavior in an RC circuit.",
+    description: "Study the transient response of a resistor-capacitor circuit.",
+    objective: "Understand the charging and discharging behavior of a capacitor through a resistor.",
+    theory: "The capacitor voltage in an RC circuit changes exponentially according to the circuit time constant τ = RC. During charging, voltage rises toward the supply; during discharging, it decays toward zero.",
     difficulty: "Intermediate",
     category: "Circuit Analysis",
     duration_minutes: 35,
     status: "active",
+    formulas: [
+      { expression: "τ = R × C", variables: [
+        { symbol: "τ", name: "Time constant (seconds)" },
+        { symbol: "R", name: "Resistance (ohms)" },
+        { symbol: "C", name: "Capacitance (farads)" },
+      ]},
+      { expression: "V(t) = V₀ × (1 − e^(−t/τ))", variables: [
+        { symbol: "V(t)", name: "Capacitor voltage at time t" },
+        { symbol: "V₀", name: "Supply voltage" },
+        { symbol: "τ", name: "Time constant" },
+      ]},
+    ],
+    components: [
+      { name: "DC voltage source", quantity: 1, spec: "9 V fixed" },
+      { name: "Resistor R", quantity: 1, spec: "10 kΩ, 1/4 W" },
+      { name: "Capacitor C", quantity: 1, spec: "100 µF, 16 V electrolytic" },
+      { name: "SPST switch", quantity: 1, spec: null },
+      { name: "Digital multimeter", quantity: 1, spec: "Voltmeter duty" },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Connect the resistor and capacitor in series with the voltage source.",
+      "Close the switch and observe the capacitor voltage rising.",
+      "Record voltage at regular time intervals during charging.",
+      "Open the switch and disconnect the source.",
+      "Short the circuit and observe the capacitor discharging.",
+      "Compare measurements with the exponential formula.",
+    ],
+    expected_results: [
+      "The capacitor should charge to ~63% of supply voltage in one time constant (τ = RC).",
+      "Discharge follows a similar exponential decay.",
+    ],
+    prerequisites: ["ohms-law", "series-circuit"],
+    learning_outcomes: [
+      "Understand exponential charging and discharging",
+      "Calculate and measure the RC time constant",
+      "Interpret transient circuit behavior",
+    ],
   },
-
   {
     id: "diode-characteristics",
     title: "Diode Characteristics",
     slug: "diode-characteristics",
-    short_description:
-      "Explore the voltage-current characteristics of a diode.",
-    description:
-      "Study how current changes with voltage across a semiconductor diode.",
-    objective:
-      "Understand forward and reverse bias behavior of a diode.",
-    theory:
-      "A diode allows current to flow primarily in one direction and exhibits a nonlinear current-voltage relationship.",
+    short_description: "Explore the voltage-current characteristics of a diode.",
+    description: "Study how current changes with voltage across a semiconductor diode.",
+    objective: "Understand forward and reverse bias behavior of a diode.",
+    theory: "A diode allows current to flow primarily in one direction and exhibits a nonlinear current-voltage relationship. In forward bias, current increases exponentially above the threshold voltage (~0.7V for silicon).",
     difficulty: "Intermediate",
     category: "Electronics",
     duration_minutes: 35,
     status: "active",
+    formulas: [
+      { expression: "I = Iₛ × (e^(V/nV_T) − 1)", variables: [
+        { symbol: "I", name: "Diode current" },
+        { symbol: "Iₛ", name: "Saturation current" },
+        { symbol: "V", name: "Voltage across diode" },
+        { symbol: "n", name: "Ideality factor (1-2)" },
+        { symbol: "V_T", name: "Thermal voltage (~26mV at room temp)" },
+      ]},
+    ],
+    components: [
+      { name: "Adjustable DC voltage source", quantity: 1, spec: "0–12 V" },
+      { name: "Silicon diode", quantity: 1, spec: "1N4148" },
+      { name: "Resistor R", quantity: 1, spec: "1 kΩ, 1/4 W" },
+      { name: "Digital multimeter", quantity: 2, spec: "Voltmeter + ammeter duty" },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Connect the diode in series with a current-limiting resistor.",
+      "Apply increasing forward voltage in small steps.",
+      "Record voltage across and current through the diode at each step.",
+      "Plot the V-I characteristic curve.",
+      "Reverse the diode and apply reverse voltage.",
+      "Observe the reverse leakage current.",
+    ],
+    expected_results: [
+      "Forward bias: current increases sharply above ~0.6–0.7 V.",
+      "Reverse bias: very small leakage current flows until breakdown.",
+    ],
+    prerequisites: ["ohms-law"],
+    learning_outcomes: [
+      "Characterize diode forward and reverse behavior",
+      "Understand the nonlinear V-I relationship",
+      "Identify the threshold/knee voltage",
+    ],
   },
-
   {
     id: "led-circuit",
     title: "LED Circuit",
     slug: "led-circuit",
-    short_description:
-      "Build a simple LED circuit and understand current limiting.",
-    description:
-      "Learn how to safely operate an LED using a current-limiting resistor.",
-    objective:
-      "Understand LED operation and the purpose of a series resistor.",
-    theory:
-      "An LED emits light when forward biased, while a series resistor limits current and protects the device.",
+    short_description: "Build a simple LED circuit and understand current limiting.",
+    description: "Learn how to safely operate an LED using a current-limiting resistor.",
+    objective: "Understand LED operation and the purpose of a series resistor.",
+    theory: "An LED emits light when forward biased, while a series resistor limits current and protects the device. Without current limiting, the LED can draw excessive current and be damaged.",
     difficulty: "Beginner",
     category: "Electronics",
     duration_minutes: 25,
     status: "active",
+    formulas: [
+      { expression: "R = (V_supply − V_LED) / I_LED", variables: [
+        { symbol: "R", name: "Current-limiting resistor" },
+        { symbol: "V_supply", name: "Supply voltage" },
+        { symbol: "V_LED", name: "LED forward voltage (~2V typical)" },
+        { symbol: "I_LED", name: "Desired LED current (~20mA)" },
+      ]},
+    ],
+    components: [
+      { name: "DC voltage source", quantity: 1, spec: "5 V fixed" },
+      { name: "LED", quantity: 2, spec: "e.g. red (~2 V) and blue/white (~3 V)" },
+      { name: "Current-limiting resistor", quantity: 2, spec: "150 Ω and 100 Ω, 1/4 W" },
+      { name: "Digital multimeter", quantity: 1, spec: null },
+      { name: "Breadboard", quantity: 1, spec: null },
+    ],
+    procedure: [
+      "Calculate the required resistor value using the formula.",
+      "Connect the resistor in series with the LED.",
+      "Connect the circuit to the voltage source (observe polarity).",
+      "Verify the LED lights up.",
+      "Measure current through the LED and compare with the target.",
+    ],
+    expected_results: [
+      "The LED should light up with the calculated current flowing through it (~20 mA for typical indicator LEDs).",
+    ],
+    prerequisites: ["ohms-law"],
+    learning_outcomes: [
+      "Calculate the correct current-limiting resistor",
+      "Understand LED polarity and forward voltage",
+      "Build a working LED circuit",
+    ],
   },
 ];

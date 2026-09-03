@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.schemas.experiment import (
-    ExperimentResponse,
+    ExperimentDetailResponse,
     ExperimentListResponse,
+    ExperimentResponse,
 )
 from app.services import experiment_service
 
@@ -36,7 +37,7 @@ def get_experiments(
 
 @router.get(
     "/{experiment_id}",
-    response_model=ExperimentResponse,
+    response_model=ExperimentDetailResponse,
 )
 def get_experiment(
     experiment_id: str,

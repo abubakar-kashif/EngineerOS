@@ -1,337 +1,126 @@
-import { useMemo, useState } from "react";
+/**
+ * Phase 10 — Professional circuit simulator page.
+ * Workstation layout: palette | canvas | inspector + analysis.
+ */
+import { useCallback, useMemo, useState } from "react";
 
-import SectionHeading from "../components/ui/SectionHeading";
-import SimulationControls from "../components/simulation/SimulationControls";
-import SimulationModeSelector from "../components/simulation/SimulationModeSelector";
+import { useCircuitEditor } from "../hooks/useCircuitEditor";
+import { validateCircuit, hasBlockingErrors } from "../components/simulation/engine/circuitValidator";
+import { solveDC } from "../components/simulation/engine/dcSolver";
+import type { SimulationOutput, ValidationError } from "../components/simulation/engine/types";
+
+import SimToolbar from "../components/simulation/SimToolbar";
+import ComponentPalette from "../components/simulation/ComponentPalette";
 import CircuitCanvas from "../components/simulation/CircuitCanvas";
-import SimulationResults from "../components/simulation/SimulationResults";
-
-import { runSimulation } from "../services/simulationService";
-
-import type {
-  SimulationMode,
-  SimulationResult,
-} from "../types/simulation";
+import ComponentInspector from "../components/simulation/ComponentInspector";
+import AnalysisPanel from "../components/simulation/AnalysisPanel";
 
 function SimulationPage() {
-  const [voltage, setVoltage] = useState("12");
-  const [r1, setR1] = useState("6");
-  const [r2, setR2] = useState("12");
+  const editor = useCircuitEditor();
+  const [simOutput, setSimOutput] = useState<SimulationOutput | null>(null);
+  const [simStatus, setSimStatus] = useState<"idle" | "running" | "completed" | "error">("idle");
 
-  const [mode, setMode] = useState<SimulationMode>("series");
-  const [running, setRunning] = useState(false);
-  const [switchOn, setSwitchOn] = useState(true);
-  const [error, setError] = useState("");
+  // ── Validation (recomputed on every circuit change) ──
+  const validationErrors: ValidationError[] = useMemo(
+    () => validateCircuit(editor.state.circuit),
+    [editor.state.circuit],
+  );
 
-  /*
-   * All engineering calculations are handled by
-   * simulationService.ts.
-   *
-   * The page only converts UI input into numbers and
-   * manages simulation state.
-   */
-  const result = useMemo<SimulationResult | null>(() => {
-    const v = Number(voltage);
-    const resistance1 = Number(r1);
-    const resistance2 = Number(r2);
+  const canRun = !hasBlockingErrors(validationErrors) && editor.state.circuit.components.length > 0;
 
-    if (
-      voltage.trim() === "" ||
-      r1.trim() === "" ||
-      !Number.isFinite(v) ||
-      !Number.isFinite(resistance1)
-    ) {
-      return null;
+  // ── Run simulation ──
+  const handleRun = useCallback(() => {
+    if (!canRun) {
+      setSimStatus("error");
+      return;
     }
-
-    if (mode === "parallel") {
-      if (
-        r2.trim() === "" ||
-        !Number.isFinite(resistance2)
-      ) {
-        return null;
-      }
-    }
-
+    setSimStatus("running");
+    // Solve synchronously (educational scope)
     try {
-      return runSimulation({
-        voltage: v,
-        r1: resistance1,
-        r2:
-          mode === "parallel"
-            ? resistance2
-            : undefined,
-        mode,
-        switchOn,
-      });
+      const output = solveDC(editor.state.circuit);
+      setSimOutput(output);
+      setSimStatus("completed");
     } catch {
-      return null;
+      setSimStatus("error");
     }
-  }, [voltage, r1, r2, mode, switchOn]);
+  }, [canRun, editor.state.circuit]);
 
-  function handleModeChange(nextMode: SimulationMode) {
-    setMode(nextMode);
+  const handleStop = useCallback(() => {
+    setSimStatus("idle");
+  }, []);
 
-    // Changing circuit mode resets the active simulation.
-    setRunning(false);
-    setError("");
-  }
+  // ── Save (placeholder — backend integration later) ──
+  const handleSave = useCallback(() => {
+    // TODO: persist via API
+    console.log("Save circuit:", editor.state.circuit);
+  }, [editor.state.circuit]);
 
-  function handleRun() {
-    const v = Number(voltage);
-    const resistance1 = Number(r1);
-
-    if (
-      voltage.trim() === "" ||
-      !Number.isFinite(v) ||
-      v < 0
-    ) {
-      setError("Please enter a valid non-negative voltage.");
-      setRunning(false);
-      return;
-    }
-
-    if (
-      r1.trim() === "" ||
-      !Number.isFinite(resistance1) ||
-      resistance1 <= 0
-    ) {
-      setError("Resistance R1 must be greater than 0 Ω.");
-      setRunning(false);
-      return;
-    }
-
-    let resistance2: number | undefined;
-
-    if (mode === "parallel") {
-      resistance2 = Number(r2);
-
-      if (
-        r2.trim() === "" ||
-        !Number.isFinite(resistance2) ||
-        resistance2 <= 0
-      ) {
-        setError(
-          "Resistance R2 must be greater than 0 Ω."
-        );
-        setRunning(false);
-        return;
-      }
-    }
-
-    try {
-      runSimulation({
-        voltage: v,
-        r1: resistance1,
-        r2: resistance2,
-        mode,
-        switchOn,
-      });
-
-      setError("");
-      setRunning(true);
-    } catch (simulationError) {
-      setRunning(false);
-
-      if (simulationError instanceof Error) {
-        setError(simulationError.message);
-      } else {
-        setError(
-          "Unable to run the simulation."
-        );
-      }
-    }
-  }
-
-  function handleStop() {
-    setRunning(false);
-  }
-
-  function handleReset() {
-    setVoltage("12");
-    setR1("6");
-    setR2("12");
-
-    setMode("series");
-    setRunning(false);
-    setSwitchOn(true);
-    setError("");
-  }
-
-  function handleSwitchToggle() {
-    setSwitchOn((current) => !current);
-    setError("");
-  }
+  // ── Zoom / fit placeholders ──
+  const handleZoomIn = useCallback(() => {} , []);
+  const handleZoomOut = useCallback(() => {}, []);
+  const handleFit = useCallback(() => {}, []);
 
   return (
-    <main className="page-container">
-      <SectionHeading
-        eyebrow="ELECTRICAL SIMULATION"
-        title="Circuit Simulator"
-        description="Build and simulate a simple electrical circuit."
+    <main className="sim2-page">
+      {/* Toolbar */}
+      <SimToolbar
+        status={simStatus}
+        canRun={canRun}
+        canUndo={editor.canUndo}
+        canRedo={editor.canRedo}
+        dirty={editor.state.dirty}
+        onRun={handleRun}
+        onStop={handleStop}
+        onUndo={editor.undo}
+        onRedo={editor.redo}
+        onClear={editor.clearCircuit}
+        onSave={handleSave}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onFit={handleFit}
       />
 
-      {/* Circuit mode */}
-      <div style={{ marginTop: "24px" }}>
-        <SimulationModeSelector
-          mode={mode}
-          onChange={handleModeChange}
-        />
-      </div>
+      {/* Three-panel layout */}
+      <div className="sim2-layout">
+        {/* Left: Component palette + Inspector */}
+        <aside className="sim2-sidebar">
+          <ComponentPalette
+            selectedType={editor.state.placementType}
+            onSelect={editor.setPlacementType}
+          />
+          <ComponentInspector
+            component={editor.selectedComponent}
+            onChange={editor.updateProperty}
+            onDelete={editor.deleteComponent}
+            onDuplicate={editor.duplicateComponent}
+            onRotate={editor.rotateComponent}
+          />
+        </aside>
 
-      <section
-        aria-label="Circuit simulation"
-        style={{
-          marginTop: "24px",
-          display: "grid",
-          gap: "20px",
-        }}
-      >
-        {/* Circuit visualization */}
-        <div
-          style={{
-            padding: "24px",
-            borderRadius: "16px",
-            background: "#f9fafb",
-            border: "1px solid #e5e7eb",
-          }}
-        >
+        {/* Center: Canvas + Analysis */}
+        <div className="sim2-main">
           <CircuitCanvas
-            mode={mode}
-            voltage={voltage}
-            r1={r1}
-            r2={r2}
-            running={running}
-            switchOn={switchOn}
-            onToggleSwitch={handleSwitchToggle}
+            editor={editor.state}
+            simOutput={simOutput}
+            onAddComponent={editor.addComponent}
+            onSelectComponent={editor.selectComponent}
+            onSelectWire={editor.selectWire}
+            onMoveComponent={editor.moveComponent}
+            onStartWire={editor.startWire}
+            onCompleteWire={editor.completeWire}
+            onUpdateWirePreview={editor.updateWirePreview}
+            onCancelWire={editor.cancelWire}
+            onCancelPlacement={editor.cancelPlacement}
+            placementType={editor.state.placementType}
+          />
+          <AnalysisPanel
+            circuit={editor.state.circuit}
+            output={simOutput}
+            validationErrors={validationErrors}
+            selectedComponentId={editor.state.selectedComponentId}
           />
         </div>
-
-        {/* Inputs */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              mode === "parallel"
-                ? "repeat(auto-fit, minmax(180px, 1fr))"
-                : "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "16px",
-          }}
-        >
-          {/* Voltage */}
-          <label>
-            <span
-              style={{
-                display: "block",
-                marginBottom: "6px",
-                fontWeight: 600,
-              }}
-            >
-              Voltage (V)
-            </span>
-
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              value={voltage}
-              onChange={(event) =>
-                setVoltage(event.target.value)
-              }
-              aria-label="Voltage in volts"
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                padding: "11px 12px",
-                borderRadius: "8px",
-                border: "1px solid #d1d5db",
-              }}
-            />
-          </label>
-
-          {/* R1 */}
-          <label>
-            <span
-              style={{
-                display: "block",
-                marginBottom: "6px",
-                fontWeight: 600,
-              }}
-            >
-              Resistance R1 (Ω)
-            </span>
-
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              value={r1}
-              onChange={(event) =>
-                setR1(event.target.value)
-              }
-              aria-label="Resistance R1 in ohms"
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                padding: "11px 12px",
-                borderRadius: "8px",
-                border: "1px solid #d1d5db",
-              }}
-            />
-          </label>
-
-          {/* R2 */}
-          {mode === "parallel" && (
-            <label>
-              <span
-                style={{
-                  display: "block",
-                  marginBottom: "6px",
-                  fontWeight: 600,
-                }}
-              >
-                Resistance R2 (Ω)
-              </span>
-
-              <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                value={r2}
-                onChange={(event) =>
-                  setR2(event.target.value)
-                }
-                aria-label="Resistance R2 in ohms"
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "11px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid #d1d5db",
-                }}
-              />
-            </label>
-          )}
-        </div>
-
-        {/* Run / Stop / Reset */}
-        <SimulationControls
-          onRun={handleRun}
-          onStop={handleStop}
-          onReset={handleReset}
-          running={running}
-        />
-
-        {/* Results / errors */}
-        <div aria-live="polite">
-          <SimulationResults
-            result={running ? result : null}
-            running={running}
-            switchOn={switchOn}
-            error={error}
-          />
-        </div>
-      </section>
+      </div>
     </main>
   );
 }
