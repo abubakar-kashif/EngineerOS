@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime
 
+from app.services.engine_adapter import run_engine
 from app.models.simulation import Simulation, SimulationStatus
 from app.schemas.simulation import SimulationCreate, SimulationUpdate
 
@@ -126,3 +128,40 @@ def save_simulation_result(
     db.commit()
     db.refresh(db_simulation)
     return db_simulation
+
+def validate_simulation(db: Session, simulation_id: str, user_id: str):
+    """Validate a simulation circuit using the engine"""
+    simulation = get_simulation(db, simulation_id, user_id)
+    if not simulation:
+        return None
+    if not simulation.circuit_definition:
+        return {"valid": False, "errors": [{"message": "No circuit definition"}]}
+    
+    result = run_engine(simulation.circuit_definition)
+    validation = result.get("validation", {})
+    
+    # Update simulation status
+    simulation.status = "invalid" if not validation.get("valid") else "ready"
+    simulation.validation_errors = validation.get("errors", [])
+    db.commit()
+    
+    return validation
+
+def run_simulation(db: Session, simulation_id: str, user_id: str):
+    """Run a simulation using the engine"""
+    simulation = get_simulation(db, simulation_id, user_id)
+    if not simulation:
+        return None
+    if not simulation.circuit_definition:
+        return {"status": "failed", "error": "No circuit definition"}
+    
+    result = run_engine(simulation.circuit_definition)
+    
+    # Save results
+    simulation.status = result.get("status", "failed")
+    simulation.results = result
+    simulation.measurements = result.get("measurements", {})
+    simulation.completed_at = func.now()
+    db.commit()
+    
+    return result
