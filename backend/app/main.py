@@ -14,6 +14,7 @@ from app.api.routes.reports import router as reports_router
 from app.api.routes.resources import router as resources_router
 from app.api.routes.simulations import router as simulations_router
 from app.api.routes.users import router as users_router
+from app.api.routes.mentor import router as mentor_router
 
 from app.db.database import Base, engine, SessionLocal
 from app.db.migrations import run_migrations
@@ -62,7 +63,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+app.include_router(mentor_router)
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(notifications_router)
