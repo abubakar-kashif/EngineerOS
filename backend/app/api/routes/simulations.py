@@ -17,7 +17,9 @@ from app.services.simulation_service import (
     create_simulation,
     update_simulation,
     delete_simulation,
-    save_simulation_result
+    save_simulation_result,
+    validate_simulation,
+    run_simulation
 )
 from app.models.simulation import SimulationStatus
 
@@ -91,13 +93,14 @@ def validate_simulation_route(
     simulation_id: str,
     db: Session = Depends(get_db)
 ):
-    """Validate a simulation circuit"""
-    # TODO: Replace TEST_USER_ID with real authenticated user
-    # TODO: Call Person 1's validator here
+    """Validate a simulation circuit using the Person 1 engine"""
+    result = validate_simulation(db, simulation_id, TEST_USER_ID)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Simulation not found")
     return ValidationResponse(
-        valid=True,
-        errors=[],
-        warnings=[]
+        valid=result.get("valid", False),
+        errors=result.get("errors", []),
+        warnings=result.get("warnings", [])
     )
 
 @router.post("/{simulation_id}/run", response_model=SimulationResult)
@@ -106,17 +109,8 @@ def run_simulation_route(
     request: RunSimulationRequest,
     db: Session = Depends(get_db)
 ):
-    """Run a simulation"""
-    # TODO: Replace TEST_USER_ID with real authenticated user
-    # TODO: Call Person 1's solver here
-    return SimulationResult(
-        status=SimulationStatus.COMPLETED,
-        measurements={
-            "voltage": 5.0,
-            "current": 0.005,
-            "power": 0.025
-        },
-        results={
-            "message": "Simulation completed (placeholder)"
-        }
-    )
+    """Run a simulation using the Person 1 engine"""
+    result = run_simulation(db, simulation_id, TEST_USER_ID)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    return result
