@@ -135,6 +135,10 @@ def test_run_simulation_persists_results(client):
     assert "measurements" in result_data
     assert "dcResult" in result_data
     assert "validation" in result_data
+    # Closed loop: each run exposes a fresh SimulationRun id for Mentor
+    meta = result_data.get("metadata") or {}
+    assert meta.get("simulation_run_id")
+    assert meta.get("simulation_id") == sim_id
 
     db = client._testing_session_local()
     sim = db.query(Simulation).filter(Simulation.id == sim_id).first()
@@ -143,7 +147,18 @@ def test_run_simulation_persists_results(client):
     assert sim.measurements is not None
     assert sim.validation_errors == []
     assert sim.completed_at is not None
+    from app.models.simulation import SimulationRun
+    run = db.query(SimulationRun).filter(SimulationRun.id == meta["simulation_run_id"]).first()
+    assert run is not None
+    assert run.results is not None
     db.close()
+
+    # Second run must mint a new SimulationRun id (no stale Mentor context)
+    run_resp2 = client.post(f"/api/simulations/{sim_id}/run", json={"circuit_definition": circuit_def})
+    assert run_resp2.status_code == 200
+    meta2 = (run_resp2.json().get("metadata") or {})
+    assert meta2.get("simulation_run_id")
+    assert meta2["simulation_run_id"] != meta["simulation_run_id"]
 
 def test_json_serialization_no_maps(client):
     circuit_def = {

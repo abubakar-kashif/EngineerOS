@@ -1,6 +1,6 @@
 /**
  * Persist authoritative simulation runs via existing /api/simulations models.
- * Does not invent a parallel result store — reuses Simulation + run_engine pipeline.
+ * Each /run creates a fresh SimulationRun id for Mentor closed-loop context.
  */
 import { apiRequest, getAuthToken, ApiError } from "./api";
 import type { CircuitDefinition } from "../components/simulation/engine";
@@ -22,7 +22,10 @@ export interface PersistedSimulation {
 }
 
 export interface PersistRunOutcome {
+  /** Session Simulation row id (stable across reruns). */
   simulationId: string | null;
+  /** Fresh SimulationRun id for this solve — pass to Mentor ask. */
+  simulationRunId: string | null;
   persisted: boolean;
   engineResult: SimulationResult;
   error?: string;
@@ -35,10 +38,16 @@ function circuitPayload(circuit: CircuitDefinition, experimentId?: string | null
   };
 }
 
+function extractRunId(remote: SimulationResult | Record<string, unknown>): string | null {
+  const meta = (remote as SimulationResult).metadata ?? (remote as { metadata?: Record<string, unknown> }).metadata;
+  if (!meta || typeof meta !== "object") return null;
+  const id = meta.simulation_run_id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
 /**
  * Create (or update) a simulation row, then run the backend engine which
- * persists results/measurements/validation/status/timestamps.
- * Local `engineResult` remains the UI source of truth when offline/unauthenticated.
+ * persists results and a new SimulationRun for Mentor freshness.
  */
 export async function persistAndRunSimulation(options: {
   circuit: CircuitDefinition;
@@ -52,9 +61,10 @@ export async function persistAndRunSimulation(options: {
   if (!getAuthToken()) {
     return {
       simulationId: null,
+      simulationRunId: null,
       persisted: false,
       engineResult: localResult,
-      error: "Sign in to persist simulation results on the server.",
+      error: "Sign in so Mentor can use your latest simulation context.",
     };
   }
 
@@ -82,7 +92,6 @@ export async function persistAndRunSimulation(options: {
       });
     }
 
-    // Backend run_engine → same validate→solve path; persists on Simulation model
     const remote = await apiRequest<SimulationResult>(
       `/simulations/${encodeURIComponent(simId)}/run`,
       {
@@ -91,11 +100,24 @@ export async function persistAndRunSimulation(options: {
       },
     );
 
+    const runId = extractRunId(remote);
+    const merged: SimulationResult = {
+      ...(localResult.status === "completed" || localResult.status === "invalid"
+        ? localResult
+        : remote),
+      metadata: {
+        ...(localResult.metadata || {}),
+        ...(remote.metadata || {}),
+        simulation_id: simId,
+        simulation_run_id: runId,
+      },
+    };
+
     return {
       simulationId: simId,
+      simulationRunId: runId,
       persisted: true,
-      // Prefer local solve for UI (Maps/graphs intact); remote confirms persistence
-      engineResult: localResult.status === "completed" ? localResult : remote,
+      engineResult: merged,
     };
   } catch (err) {
     const message =
@@ -106,6 +128,7 @@ export async function persistAndRunSimulation(options: {
           : "Persistence failed";
     return {
       simulationId: existingSimulationId ?? null,
+      simulationRunId: null,
       persisted: false,
       engineResult: localResult,
       error: message,

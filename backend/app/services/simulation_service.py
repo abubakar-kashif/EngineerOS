@@ -173,7 +173,9 @@ def run_simulation(
     Run a simulation using the engine.
     Returns the full result, persists it (results, measurements, validation_errors, status, completed_at).
     Optionally updates circuit_definition before solving (rerun with new configuration).
-    Mirrors into SimulationRun when experiment_id is set (AI/reports reuse).
+
+    Always creates a new SimulationRun so Mentor can load the latest run by ID
+    (closed loop: modify → rerun → new context, no stale facts).
     """
     simulation = get_simulation(db, simulation_id, user_id)
     if not simulation:
@@ -189,7 +191,7 @@ def run_simulation(
     # Execute the engine
     result = run_engine(simulation.circuit_definition)
     
-    # Persist the full result
+    # Persist the full result on the session Simulation row
     db_simulation = simulation
     db_simulation.results = result
     db_simulation.measurements = result.get("measurements", {})
@@ -208,20 +210,32 @@ def run_simulation(
     else:
         db_simulation.status = SimulationStatus.READY
 
-    if simulation.experiment_id:
-        from app.models.simulation import SimulationRun
-        run = SimulationRun(
-            user_id=user_id,
-            experiment_id=simulation.experiment_id,
-            name=simulation.name,
-            configuration={"source_simulation_id": simulation.id},
-            circuit_definition=simulation.circuit_definition,
-            validation_errors=db_simulation.validation_errors,
-            results=result,
-            measurements=result.get("measurements", {}),
-            status=engine_status or "failed",
-        )
-        db.add(run)
+    # Fresh SimulationRun per solve — Mentor must load this ID, not an older run
+    from app.models.simulation import SimulationRun
+    experiment_key = simulation.experiment_id or "freeform"
+    run = SimulationRun(
+        user_id=user_id,
+        experiment_id=experiment_key,
+        name=simulation.name,
+        configuration={
+            "source_simulation_id": simulation.id,
+            "run_generation": "closed_loop",
+        },
+        circuit_definition=simulation.circuit_definition,
+        validation_errors=db_simulation.validation_errors,
+        results=result,
+        measurements=result.get("measurements", {}),
+        status=engine_status or "failed",
+    )
+    db.add(run)
+    db.flush()  # assign run.id before commit
+
+    meta = dict(result.get("metadata") or {})
+    meta["simulation_id"] = simulation.id
+    meta["simulation_run_id"] = run.id
+    result["metadata"] = meta
+    db_simulation.results = result
+    run.results = result
     
     db.commit()
     

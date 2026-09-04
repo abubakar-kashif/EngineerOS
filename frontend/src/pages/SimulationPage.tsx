@@ -81,6 +81,7 @@ function SimulationPage() {
 
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
   const [simulationId, setSimulationId] = useState<string | null>(null);
+  const [simulationRunId, setSimulationRunId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
@@ -158,6 +159,8 @@ function SimulationPage() {
           name: experiment?.title ?? "Lab simulation",
         });
         if (persist.simulationId) setSimulationId(persist.simulationId);
+        setSimulationRunId(persist.simulationRunId);
+        if (persist.engineResult) setSimResult(persist.engineResult);
         return;
       }
       const result = solveCircuit(engineCircuit);
@@ -171,8 +174,10 @@ function SimulationPage() {
         name: experiment?.title ?? "Lab simulation",
       });
       if (persist.simulationId) setSimulationId(persist.simulationId);
+      setSimulationRunId(persist.simulationRunId);
+      if (persist.engineResult) setSimResult(persist.engineResult);
       if (persist.persisted) {
-        setPersistMessage("Simulation results saved.");
+        setPersistMessage("Simulation saved — Mentor context updated.");
         window.setTimeout(() => setPersistMessage(null), 2500);
       } else if (persist.error) {
         setPersistMessage(persist.error);
@@ -192,11 +197,15 @@ function SimulationPage() {
     setIsRunning(false);
   }, []);
 
-  const resetSimulation = useCallback(() => setSimResult(null), []);
+  const resetSimulation = useCallback(() => {
+    setSimResult(null);
+    setSimulationRunId(null);
+  }, []);
 
   const handleClearAll = useCallback(() => {
     clearCircuit();
     setSimResult(null);
+    setSimulationRunId(null);
   }, [clearCircuit]);
 
   const handleSave = useCallback(() => {
@@ -229,6 +238,7 @@ function SimulationPage() {
       }
       loadCircuit(project.circuit);
       setSimResult(null);
+      setSimulationRunId(null);
       if (project.viewport) {
         requestAnimationFrame(() => canvasRef.current?.setViewport(project.viewport!));
       } else {
@@ -382,7 +392,7 @@ function SimulationPage() {
           experimentId={experiment?.id ?? experimentParam}
           experimentTitle={experiment?.title ?? null}
           simResult={simResult}
-          simulationId={simulationId}
+          simulationRunId={simulationRunId}
         />
       </div>
     </div>

@@ -130,8 +130,12 @@ Guidelines:
 12. When SIMULATION CONTEXT contains validation errors (e.g. LED_NO_CURRENT_LIMIT), explain:
     what the simulator detected, why it matters, the engineering concept, and what to change.
     Do NOT claim you independently validated the circuit.
-13. When SIMULATION CONTEXT includes a simulation_run_id, treat that run as the current result.
-    Do not mix facts from an older run that is not present in context."""
+13. When SIMULATION CONTEXT includes a simulation_run_id, treat that run as the ONLY current result.
+    Do not mix facts from an older run that is not present in context.
+14. Conversation history may mention earlier measurements or errors from previous runs.
+    If those conflict with SIMULATION CONTEXT, the SIMULATION CONTEXT wins — explain the new result.
+15. Before any simulation has been run (no SIMULATION CONTEXT), give instructional guidance only.
+    Do not invent the student's circuit topology, component values, or measurements."""
 
     def __init__(self):
         self.template = PromptTemplate()
@@ -255,6 +259,10 @@ Guidelines:
 
         if simulation.get('simulation_run_id'):
             lines.append(f"Simulation run ID: {simulation.get('simulation_run_id')}")
+            lines.append(
+                "FRESHNESS: This run ID is the student's latest authoritative result. "
+                "Ignore numerical claims from earlier turns that contradict these facts."
+            )
         run_identity = simulation.get('run_identity') or {}
         if run_identity.get('created_at'):
             lines.append(f"Run created_at: {run_identity.get('created_at')}")

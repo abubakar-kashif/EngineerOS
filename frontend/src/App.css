@@ -6624,11 +6624,41 @@
 }
 .sim2-mentor-context {
   margin: 0;
-  padding: 8px 12px;
+  padding: 0;
   font-size: 11px;
   color: var(--color-text-secondary);
-  border-bottom: 1px solid var(--color-border);
   line-height: 1.4;
+}
+.sim2-mentor-context-card {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-muted, #f8fafc);
+  transition: background 0.4s ease;
+}
+.sim2-mentor-context-card--fresh {
+  background: color-mix(in srgb, var(--color-primary, #2563eb) 12%, transparent);
+}
+.sim2-mentor-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.sim2-mentor-fact {
+  font-size: 10px;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border);
+}
+.sim2-mentor-run-id {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+.sim2-mentor-run-id--warn {
+  color: var(--color-warning, #b45309);
 }
 .sim2-mentor-messages {
   flex: 1;
