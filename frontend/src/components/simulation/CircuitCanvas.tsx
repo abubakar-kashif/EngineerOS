@@ -23,6 +23,7 @@ import {
   zoomViewBoxAt,
   zoomViewBoxCenter,
 } from "./viewportMath";
+import { hitTestWire, snapWiringCursor } from "./wireTopology";
 import {
   VoltageSourceNode,
   CurrentSourceNode,
@@ -58,12 +59,20 @@ interface CircuitCanvasProps {
   onMoveComponent: (id: string, x: number, y: number) => void;
   onBeginMoveComponent?: (id: string) => void;
   onStartWire: (compId: string, termId: string, x: number, y: number) => void;
+  onStartWireFromWire?: (wireId: string, x: number, y: number) => void;
   onCompleteWire: (compId: string, termId: string) => void;
+  onCompleteWireToWire?: (wireId: string, x: number, y: number) => void;
   onUpdateWirePreview: (x: number, y: number) => void;
+  onPinWireWaypoint?: (x: number, y: number) => void;
   onCancelWire: () => void;
   onCancelPlacement: () => void;
   onDeleteWire?: (id: string) => void;
   onDeleteComponent?: (id: string) => void;
+  onReshapeWire?: (wireId: string, vertexIndex: number, x: number, y: number) => void;
+  onPrepareWireReshape?: (wireId: string, x: number, y: number) => number;
+  onBeginReshapeWire?: (wireId: string) => void;
+  onMoveWireEndpoint?: (wireId: string, which: "a" | "b", x: number, y: number) => void;
+  onBeginMoveWireEndpoint?: (wireId: string) => void;
   placementType: ComponentType | null;
 }
 
@@ -80,12 +89,20 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
     onMoveComponent,
     onBeginMoveComponent,
     onStartWire,
+    onStartWireFromWire,
     onCompleteWire,
+    onCompleteWireToWire,
     onUpdateWirePreview,
+    onPinWireWaypoint,
     onCancelWire,
     onCancelPlacement,
     onDeleteWire,
     onDeleteComponent,
+    onReshapeWire,
+    onPrepareWireReshape,
+    onBeginReshapeWire,
+    onMoveWireEndpoint,
+    onBeginMoveWireEndpoint,
     placementType,
   },
   ref,
@@ -98,6 +115,14 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
   const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(
     null,
   );
+  const [reshaping, setReshaping] = useState<{
+    wireId: string;
+    vertexIndex: number;
+  } | null>(null);
+  const [movingEndpoint, setMovingEndpoint] = useState<{
+    wireId: string;
+    which: "a" | "b";
+  } | null>(null);
 
   const zoomByFactor = useCallback((factor: number) => {
     setViewBox((v) => zoomViewBoxCenter(v, factor));
@@ -187,21 +212,42 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         onAddComponent(placementType, snap(pos.x), snap(pos.y));
         return;
       }
-      // While wiring, empty-canvas clicks do not add waypoints — only terminal B commits.
-      if (editor.wireStart) return;
       if ((e.target as Element).closest(".canvas-component")) return;
       if ((e.target as Element).closest(".canvas-terminal")) return;
+      if ((e.target as Element).closest(".canvas-wire-endpoint")) return;
       if ((e.target as Element).closest(".canvas-wire")) return;
+
+      if (editor.wireStart) {
+        // Pin a corner on empty canvas, or finish if snap target is under cursor.
+        const snapped = snapWiringCursor(editor.circuit, pos);
+        if (snapped.kind === "terminal" && snapped.terminal) {
+          onCompleteWire(snapped.terminal.componentId, snapped.terminal.terminalId);
+        } else if (snapped.kind === "wire" && snapped.wireHit && onCompleteWireToWire) {
+          onCompleteWireToWire(
+            snapped.wireHit.wireId,
+            snapped.wireHit.point.x,
+            snapped.wireHit.point.y,
+          );
+        } else {
+          onPinWireWaypoint?.(pos.x, pos.y);
+        }
+        return;
+      }
+
       onSelectComponent(null);
     },
     [
       screenToCanvas,
       placementType,
       editor.wireStart,
+      editor.circuit,
       onAddComponent,
       onSelectComponent,
       onCancelWire,
       onCancelPlacement,
+      onCompleteWire,
+      onCompleteWireToWire,
+      onPinWireWaypoint,
     ],
   );
 
@@ -217,14 +263,22 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         setPanStart({ x: e.clientX, y: e.clientY });
         return;
       }
+      if (movingEndpoint && onMoveWireEndpoint) {
+        const pos = screenToCanvas(e.clientX, e.clientY);
+        onMoveWireEndpoint(movingEndpoint.wireId, movingEndpoint.which, pos.x, pos.y);
+        return;
+      }
+      if (reshaping && onReshapeWire) {
+        const pos = screenToCanvas(e.clientX, e.clientY);
+        onReshapeWire(reshaping.wireId, reshaping.vertexIndex, pos.x, pos.y);
+        return;
+      }
       if (dragging) {
         const pos = screenToCanvas(e.clientX, e.clientY);
         onMoveComponent(dragging.id, snap(pos.x - dragging.offsetX), snap(pos.y - dragging.offsetY));
         return;
       }
       if (editor.wireStart) {
-        // Do not grid-snap the rubber-band — keeps endpoint on the cursor and
-        // avoids a jump when terminal B commits to the exact terminal position.
         const pos = screenToCanvas(e.clientX, e.clientY);
         onUpdateWirePreview(pos.x, pos.y);
       }
@@ -233,17 +287,23 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       panning,
       panStart,
       dragging,
+      reshaping,
+      movingEndpoint,
       editor.wireStart,
       screenToCanvas,
       onMoveComponent,
       onUpdateWirePreview,
+      onReshapeWire,
+      onMoveWireEndpoint,
     ],
   );
 
   const handleMouseUp = useCallback(() => {
     if (panning) setPanning(false);
     if (dragging) setDragging(null);
-  }, [panning, dragging]);
+    if (reshaping) setReshaping(null);
+    if (movingEndpoint) setMovingEndpoint(null);
+  }, [panning, dragging, reshaping, movingEndpoint]);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -318,6 +378,63 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  const handleWireMouseDown = useCallback(
+    (e: React.MouseEvent, wireId: string) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      const hit = hitTestWire(pos, editor.circuit.wires) ?? {
+        wireId,
+        point: pos,
+        segmentIndex: 0,
+        t: 0.5,
+        distance: 0,
+      };
+
+      if (editor.wireStart) {
+        onCompleteWireToWire?.(hit.wireId, hit.point.x, hit.point.y);
+        return;
+      }
+
+      onSelectWire(wireId);
+      // Ctrl/Cmd+click selects only (for delete / endpoint edit).
+      if (e.ctrlKey || e.metaKey) return;
+
+      // Click again on an already-selected wire reshapes geometry.
+      if (editor.selectedWireId === wireId) {
+        onBeginReshapeWire?.(wireId);
+        const vertexIndex = onPrepareWireReshape?.(wireId, hit.point.x, hit.point.y) ?? 1;
+        setReshaping({ wireId, vertexIndex });
+        return;
+      }
+
+      // Unselected wire: start a branch from the attach point (Proteus mid-wire start).
+      onStartWireFromWire?.(hit.wireId, hit.point.x, hit.point.y);
+    },
+    [
+      screenToCanvas,
+      editor.circuit.wires,
+      editor.wireStart,
+      editor.selectedWireId,
+      onCompleteWireToWire,
+      onStartWireFromWire,
+      onSelectWire,
+      onBeginReshapeWire,
+      onPrepareWireReshape,
+    ],
+  );
+
+  const handleEndpointMouseDown = useCallback(
+    (e: React.MouseEvent, wireId: string, which: "a" | "b") => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      onSelectWire(wireId);
+      onBeginMoveWireEndpoint?.(wireId);
+      setMovingEndpoint({ wireId, which });
+    },
+    [onSelectWire, onBeginMoveWireEndpoint],
+  );
+
   const handleTerminalMouseDown = useCallback(
     (e: React.MouseEvent, compId: string, termId: string) => {
       e.stopPropagation();
@@ -325,7 +442,6 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       const comp = editor.circuit.components.find((c) => c.id === compId);
       if (!comp) return;
       const world = getTerminalWorldPosition(comp, termId);
-      // Click terminal A starts; click terminal B commits immediately (no second click / mouseup).
       if (editor.wireStart) {
         onCompleteWire(compId, termId);
       } else {
@@ -369,8 +485,9 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
     const isSelected = editor.selectedComponentId === comp.id;
     const result = getComponentResult(comp.id);
     const activeTerminal =
-      editor.wireStart && editor.wireStart.componentId === comp.id
-        ? editor.wireStart.terminalId
+      editor.wireStart?.origin.kind === "terminal" &&
+      editor.wireStart.origin.componentId === comp.id
+        ? editor.wireStart.origin.terminalId
         : null;
 
     const terminalData = comp.terminals.map((t: string) => {
@@ -504,7 +621,9 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
             key={wire.id}
             wire={wire}
             selected={wire.id === editor.selectedWireId}
-            onClick={() => onSelectWire(wire.id)}
+            showEndpoints={wire.id === editor.selectedWireId}
+            onMouseDown={(e) => handleWireMouseDown(e, wire.id)}
+            onEndpointMouseDown={(e, which) => handleEndpointMouseDown(e, wire.id, which)}
           />
         ))}
 
@@ -512,8 +631,8 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
           <WirePreview points={editor.wirePreviewPoints} />
         )}
 
-        {editor.circuit.junctions?.map((j, idx) => (
-          <JunctionMarker key={`junction-${idx}`} cx={j.x} cy={j.y} />
+        {(editor.circuit.junctions ?? []).map((j) => (
+          <JunctionMarker key={j.id} cx={j.x} cy={j.y} />
         ))}
 
         {editor.circuit.components.map(renderComponent)}
@@ -529,12 +648,12 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         )}
         {editor.wireStart && (
           <span className="sim-mode-indicator sim-mode-indicator--wire">
-            Click a terminal to connect • Esc / right-click to cancel
+            Click terminal or wire to connect • empty click pins corner • Esc cancels
           </span>
         )}
         {!placementType && !editor.wireStart && (
           <span className="sim-mode-indicator sim-mode-hint">
-            Scroll to zoom · Alt+drag or middle-click to pan · Delete removes selection
+            Click wire to branch · Ctrl+click selects · drag selected wire to reshape · Scroll zooms
           </span>
         )}
       </div>

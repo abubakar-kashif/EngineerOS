@@ -18,12 +18,20 @@ interface WorkspaceCircuitCanvasProps {
   onMoveComponent: (id: string, x: number, y: number) => void;
   onBeginMoveComponent?: (id: string) => void;
   onStartWire: (compId: string, termId: string, x: number, y: number) => void;
+  onStartWireFromWire?: (wireId: string, x: number, y: number) => void;
   onCompleteWire: (compId: string, termId: string) => void;
+  onCompleteWireToWire?: (wireId: string, x: number, y: number) => void;
   onUpdateWirePreview: (x: number, y: number) => void;
+  onPinWireWaypoint?: (x: number, y: number) => void;
   onCancelWire: () => void;
   onCancelPlacement: () => void;
   onDeleteWire?: (id: string) => void;
   onDeleteComponent?: (id: string) => void;
+  onReshapeWire?: (wireId: string, vertexIndex: number, x: number, y: number) => void;
+  onPrepareWireReshape?: (wireId: string, x: number, y: number) => number;
+  onBeginReshapeWire?: (wireId: string) => void;
+  onMoveWireEndpoint?: (wireId: string, which: "a" | "b", x: number, y: number) => void;
+  onBeginMoveWireEndpoint?: (wireId: string) => void;
   placementType: ComponentType | null;
   className?: string;
 }

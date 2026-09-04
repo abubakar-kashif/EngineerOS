@@ -25,17 +25,36 @@ export interface ComponentInstance {
   metadata?: Record<string, unknown>;
 }
 
+/** Electrical/visual attachment at a wire end. */
+export type WireEnd =
+  | { kind: "terminal"; componentId: string; terminalId: string }
+  | { kind: "junction"; junctionId: string };
+
 /**
- * Visual wire segment (set of points for drawing).
+ * Visual wire segment with editable geometry and net membership.
+ * Solver topology is derived from terminals sharing the same netId.
  */
 export interface WireSegment {
   id: string;
   points: { x: number; y: number }[];
+  /** Shared electrical net (junctions/wires with same id are connected). */
+  netId: string;
+  a: WireEnd;
+  b: WireEnd;
+}
+
+/** Explicit connected junction (dot). Crossing wires without a junction are not joined. */
+export interface CircuitJunction {
+  id: string;
+  x: number;
+  y: number;
+  netId: string;
 }
 
 /**
  * Electrical connection between two component terminals.
  * Format: "componentId:terminalId"
+ * Kept in sync from wire nets for adapters / legacy saves.
  */
 export interface WireConnection {
   from: string; // e.g., "R1:A"
@@ -49,7 +68,7 @@ export interface EditorCircuit {
   components: ComponentInstance[];
   wires: WireSegment[];
   connections: WireConnection[];
-  junctions?: { x: number; y: number }[];
+  junctions?: CircuitJunction[];
 }
 
 /**

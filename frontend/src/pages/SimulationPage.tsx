@@ -64,13 +64,21 @@ function SimulationPage() {
     rotateComponent,
     updateProperty,
     startWire,
+    startWireFromWire,
     updateWirePreview,
+    pinWireWaypoint,
     completeWire,
+    completeWireToWire,
     cancelWire,
     cancelPlacement,
     setPlacementType,
     selectComponent,
     selectWire,
+    reshapeWire,
+    prepareWireReshape,
+    beginReshapeWire,
+    moveWireEndpoint,
+    beginMoveWireEndpoint,
     undo,
     redo,
     clearCircuit,
@@ -349,12 +357,20 @@ function SimulationPage() {
               onMoveComponent={moveComponent}
               onBeginMoveComponent={beginMoveComponent}
               onStartWire={startWire}
+              onStartWireFromWire={startWireFromWire}
               onCompleteWire={completeWire}
+              onCompleteWireToWire={completeWireToWire}
               onUpdateWirePreview={updateWirePreview}
+              onPinWireWaypoint={pinWireWaypoint}
               onCancelWire={cancelWire}
               onCancelPlacement={cancelPlacement}
               onDeleteWire={deleteWire}
               onDeleteComponent={deleteComponent}
+              onReshapeWire={reshapeWire}
+              onPrepareWireReshape={prepareWireReshape}
+              onBeginReshapeWire={beginReshapeWire}
+              onMoveWireEndpoint={moveWireEndpoint}
+              onBeginMoveWireEndpoint={beginMoveWireEndpoint}
               placementType={state.placementType}
             />
           </div>

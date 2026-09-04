@@ -1,12 +1,20 @@
 /**
  * Adapter functions to convert between editor and engine representations.
+ * Visual wire geometry never enters the solver — only terminal net connections.
  */
 import type { EditorCircuit } from './editorTypes';
 import type { CircuitDefinition, Component, Connection } from './engine';
 import { createTerminalId, type TerminalType } from './engine/circuitGraph';
+import { normalizeEditorCircuit, rebuildConnections } from './wireTopology';
 
 export function toEngineCircuit(editor: EditorCircuit): CircuitDefinition {
-  const components: Component[] = editor.components.map((comp) => ({
+  const normalized = normalizeEditorCircuit(editor);
+  const connectionsSrc =
+    normalized.connections.length > 0
+      ? normalized.connections
+      : rebuildConnections(normalized);
+
+  const components: Component[] = normalized.components.map((comp) => ({
     id: comp.id,
     type: comp.type,
     label: comp.label,
@@ -21,7 +29,7 @@ export function toEngineCircuit(editor: EditorCircuit): CircuitDefinition {
     metadata: comp.metadata,
   }));
 
-  const connections: Connection[] = editor.connections.map((conn, index) => {
+  const connections: Connection[] = connectionsSrc.map((conn, index) => {
     const parseRef = (ref: string): { componentId: string; terminalType: string } => {
       const parts = ref.split(':');
       return { componentId: parts[0], terminalType: parts[1] };
@@ -29,7 +37,7 @@ export function toEngineCircuit(editor: EditorCircuit): CircuitDefinition {
     const from = parseRef(conn.from);
     const to = parseRef(conn.to);
     return {
-      id: `conn_${index}_${Date.now()}`,
+      id: `conn_${index}_${conn.from}_${conn.to}`,
       from: createTerminalId(from.componentId, from.terminalType as TerminalType),
       to: createTerminalId(to.componentId, to.terminalType as TerminalType),
     };

@@ -4,6 +4,7 @@
  */
 
 import type { EditorCircuit } from "../components/simulation/editorTypes";
+import { normalizeEditorCircuit } from "../components/simulation/wireTopology";
 
 export const WORKSPACE_PROJECT_VERSION = 1;
 export const WORKSPACE_STORAGE_KEY = "engineeros.sim.workspace.v1";
@@ -52,12 +53,16 @@ export function parseWorkspaceProject(raw: unknown): WorkspaceProject | null {
     return null;
   }
   if (!Array.isArray(circuit.connections)) return null;
+  const normalizedCircuit = normalizeEditorCircuit({
+    ...circuit,
+    junctions: circuit.junctions ?? [],
+  });
   return {
     version: data.version,
     kind: "engineeros-simulation-workspace",
     savedAt: typeof data.savedAt === "string" ? data.savedAt : new Date().toISOString(),
     experimentId: typeof data.experimentId === "string" ? data.experimentId : null,
-    circuit,
+    circuit: normalizedCircuit,
     viewport:
       data.viewport && typeof data.viewport === "object"
         ? (data.viewport as WorkspaceViewport)
