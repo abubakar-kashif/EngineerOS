@@ -30,6 +30,8 @@ import {
   loadWorkspaceFromLocalStorage,
   readWorkspaceProjectFile,
   saveWorkspaceToLocalStorage,
+  workspaceHasContent,
+  type WorkspaceProject,
 } from "../services/workspaceCircuitStorage";
 import type { Experiment } from "../types/experiment";
 
@@ -47,7 +49,7 @@ const TEN_EXPERIMENT_IDS = [
 ] as const;
 
 function SimulationPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const experimentParam = searchParams.get("experiment");
   const canvasRef = useRef<CircuitCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +99,37 @@ function SimulationPage() {
   const [fullscreen, setFullscreen] = useState(false);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
 
+  /** Drop measurements and run IDs so the next Run creates a fresh SimulationRun. */
+  const clearSimulationSession = useCallback(() => {
+    setSimResult(null);
+    setSimulationRunId(null);
+    setSimulationId(null);
+    setIsRunning(false);
+  }, []);
+
+  const applyWorkspaceProject = useCallback(
+    (project: WorkspaceProject) => {
+      loadCircuit(project.circuit);
+      clearSimulationSession();
+      if (project.experimentId) {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.set("experiment", project.experimentId!);
+            return next;
+          },
+          { replace: true },
+        );
+      }
+      if (project.viewport) {
+        requestAnimationFrame(() => canvasRef.current?.setViewport(project.viewport!));
+      } else {
+        requestAnimationFrame(() => canvasRef.current?.fitToScreen());
+      }
+    },
+    [loadCircuit, clearSimulationSession, setSearchParams],
+  );
+
   useEffect(() => {
     let cancelled = false;
     async function loadExperiment() {
@@ -118,13 +151,23 @@ function SimulationPage() {
   }, [experimentParam]);
 
   // Restore last local workspace once on mount (does not fabricate demo circuits).
+  // Simulation session starts null — never restore stale measurements.
   useEffect(() => {
     const saved = loadWorkspaceFromLocalStorage();
-    if (saved?.circuit.components.length) {
-      loadCircuit(saved.circuit);
-      if (saved.viewport) {
-        requestAnimationFrame(() => canvasRef.current?.setViewport(saved.viewport!));
-      }
+    if (!workspaceHasContent(saved)) return;
+    loadCircuit(saved!.circuit);
+    if (saved!.viewport) {
+      requestAnimationFrame(() => canvasRef.current?.setViewport(saved!.viewport!));
+    }
+    if (saved!.experimentId && !experimentParam) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("experiment", saved!.experimentId!);
+          return next;
+        },
+        { replace: true },
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot restore
   }, []);
@@ -215,20 +258,19 @@ function SimulationPage() {
   }, []);
 
   const resetSimulation = useCallback(() => {
-    setSimResult(null);
-    setSimulationRunId(null);
-  }, []);
+    clearSimulationSession();
+  }, [clearSimulationSession]);
 
   const handleClearAll = useCallback(() => {
     clearCircuit();
-    setSimResult(null);
-    setSimulationRunId(null);
-  }, [clearCircuit]);
+    clearSimulationSession();
+  }, [clearCircuit, clearSimulationSession]);
 
   const handleSave = useCallback(() => {
     const project = createWorkspaceProject(state.circuit, {
       experimentId: experiment?.id ?? experimentParam,
       viewport: canvasRef.current?.getViewport() ?? null,
+      simulationMeta: { schemaVersion: 1 },
     });
     saveWorkspaceToLocalStorage(project);
     downloadWorkspaceProject(
@@ -251,17 +293,10 @@ function SimulationPage() {
         toast.error("Could not open project", "Choose a valid .engineeros.json file.");
         return;
       }
-      loadCircuit(project.circuit);
-      setSimResult(null);
-      setSimulationRunId(null);
-      if (project.viewport) {
-        requestAnimationFrame(() => canvasRef.current?.setViewport(project.viewport!));
-      } else {
-        requestAnimationFrame(() => canvasRef.current?.fitToScreen());
-      }
-      toast.success("Circuit opened");
+      applyWorkspaceProject(project);
+      toast.success("Circuit opened", "Previous measurements cleared — run again for a new SimulationRun.");
     },
-    [loadCircuit],
+    [applyWorkspaceProject],
   );
 
   const toggleFullscreen = useCallback(async () => {

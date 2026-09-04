@@ -1,10 +1,11 @@
 /**
  * Structured workspace project format for Save / Open.
- * Preserves editable circuit state (not a screenshot).
+ * Preserves the full editable circuit (geometry + nets), not a screenshot
+ * and never stale simulation measurements.
  */
 
 import type { EditorCircuit } from "../components/simulation/editorTypes";
-import { normalizeEditorCircuit } from "../components/simulation/wireTopology";
+import { normalizeEditorCircuit, rebuildConnections } from "../components/simulation/wireTopology";
 
 export const WORKSPACE_PROJECT_VERSION = 1;
 export const WORKSPACE_STORAGE_KEY = "engineeros.sim.workspace.v1";
@@ -17,6 +18,16 @@ export interface WorkspaceViewport {
   h: number;
 }
 
+/**
+ * Lab configuration only — never measurements / SimulationRun payloads.
+ * Reopening a project always starts a fresh run.
+ */
+export interface WorkspaceSimulationMeta {
+  schemaVersion: 1;
+  /** Optional freeform note from the lab (not solver output). */
+  notes?: string;
+}
+
 export interface WorkspaceProject {
   version: number;
   kind: "engineeros-simulation-workspace";
@@ -24,6 +35,18 @@ export interface WorkspaceProject {
   experimentId: string | null;
   circuit: EditorCircuit;
   viewport?: WorkspaceViewport | null;
+  simulationMeta?: WorkspaceSimulationMeta | null;
+}
+
+/** Ensure wires have netId/a/b, junctions are complete, connections match nets. */
+export function serializeEditorCircuit(circuit: EditorCircuit): EditorCircuit {
+  const normalized = normalizeEditorCircuit(circuit);
+  return {
+    components: structuredClone(normalized.components),
+    wires: structuredClone(normalized.wires),
+    junctions: structuredClone(normalized.junctions ?? []),
+    connections: rebuildConnections(normalized),
+  };
 }
 
 export function createWorkspaceProject(
@@ -31,6 +54,7 @@ export function createWorkspaceProject(
   options: {
     experimentId?: string | null;
     viewport?: WorkspaceViewport | null;
+    simulationMeta?: WorkspaceSimulationMeta | null;
   } = {},
 ): WorkspaceProject {
   return {
@@ -38,8 +62,11 @@ export function createWorkspaceProject(
     kind: "engineeros-simulation-workspace",
     savedAt: new Date().toISOString(),
     experimentId: options.experimentId ?? null,
-    circuit: structuredClone(circuit),
-    viewport: options.viewport ?? null,
+    circuit: serializeEditorCircuit(circuit),
+    viewport: options.viewport ? { ...options.viewport } : null,
+    simulationMeta: options.simulationMeta
+      ? { schemaVersion: 1 as const, notes: options.simulationMeta.notes }
+      : { schemaVersion: 1 },
   };
 }
 
@@ -52,11 +79,22 @@ export function parseWorkspaceProject(raw: unknown): WorkspaceProject | null {
   if (!circuit || !Array.isArray(circuit.components) || !Array.isArray(circuit.wires)) {
     return null;
   }
-  if (!Array.isArray(circuit.connections)) return null;
-  const normalizedCircuit = normalizeEditorCircuit({
+  const connections = Array.isArray(circuit.connections) ? circuit.connections : [];
+  const normalizedCircuit = serializeEditorCircuit({
     ...circuit,
+    connections,
     junctions: circuit.junctions ?? [],
   });
+
+  let simulationMeta: WorkspaceSimulationMeta | null = null;
+  if (data.simulationMeta && typeof data.simulationMeta === "object") {
+    const meta = data.simulationMeta as Record<string, unknown>;
+    simulationMeta = {
+      schemaVersion: 1,
+      notes: typeof meta.notes === "string" ? meta.notes : undefined,
+    };
+  }
+
   return {
     version: data.version,
     kind: "engineeros-simulation-workspace",
@@ -67,7 +105,19 @@ export function parseWorkspaceProject(raw: unknown): WorkspaceProject | null {
       data.viewport && typeof data.viewport === "object"
         ? (data.viewport as WorkspaceViewport)
         : null,
+    simulationMeta,
   };
+}
+
+/** True when a project has editable content worth restoring. */
+export function workspaceHasContent(project: WorkspaceProject | null | undefined): boolean {
+  if (!project) return false;
+  const { components, wires, junctions } = project.circuit;
+  return (
+    components.length > 0 ||
+    wires.length > 0 ||
+    (junctions?.length ?? 0) > 0
+  );
 }
 
 export function saveWorkspaceToLocalStorage(project: WorkspaceProject): void {
