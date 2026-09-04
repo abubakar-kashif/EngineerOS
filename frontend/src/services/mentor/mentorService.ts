@@ -127,7 +127,7 @@ export function toMentorUserError(error: unknown): Error {
     const detail = (error.message || "").trim();
     if (detail && detail.length < 160 && !detail.includes("\n") && !looksUnsafeDetail(detail)) {
       // Prefer known safe backend messages (e.g. "AI provider authentication failed").
-      if (/ai mentor|provider|timed|rate|unavailable|authentication|conversation/i.test(detail)) {
+      if (/ai mentor|provider|timed|rate|unavailable|authentication|conversation|api key|configuration/i.test(detail)) {
         return new Error(detail);
       }
     }
@@ -143,6 +143,8 @@ function askBody(content: string, context: MentorAskContext = {}) {
     quiz_id: context.quizId ?? null,
     report_id: context.reportId ?? null,
     stage: context.stage ?? null,
+    // Regenerate skips inserting another user turn on the server.
+    persist_user: context.emitUserMessage !== false,
   };
 }
 
@@ -365,6 +367,7 @@ export function sendMessage(
 
         if (type === "complete") {
           completed = true;
+          streamError = null;
           if (event.content) accumulated = event.content;
           finalMessageId = event.message_id ?? finalMessageId;
           finalConversationId = event.conversation_id ?? finalConversationId;
@@ -372,6 +375,7 @@ export function sendMessage(
         }
 
         if (type === "error") {
+          // Ignore transient "Retrying:" notices if a later complete arrives.
           streamError = event.error || MENTOR_USER_ERROR;
         }
       };

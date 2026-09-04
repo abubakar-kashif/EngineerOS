@@ -4,7 +4,7 @@ from typing import Optional, Generator
 
 from app.services.ai.types import (
     AIRequest, AIResponse, ProviderError, AIMessage,
-    StreamEvent, StreamEventType, StreamErrorType
+    StreamEvent, StreamEventType
 )
 from app.services.ai.provider import AIProvider
 
@@ -48,6 +48,10 @@ class OpenAIProvider(AIProvider):
                     "OpenAI package not installed. Run: pip install openai"
                 )
         return self._client
+
+    def ensure_configured(self) -> None:
+        """Fail fast when the provider cannot run (missing key / SDK)."""
+        _ = self.client
 
     def _classify_exception(self, error: Exception) -> ProviderError:
         """Map provider/network failures to controlled ProviderError messages."""
@@ -150,26 +154,30 @@ class OpenAIProvider(AIProvider):
             raise self._classify_exception(e)
 
     def stream(self, request: AIRequest) -> Generator[StreamEvent, None, None]:
-        """Stream a response from OpenAI with failure handling."""
+        """Stream a response from OpenAI.
+
+        Terminal / transport failures raise ProviderError so MentorService can
+        retry. Empty streams also raise — they never emit a fabricated answer.
+        """
+        messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in request.messages
+        ]
+
+        params = {
+            "model": request.model or self.model,
+            "messages": messages,
+            "stream": True,
+        }
+
+        if request.temperature is not None:
+            params["temperature"] = request.temperature
+        if request.max_tokens is not None:
+            params["max_tokens"] = request.max_tokens
+
+        params.update(request.extra_params)
+
         try:
-            messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in request.messages
-            ]
-
-            params = {
-                "model": request.model or self.model,
-                "messages": messages,
-                "stream": True,
-            }
-
-            if request.temperature is not None:
-                params["temperature"] = request.temperature
-            if request.max_tokens is not None:
-                params["max_tokens"] = request.max_tokens
-
-            params.update(request.extra_params)
-
             yield StreamEvent(
                 type=StreamEventType.START,
                 content="",
@@ -185,12 +193,7 @@ class OpenAIProvider(AIProvider):
 
             for chunk in stream:
                 if time.time() - start_time > self.timeout:
-                    yield StreamEvent(
-                        type=StreamEventType.ERROR,
-                        error="Stream timeout exceeded",
-                        error_type=StreamErrorType.PROVIDER_TIMEOUT,
-                    )
-                    return
+                    raise ProviderError("OpenAI request timed out: stream timeout exceeded")
 
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
@@ -212,12 +215,7 @@ class OpenAIProvider(AIProvider):
                     }
 
             if not full_content.strip():
-                yield StreamEvent(
-                    type=StreamEventType.ERROR,
-                    error="Stream ended with no content",
-                    error_type=StreamErrorType.UNEXPECTED_TERMINATION,
-                )
-                return
+                raise ProviderError("OpenAI returned an empty response")
 
             yield StreamEvent(
                 type=StreamEventType.METADATA,
@@ -238,35 +236,10 @@ class OpenAIProvider(AIProvider):
                 }
             )
 
-        except ProviderError as e:
-            lower = str(e).lower()
-            if "api key" in lower or "authentication" in lower:
-                error_type = StreamErrorType.PROVIDER_ERROR
-            elif "timeout" in lower:
-                error_type = StreamErrorType.PROVIDER_TIMEOUT
-            else:
-                error_type = StreamErrorType.PROVIDER_ERROR
-            yield StreamEvent(
-                type=StreamEventType.ERROR,
-                error=str(e),
-                error_type=error_type,
-            )
+        except ProviderError:
+            raise
         except Exception as e:
-            classified = self._classify_exception(e)
-            error_msg = str(classified)
-            lower = error_msg.lower()
-            if "timeout" in lower or "timed out" in lower:
-                error_type = StreamErrorType.PROVIDER_TIMEOUT
-            elif "disconnect" in lower or "connection" in lower or "network" in lower:
-                error_type = StreamErrorType.PROVIDER_DISCONNECT
-            else:
-                error_type = StreamErrorType.PROVIDER_ERROR
-
-            yield StreamEvent(
-                type=StreamEventType.ERROR,
-                error=error_msg,
-                error_type=error_type,
-            )
+            raise self._classify_exception(e)
 
     def get_provider_name(self) -> str:
         return "openai"

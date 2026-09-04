@@ -154,11 +154,14 @@ class MentorService:
             temperature=settings.AI_TEMPERATURE,
         )
 
-        # 9. Store user message
-        user_msg_payload = MessageCreateRequest(role="user", content=question)
-        add_message(self.db, user_id, conversation_id, user_msg_payload)
+        # Fail before persisting anything when the provider cannot run.
+        try:
+            if hasattr(self.provider, "ensure_configured"):
+                self.provider.ensure_configured()
+        except TypesProviderError as e:
+            raise normalize_provider_error(e) from e
 
-        # 10. Generate with retry and duplicate protection
+        # 9. Generate with retry (persist only after success)
         attempt = 0
         request_id = self.protection.retry_controller.generate_request_id(
             user_id or "unknown",
@@ -176,8 +179,7 @@ class MentorService:
                     break
                 except Exception as e:
                     if self.protection.should_retry(e, attempt):
-                        delay = self.protection.get_retry_delay(attempt)
-                        time.sleep(delay)
+                        time.sleep(self.protection.get_retry_delay(attempt))
                         continue
                     if isinstance(e, TypesProviderError):
                         raise normalize_provider_error(e) from e
@@ -185,26 +187,34 @@ class MentorService:
         finally:
             self.protection.retry_controller.finish_request(request_id)
 
-        # 11. Validate response — never accept empty/fabricated success
         if response is None or not (response.content or "").strip():
             raise InvalidResponseError("AI provider returned empty response")
         validated_content = self.protection.validate_response(response.content)
 
-        # 12. Security: check for data leakage
         leak_check = DataLeakageGuard.check_response_for_leakage(validated_content)
         if leak_check["has_leak"]:
-            logger.warning(f"Data leak detected in response for user {user_id}: {leak_check['leaks']}")
+            logger.warning(
+                f"Data leak detected in response for user {user_id}: {leak_check['leaks']}"
+            )
 
-        # 13. Store assistant message (using add_message with role="assistant")
-        assistant_payload = MessageCreateRequest(
-            role="assistant",
-            content=validated_content,
-            metadata={"model": response.model}
+        add_message(
+            self.db,
+            user_id,
+            conversation_id,
+            MessageCreateRequest(role="user", content=question),
         )
-        msg = add_message(self.db, user_id, conversation_id, assistant_payload)
+        msg = add_message(
+            self.db,
+            user_id,
+            conversation_id,
+            MessageCreateRequest(
+                role="assistant",
+                content=validated_content,
+                metadata={"model": response.model},
+            ),
+        )
 
-        # 14. Build AIResponse
-        ai_response = AIResponse(
+        return AIResponse(
             content=validated_content,
             model=response.model,
             usage=response.usage,
@@ -212,7 +222,6 @@ class MentorService:
             message_id=msg.id,
             conversation_id=msg.conversation_id,
         )
-        return ai_response
 
     def ask_stream(
         self,
@@ -224,27 +233,26 @@ class MentorService:
         quiz_id: Optional[str] = None,
         report_id: Optional[str] = None,
         stage: Optional[str] = None,
+        persist_user: bool = True,
     ) -> Generator[StreamEvent, None, None]:
-        """Stream the AI response."""
+        """Stream the AI response.
+
+        User/assistant rows are written only after a successful COMPLETE so
+        failed attempts do not orphan turns or duplicate on Retry.
+        """
         full_content = ""
-        final_model = None
-        final_usage = None
-        final_finish_reason = None
         stream_success = False
 
         try:
-            # 1. Rate limit
             if user_id:
                 self.protection.check_rate_limit(user_id)
 
-            # 2. Sanitize input
             question = PromptInjectionGuard.sanitize_user_input(question)
             if PromptInjectionGuard.detect_injection(question):
                 logger.warning(f"Potential prompt injection detected for user {user_id}")
 
-            # 3. Verify conversation
             try:
-                conv_detail = get_conversation(self.db, user_id, conversation_id)
+                get_conversation(self.db, user_id, conversation_id)
             except HTTPException as e:
                 if e.status_code == 404:
                     yield StreamEvent(
@@ -253,7 +261,7 @@ class MentorService:
                         error_type=StreamErrorType.UNEXPECTED_TERMINATION,
                     )
                     return
-                elif e.status_code == 403:
+                if e.status_code == 403:
                     yield StreamEvent(
                         type=StreamEventType.ERROR,
                         error="Access denied to conversation",
@@ -262,11 +270,6 @@ class MentorService:
                     return
                 raise
 
-            # 4. Get history
-            messages = list_messages(self.db, user_id, conversation_id)
-            messages = messages[-50:] if len(messages) > 50 else messages
-
-            # 5. Build context
             context = self._get_context(
                 conversation_id=conversation_id,
                 question=question,
@@ -277,15 +280,8 @@ class MentorService:
                 report_id=report_id,
                 stage=stage,
             )
-
-            # 6. Validate context
-            context_dict = context.to_dict()
-            self.protection.context_validator.validate(context_dict)
-
-            # 7. Build prompt
+            self.protection.context_validator.validate(context.to_dict())
             prompt_messages = self.prompt_builder.build_messages(context, question)
-
-            # 8. Create request with streaming
             request = AIRequest(
                 messages=prompt_messages,
                 stream=True,
@@ -293,16 +289,21 @@ class MentorService:
                 temperature=settings.AI_TEMPERATURE,
             )
 
-            # 9. Store user message
-            user_msg_payload = MessageCreateRequest(role="user", content=question)
-            add_message(self.db, user_id, conversation_id, user_msg_payload)
+            try:
+                if hasattr(self.provider, "ensure_configured"):
+                    self.provider.ensure_configured()
+            except TypesProviderError as e:
+                yield StreamEvent(
+                    type=StreamEventType.ERROR,
+                    error=str(e),
+                    error_type=StreamErrorType.PROVIDER_ERROR,
+                )
+                return
 
-            # 10. Stream with retry
-            attempt = 0
             request_id = self.protection.retry_controller.generate_request_id(
                 user_id or "unknown",
                 question,
-                conversation_id
+                conversation_id,
             )
             if not self.protection.retry_controller.start_request(request_id):
                 yield StreamEvent(
@@ -312,9 +313,14 @@ class MentorService:
                 )
                 return
 
+            attempt = 0
             try:
                 while True:
                     attempt += 1
+                    full_content = ""
+                    final_model = None
+                    final_usage = None
+                    final_finish_reason = None
                     try:
                         for event in self.provider.stream(request):
                             if event.type == StreamEventType.DELTA:
@@ -323,52 +329,84 @@ class MentorService:
                             if event.type == StreamEventType.METADATA and event.metadata:
                                 final_model = event.metadata.get("model", final_model)
                                 final_usage = event.metadata.get("usage", final_usage)
-                                final_finish_reason = event.metadata.get("finish_reason", final_finish_reason)
+                                final_finish_reason = event.metadata.get(
+                                    "finish_reason", final_finish_reason
+                                )
 
                             if event.type == StreamEventType.COMPLETE:
                                 stream_success = True
-                                # Validate response
-                                validated_content = self.protection.validate_response(full_content)
-
-                                # Security: check for data leakage
-                                leak_check = DataLeakageGuard.check_response_for_leakage(validated_content)
-                                if leak_check["has_leak"]:
-                                    logger.warning(f"Data leak detected in stream response: {leak_check['leaks']}")
-
-                                # Store assistant message
-                                assistant_payload = MessageCreateRequest(
-                                    role="assistant",
-                                    content=validated_content,
-                                    metadata={
-                                        "model": final_model or "unknown",
-                                        "finish_reason": final_finish_reason,
-                                        "usage": final_usage,
-                                    }
+                                validated_content = self.protection.validate_response(
+                                    full_content
                                 )
-                                msg = add_message(self.db, user_id, conversation_id, assistant_payload)
+                                leak_check = DataLeakageGuard.check_response_for_leakage(
+                                    validated_content
+                                )
+                                if leak_check["has_leak"]:
+                                    logger.warning(
+                                        "Data leak detected in stream response: "
+                                        f"{leak_check['leaks']}"
+                                    )
 
-                                # Update event with message IDs
+                                if persist_user:
+                                    prior = list_messages(
+                                        self.db, user_id, conversation_id
+                                    )
+                                    last = prior[-1] if prior else None
+                                    already_stored = (
+                                        last is not None
+                                        and last.role == "user"
+                                        and (last.content or "").strip()
+                                        == question.strip()
+                                    )
+                                    if not already_stored:
+                                        add_message(
+                                            self.db,
+                                            user_id,
+                                            conversation_id,
+                                            MessageCreateRequest(
+                                                role="user", content=question
+                                            ),
+                                        )
+
+                                msg = add_message(
+                                    self.db,
+                                    user_id,
+                                    conversation_id,
+                                    MessageCreateRequest(
+                                        role="assistant",
+                                        content=validated_content,
+                                        metadata={
+                                            "model": final_model or "unknown",
+                                            "finish_reason": final_finish_reason,
+                                            "usage": final_usage,
+                                            "is_simulated": False,
+                                        },
+                                    ),
+                                )
                                 event.message_id = msg.id
                                 event.conversation_id = msg.conversation_id
+                                event.content = validated_content
 
-                            yield event
+                            if event.type != StreamEventType.ERROR:
+                                yield event
                         break
                     except Exception as e:
                         if self.protection.should_retry(e, attempt):
-                            delay = self.protection.get_retry_delay(attempt)
-                            yield StreamEvent(
-                                type=StreamEventType.ERROR,
-                                error=f"Retrying: {str(e)}",
-                                error_type=StreamErrorType.PROVIDER_ERROR,
-                            )
-                            time.sleep(delay)
+                            time.sleep(self.protection.get_retry_delay(attempt))
                             continue
-                        raise
+                        message = str(e)
+                        if isinstance(e, TypesProviderError):
+                            message = normalize_provider_error(e).message
+                        yield StreamEvent(
+                            type=StreamEventType.ERROR,
+                            error=message,
+                            error_type=StreamErrorType.PROVIDER_ERROR,
+                        )
+                        return
             finally:
                 self.protection.retry_controller.finish_request(request_id)
 
             if not stream_success and full_content:
-                # Partial response – don't save
                 pass
 
         except Exception as e:

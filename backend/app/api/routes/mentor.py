@@ -40,6 +40,8 @@ class AskStreamRequest(BaseModel):
     quiz_id: Optional[str] = None
     report_id: Optional[str] = None
     stage: Optional[str] = None
+    # When False (regenerate), do not insert another user turn.
+    persist_user: bool = True
 
 
 # Must live under /api so the frontend API client (VITE_API_BASE_URL …/api) can reach it.
@@ -129,6 +131,7 @@ def ask_mentor_stream(
                 quiz_id=request.quiz_id,
                 report_id=request.report_id,
                 stage=request.stage,
+                persist_user=request.persist_user,
             ):
                 yield f"data: {json.dumps(_stream_event_payload(event), default=str)}\n\n"
         except ConversationNotFoundError:

@@ -408,7 +408,7 @@ class TestOpenAIProviderStreaming:
             assert deltas == "Hello"
             assert events[-1].content == "Hello"
 
-    def test_stream_empty_content_emits_error_not_success(self):
+    def test_stream_empty_content_raises(self):
         provider = OpenAIProvider(api_key="test-key")
         chunk = Mock()
         chunk.choices = [Mock()]
@@ -421,11 +421,10 @@ class TestOpenAIProviderStreaming:
             mock_client.chat.completions.create.return_value = iter([chunk])
             mock_client_property.return_value = mock_client
 
-            events = list(provider.stream(AIRequest(messages=[AIMessage(role="user", content="Hi")])))
-            assert any(e.type.value == "error" for e in events)
-            assert not any(e.type.value == "complete" for e in events)
+            with pytest.raises(ProviderError, match="empty response"):
+                list(provider.stream(AIRequest(messages=[AIMessage(role="user", content="Hi")])))
 
-    def test_stream_provider_exception_emits_error(self):
+    def test_stream_provider_exception_raises(self):
         provider = OpenAIProvider(api_key="test-key")
 
         with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
@@ -433,9 +432,8 @@ class TestOpenAIProviderStreaming:
             mock_client.chat.completions.create.side_effect = Exception("provider disconnect")
             mock_client_property.return_value = mock_client
 
-            events = list(provider.stream(AIRequest(messages=[AIMessage(role="user", content="Hi")])))
-            assert events[-1].type.value == "error"
-            assert not any(e.type.value == "complete" for e in events)
+            with pytest.raises(ProviderError, match="network|disconnect|API error"):
+                list(provider.stream(AIRequest(messages=[AIMessage(role="user", content="Hi")])))
 
 
 class TestAIProviderIntegration:

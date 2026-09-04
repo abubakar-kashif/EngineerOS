@@ -86,13 +86,10 @@ describe("getQuiz", () => {
     expect(quiz.questions).toHaveLength(2);
     expect(quiz.attempt_size).toBe(2);
     expect(quiz.bank_size).toBe(2);
-    expect(quiz.questions[0].options.map((option) => option.key)).toEqual([
-      "A",
-      "B",
-      "C",
-      "D",
-    ]);
-    expect(new Set(quiz.questions[0].options.map((option) => option.text))).toEqual(
+    const ohms = quiz.questions.find((question) => question.question === "Ohm's law is:");
+    expect(ohms).toBeTruthy();
+    expect(ohms!.options.map((option) => option.key)).toEqual(["A", "B", "C", "D"]);
+    expect(new Set(ohms!.options.map((option) => option.text))).toEqual(
       new Set(["V = IR", "V = I/R", "V = R/I", "V = I + R"]),
     );
     expect(quiz.estimated_minutes).toBe(1);

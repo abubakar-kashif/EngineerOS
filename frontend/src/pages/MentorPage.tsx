@@ -229,7 +229,11 @@ function MentorPage() {
   }
 
   /* ── send ── */
-  function performSend(text: string, conversationId: string) {
+  function performSend(
+    text: string,
+    conversationId: string,
+    options: { emitUserMessage?: boolean } = {},
+  ) {
     if (!userId) return;
     setBusy(true);
     setSendError(null);
@@ -242,6 +246,7 @@ function MentorPage() {
         experimentId: mentorContext.experimentId,
         simulationId: mentorContext.simulationId,
         stage: mentorContext.stage,
+        emitUserMessage: options.emitUserMessage,
       },
       {
         onUserMessage: (message) => {
@@ -311,7 +316,9 @@ function MentorPage() {
     if (!text || !activeId) return;
     lastFailedRef.current = null;
     setSendError(null);
-    performSend(text, activeId);
+    const last = messages[messages.length - 1];
+    const alreadyShown = last?.role === "user" && last.content === text;
+    performSend(text, activeId, { emitUserMessage: !alreadyShown });
   }
 
   /* ── message actions ── */

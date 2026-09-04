@@ -234,6 +234,7 @@ describe("sendMessage real Mentor stream", () => {
       quiz_id: null,
       report_id: null,
       stage: null,
+      persist_user: true,
     });
 
     // Must not POST fake assistant messages or use /messages for generation.
