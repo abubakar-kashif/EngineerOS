@@ -193,8 +193,8 @@ export function buildGraphFromSignals(
   ySignalIds: string[],
   circuit?: CircuitDefinition,
 ): { graph: GraphData | null; unavailableReason?: string } {
-  const fakeResult = { measurements };
-  const signals = listAvailableSignals(fakeResult, circuit);
+  const measurementProbe = { measurements };
+  const signals = listAvailableSignals(measurementProbe, circuit);
   const x = getSignalById(signals, xSignalId);
   if (!x) {
     return { graph: null, unavailableReason: `Unknown X-axis signal "${xSignalId}".` };
