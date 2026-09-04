@@ -35,8 +35,17 @@ describe("Unit converter (both directions)", () => {
   });
 
   it("rejects mixing incompatible categories", () => {
-    expect(() => convertUnit(1, "length", "m", "v")).toThrow();
-    expect(() => convertUnit(1, "voltage", "v", "ohm")).toThrow();
+    expect(() => convertUnit(1, "length", "m", "v")).toThrow(/incompatible/i);
+    expect(() => convertUnit(1, "voltage", "v", "ohm")).toThrow(/incompatible/i);
+  });
+
+  it("handles decimals, zero, negatives, and extreme magnitudes", () => {
+    expect(convertUnit(0, "length", "m", "cm")).toBe(0);
+    expect(convertUnit(2.5, "voltage", "v", "mv")).toBeCloseTo(2500, 8);
+    expect(convertUnit(-12, "voltage", "v", "mv")).toBeCloseTo(-12000, 8);
+    expect(convertUnit(1e-9, "current", "a", "ua")).toBeCloseTo(0.001, 8);
+    expect(convertUnit(1e6, "resistance", "ohm", "megohm")).toBeCloseTo(1, 8);
+    expect(convertUnit(-40, "temperature", "c", "f")).toBeCloseTo(-40, 8);
   });
 });
 
@@ -46,25 +55,29 @@ describe("Scientific calculator", () => {
     expect(evaluateExpression("10 / 2")).toBe(5);
     expect(evaluateExpression("2^3")).toBe(8);
     expect(evaluateExpression("sqrt(16)")).toBe(4);
+    expect(evaluateExpression("abs(-7)")).toBe(7);
     expect(evaluateExpression("2 + 3 * 4")).toBe(14);
     expect(evaluateExpression("(2 + 3) * 4")).toBe(20);
     expect(evaluateExpression("sin(90)", "deg")).toBeCloseTo(1, 10);
     expect(evaluateExpression("cos(0)", "deg")).toBeCloseTo(1, 10);
     expect(evaluateExpression("tan(45)", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("sin(pi/2)", "rad")).toBeCloseTo(1, 10);
     expect(evaluateExpression("ln(e)")).toBeCloseTo(1, 10);
     expect(evaluateExpression("log(100)")).toBeCloseTo(2, 10);
     expect(evaluateExpression("-3 + 5")).toBe(2);
     expect(evaluateExpression("pi", "rad")).toBeCloseTo(Math.PI, 10);
   });
 
-  it("throws on invalid / undefined expressions", () => {
+  it("throws structured errors for invalid input", () => {
     expect(() => evaluateExpression("")).toThrow(/empty/i);
-    expect(() => evaluateExpression("1 / 0")).toThrow();
-    expect(() => evaluateExpression("foo(1)")).toThrow();
-    expect(() => evaluateExpression("sqrt(-1)")).toThrow();
-    expect(() => evaluateExpression("log(0)")).toThrow();
-    expect(() => evaluateExpression("sin(")).toThrow();
-    expect(() => evaluateExpression(")")).toThrow();
+    expect(() => evaluateExpression("1 / 0")).toThrow(/division by zero/i);
+    expect(() => evaluateExpression("foo(1)")).toThrow(/unknown function/i);
+    expect(() => evaluateExpression("sqrt(-1)")).toThrow(/negative sqrt/i);
+    expect(() => evaluateExpression("log(0)")).toThrow(/invalid log/i);
+    expect(() => evaluateExpression("ln(-2)")).toThrow(/invalid log/i);
+    expect(() => evaluateExpression("sin(")).toThrow(/invalid expression/i);
+    expect(() => evaluateExpression(")")).toThrow(/unmatched parentheses/i);
+    expect(() => evaluateExpression("tan(90)", "deg")).toThrow(/invalid domain/i);
   });
 
   it("replaces leading zero when starting a function or constant", () => {
@@ -72,6 +85,7 @@ describe("Scientific calculator", () => {
     expect(appendCalculatorToken("0", "cos(")).toBe("cos(");
     expect(appendCalculatorToken("0", "tan(")).toBe("tan(");
     expect(appendCalculatorToken("0", "√(")).toBe("√(");
+    expect(appendCalculatorToken("0", "abs(")).toBe("abs(");
     expect(appendCalculatorToken("0", "log(")).toBe("log(");
     expect(appendCalculatorToken("0", "ln(")).toBe("ln(");
     expect(appendCalculatorToken("0", "π")).toBe("π");
@@ -113,6 +127,13 @@ describe("Scientific calculator", () => {
     }
     expect(display).toBe("log(100");
     expect(evaluateExpression(display)).toBeCloseTo(2, 10);
+
+    display = "0";
+    for (const key of ["abs(", "−", "7", ")"]) {
+      display = appendCalculatorToken(display, key);
+    }
+    expect(display).toBe("abs(−7)");
+    expect(evaluateExpression(display)).toBe(7);
   });
 
   it("evaluates keypad-style scientific sequences (including missing ')')", () => {
@@ -181,6 +202,8 @@ describe("Engineering calculators — all solve directions", () => {
     // I1 = Itotal * R2 / (R1+R2)
     expect(calc.compute({ Itotal: 0.03, R1: 1000, R2: 2000 }, "I1")).toBeCloseTo(0.02);
     expect(calc.compute({ I1: 0.02, R1: 1000, R2: 2000 }, "Itotal")).toBeCloseTo(0.03);
+    expect(calc.compute({ Itotal: 0.03, I1: 0.02, R1: 1000 }, "R2")).toBeCloseTo(2000);
+    expect(calc.compute({ Itotal: 0.03, I1: 0.02, R2: 2000 }, "R1")).toBeCloseTo(1000);
   });
 
   it("Power / Energy / RC / RL / Resonance / PF / 3-phase one solve each direction", () => {
