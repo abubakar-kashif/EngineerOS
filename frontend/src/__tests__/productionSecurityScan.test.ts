@@ -185,7 +185,7 @@ describe("Phase 9 security scan (backend app)", () => {
       join(REPO_ROOT, "frontend/.env.example"),
     ];
     for (const path of examples) {
-      let text = "";
+      let text: string;
       try {
         text = read(path);
       } catch {
