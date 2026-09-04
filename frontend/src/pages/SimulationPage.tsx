@@ -1,7 +1,8 @@
 /**
  * Freeform Simulation Lab — EngineerOS electronics workstation.
  *
- * Layout: header controls | components | canvas | AI Mentor | measurements
+ * Pipeline: EditorCircuit → Adapter → validate → solve → measurements →
+ * graphs → SimulationResult → persistence → UI (no competing result path).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -11,6 +12,8 @@ import type { SimulationResult } from "../components/simulation/engine";
 import AnalysisPanel from "../components/simulation/AnalysisPanel";
 import ComponentInspector from "../components/simulation/ComponentInspector";
 import ComponentPalette from "../components/simulation/ComponentPalette";
+import InstrumentsPanel from "../components/simulation/InstrumentsPanel";
+import GraphViewer from "../components/simulation/GraphViewer";
 import SimToolbar, { type SimToolbarStatus } from "../components/simulation/SimToolbar";
 import WorkspaceCircuitCanvas, {
   type CircuitCanvasHandle,
@@ -19,6 +22,7 @@ import WorkspaceMentorPanel from "../components/simulation/WorkspaceMentorPanel"
 import SimulationResults from "../components/simulation/SimulationResults";
 import MeasurementsPanel from "../components/simulation/MeasurementsPanel";
 import { getExperimentById } from "../services/experimentService";
+import { persistAndRunSimulation } from "../services/simulationPersistence";
 import {
   createWorkspaceProject,
   downloadWorkspaceProject,
@@ -27,6 +31,19 @@ import {
   saveWorkspaceToLocalStorage,
 } from "../services/workspaceCircuitStorage";
 import type { Experiment } from "../types/experiment";
+
+const TEN_EXPERIMENT_IDS = [
+  "ohms-law",
+  "series-circuit",
+  "parallel-circuit",
+  "kvl",
+  "kcl",
+  "voltage-divider",
+  "current-divider",
+  "rc-circuit",
+  "diode-characteristics",
+  "led-circuit",
+] as const;
 
 function SimulationPage() {
   const [searchParams] = useSearchParams();
@@ -63,6 +80,7 @@ function SimulationPage() {
   } = useCircuitEditor();
 
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+  const [simulationId, setSimulationId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
@@ -121,17 +139,45 @@ function SimulationPage() {
     setIsRunning(true);
     try {
       const engineCircuit = getEngineCircuit();
+      if (experimentParam || experiment?.id) {
+        engineCircuit.experimentId = experiment?.id ?? experimentParam ?? undefined;
+      }
       const validation = validateCircuit(engineCircuit);
       if (!validation.valid) {
-        setSimResult({
+        const invalid: SimulationResult = {
           status: "invalid",
           validation,
           error: "Circuit validation failed",
+        };
+        setSimResult(invalid);
+        const persist = await persistAndRunSimulation({
+          circuit: engineCircuit,
+          localResult: invalid,
+          experimentId: experiment?.id ?? experimentParam,
+          existingSimulationId: simulationId,
+          name: experiment?.title ?? "Lab simulation",
         });
+        if (persist.simulationId) setSimulationId(persist.simulationId);
         return;
       }
       const result = solveCircuit(engineCircuit);
       setSimResult(result);
+
+      const persist = await persistAndRunSimulation({
+        circuit: engineCircuit,
+        localResult: result,
+        experimentId: experiment?.id ?? experimentParam,
+        existingSimulationId: simulationId,
+        name: experiment?.title ?? "Lab simulation",
+      });
+      if (persist.simulationId) setSimulationId(persist.simulationId);
+      if (persist.persisted) {
+        setPersistMessage("Simulation results saved.");
+        window.setTimeout(() => setPersistMessage(null), 2500);
+      } else if (persist.error) {
+        setPersistMessage(persist.error);
+        window.setTimeout(() => setPersistMessage(null), 3500);
+      }
     } catch (err) {
       setSimResult({
         status: "failed",
@@ -140,7 +186,7 @@ function SimulationPage() {
     } finally {
       setIsRunning(false);
     }
-  }, [getEngineCircuit]);
+  }, [getEngineCircuit, experiment, experimentParam, simulationId]);
 
   const stopSimulation = useCallback(() => {
     setIsRunning(false);
@@ -242,12 +288,19 @@ function SimulationPage() {
         </div>
       )}
 
+      {experimentParam && TEN_EXPERIMENT_IDS.includes(experimentParam as (typeof TEN_EXPERIMENT_IDS)[number]) && (
+        <p className="sim2-experiment-banner">
+          Freeform lab for <strong>{experiment?.title ?? experimentParam}</strong> — same
+          editor and simulation pipeline as all ten experiments.
+        </p>
+      )}
+
       <input
         ref={fileInputRef}
         type="file"
         accept=".json,.engineeros.json,application/json"
         hidden
-        onChange={(e) => {
+        onChange={e => {
           const file = e.target.files?.[0] ?? null;
           void handleOpenFile(file);
           e.target.value = "";
@@ -265,6 +318,10 @@ function SimulationPage() {
             onUpdateProperty={updateProperty}
             onDeleteComponent={deleteComponent}
             onDuplicateComponent={duplicateComponent}
+          />
+          <InstrumentsPanel
+            result={simResult}
+            selectedComponentId={state.selectedComponentId}
           />
         </aside>
 
@@ -310,19 +367,10 @@ function SimulationPage() {
               <div className="sim2-analysis-pane">
                 <h3 className="sim2-results-heading">Graphs</h3>
                 {simResult?.graphs && simResult.graphs.length > 0 ? (
-                  <ul className="sim2-graph-list">
-                    {simResult.graphs.map((g) => (
-                      <li key={g.id} className="sim2-graph-item">
-                        <strong>{g.title}</strong>
-                        <span>
-                          {g.type} · {g.series?.length ?? 0} series
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <GraphViewer graphs={simResult.graphs} />
                 ) : (
                   <p className="sim2-analysis-empty">
-                    Run a valid simulation to see graph summaries from the solver.
+                    Run a valid simulation to see graphs from the solver.
                   </p>
                 )}
               </div>
@@ -334,6 +382,7 @@ function SimulationPage() {
           experimentId={experiment?.id ?? experimentParam}
           experimentTitle={experiment?.title ?? null}
           simResult={simResult}
+          simulationId={simulationId}
         />
       </div>
     </div>

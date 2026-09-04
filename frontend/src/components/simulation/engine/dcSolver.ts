@@ -20,6 +20,8 @@ import {
   validateCircuit,
 } from './circuitValidator';
 
+import { analyzeDiode, analyzeLED } from './diodeAnalysis';
+
 export interface DCResult {
   nodeVoltages: Map<string, number>;
   branchCurrents: Map<string, number>;
@@ -296,6 +298,55 @@ function solveResistiveNetwork(
       if (result) {
         totalCurrent += result.current;
       }
+    }
+  }
+
+  // Diode / LED in series with resistive path (educational DC model)
+  const nonlinear = circuit.components.filter(c => c.type === 'diode' || c.type === 'led');
+  if (nonlinear.length > 0 && resistors.length > 0) {
+    const device = nonlinear[0];
+    const vf =
+      device.properties.forwardVoltage ??
+      (device.type === 'led' ? 2.0 : 0.7);
+    const seriesR =
+      equivalentResistance > 0
+        ? equivalentResistance
+        : resistors.reduce((s, r) => s + (r.properties.resistance || 0), 0);
+
+    const analysis =
+      device.type === 'led'
+        ? analyzeLED(sourceVoltage, vf, seriesR)
+        : analyzeDiode(sourceVoltage, vf, seriesR, false);
+
+    totalCurrent = analysis.current;
+    totalPower = 0;
+    componentResults.clear();
+
+    for (const resistor of resistors) {
+      const resistance = resistor.properties.resistance || 0;
+      if (resistance <= 0) continue;
+      const voltageDrop = analysis.current * resistance;
+      const power = analysis.current * analysis.current * resistance;
+      componentResults.set(resistor.id, {
+        componentId: resistor.id,
+        voltage: voltageDrop,
+        current: analysis.current,
+        power,
+        resistance,
+      });
+      totalPower += power;
+    }
+
+    componentResults.set(device.id, {
+      componentId: device.id,
+      voltage: analysis.voltageDrop,
+      current: analysis.current,
+      power: analysis.power,
+    });
+
+    // Effective load seen by the source
+    if (analysis.current > 0) {
+      equivalentResistance = sourceVoltage / analysis.current;
     }
   }
 

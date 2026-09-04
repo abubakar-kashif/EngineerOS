@@ -107,7 +107,7 @@ export function generateOhmsLawGraph(
 
 export function generateVoltageDividerGraph(
   circuit: CircuitDefinition,
-  _dcResult: DCResult,
+  dcResult: DCResult,
   options: GraphOptions = {}
 ): GraphData {
   const resistors = circuit.components.filter(c => c.type === 'resistor');
@@ -118,8 +118,11 @@ export function generateVoltageDividerGraph(
 
   const r1 = resistors[0].properties.resistance || 1000;
   const r2 = resistors[1].properties.resistance || 1000;
-  
-  const maxVoltage = 10;
+  const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
+  const maxVoltage =
+    voltageSource?.properties.voltage ??
+    dcResult.componentResults.get(voltageSource?.id || '')?.voltage ??
+    10;
   const numPoints = options.numPoints || 10;
   
   const points: GraphPoint[] = [];
@@ -457,55 +460,203 @@ export function generateIVGraph(
   };
 }
 
+/** Element voltages + shared current for series topologies (from DC results). */
+export function generateSeriesGraph(
+  circuit: CircuitDefinition,
+  dcResult: DCResult,
+): GraphData {
+  const resistors = circuit.components.filter(c => c.type === 'resistor');
+  if (resistors.length < 2) {
+    throw new Error('Series graph requires at least 2 resistors');
+  }
+  const voltagePoints: GraphPoint[] = [];
+  const currentPoints: GraphPoint[] = [];
+  resistors.forEach((r, i) => {
+    const res = dcResult.componentResults.get(r.id);
+    if (!res) return;
+    voltagePoints.push({ x: i, y: res.voltage });
+    currentPoints.push({ x: i, y: res.current });
+  });
+  if (voltagePoints.length === 0) throw new Error('No series measurements');
+  return {
+    id: 'series_elements',
+    type: 'bar',
+    title: 'Series: Element Voltage & Current',
+    xAxis: { label: 'Element index', unit: '' },
+    yAxis: { label: 'Value', unit: 'V / A' },
+    series: [
+      { name: 'Voltage (V)', points: voltagePoints, color: '#2563eb' },
+      { name: 'Current (A)', points: currentPoints, color: '#dc2626' },
+    ],
+    metadata: { componentIds: resistors.map(r => r.id) },
+  };
+}
+
+/** Branch currents for parallel topologies. */
+export function generateParallelGraph(
+  circuit: CircuitDefinition,
+  dcResult: DCResult,
+): GraphData {
+  const resistors = circuit.components.filter(c => c.type === 'resistor');
+  if (resistors.length < 2) {
+    throw new Error('Parallel graph requires at least 2 resistors');
+  }
+  const points: GraphPoint[] = [];
+  resistors.forEach((r, i) => {
+    const res = dcResult.componentResults.get(r.id);
+    if (res) points.push({ x: i, y: res.current });
+  });
+  if (points.length < 2) throw new Error('Need branch currents');
+  // Heuristic: same voltage across branches → parallel
+  const voltages = resistors
+    .map(r => dcResult.componentResults.get(r.id)?.voltage)
+    .filter((v): v is number => v !== undefined);
+  const sameV =
+    voltages.length >= 2 &&
+    voltages.every(v => Math.abs(v - voltages[0]) < 1e-9);
+  if (!sameV) throw new Error('Not a parallel branch set');
+  return {
+    id: 'parallel_branches',
+    type: 'bar',
+    title: 'Parallel: Branch Currents',
+    xAxis: { label: 'Branch', unit: '' },
+    yAxis: { label: 'Current', unit: 'A' },
+    series: [{ name: 'Branch current', points, color: '#059669' }],
+    metadata: { componentIds: resistors.map(r => r.id) },
+  };
+}
+
+/** KVL: loop voltage contributions from solved components. */
+export function generateKVLGraph(
+  circuit: CircuitDefinition,
+  dcResult: DCResult,
+): GraphData {
+  const parts = circuit.components.filter(c =>
+    ['resistor', 'voltage_source', 'diode', 'led'].includes(c.type)
+  );
+  const points: GraphPoint[] = [];
+  const labels: string[] = [];
+  parts.forEach((c, i) => {
+    const res = dcResult.componentResults.get(c.id);
+    if (!res) return;
+    const signed = c.type === 'voltage_source' ? -Math.abs(res.voltage) : res.voltage;
+    points.push({ x: i, y: signed });
+    labels.push(c.label || c.id);
+  });
+  if (points.length < 2) throw new Error('KVL needs multiple loop elements');
+  return {
+    id: 'kvl_loop',
+    type: 'bar',
+    title: 'KVL: Loop Voltage Contributions',
+    xAxis: { label: 'Element', unit: '' },
+    yAxis: { label: 'Voltage', unit: 'V' },
+    series: [{ name: 'ΔV', points, color: '#7c3aed' }],
+    metadata: { labels },
+  };
+}
+
+/** KCL: currents into a shared node from branch results. */
+export function generateKCLGraph(
+  circuit: CircuitDefinition,
+  dcResult: DCResult,
+): GraphData {
+  const resistors = circuit.components.filter(c => c.type === 'resistor');
+  if (resistors.length < 2) throw new Error('KCL needs multiple branches');
+  const points: GraphPoint[] = [];
+  resistors.forEach((r, i) => {
+    const res = dcResult.componentResults.get(r.id);
+    if (res) points.push({ x: i, y: res.current });
+  });
+  if (points.length < 2) throw new Error('KCL needs branch currents');
+  // Include source current leaving as negative of total for balance view
+  points.push({ x: points.length, y: -dcResult.totalCurrent });
+  return {
+    id: 'kcl_node',
+    type: 'bar',
+    title: 'KCL: Node Current Contributions',
+    xAxis: { label: 'Branch', unit: '' },
+    yAxis: { label: 'Current', unit: 'A' },
+    series: [{ name: 'I', points, color: '#ea580c' }],
+    metadata: { totalCurrent: dcResult.totalCurrent },
+  };
+}
+
+/** Current divider: branch currents vs total. */
+export function generateCurrentDividerGraph(
+  circuit: CircuitDefinition,
+  dcResult: DCResult,
+): GraphData {
+  return {
+    ...generateParallelGraph(circuit, dcResult),
+    id: 'current_divider',
+    title: 'Current Divider: Branch Currents',
+  };
+}
+
+/** RC current vs time from the same R/C parameters as voltage graph. */
+export function generateRCCurrentGraph(
+  circuit: CircuitDefinition,
+  _dcResult: DCResult,
+  options: GraphOptions = {}
+): GraphData {
+  const capacitor = circuit.components.find(c => c.type === 'capacitor');
+  const resistor = circuit.components.find(c => c.type === 'resistor');
+  if (!capacitor || !resistor) {
+    throw new Error('RC current graph requires R and C');
+  }
+  const C = capacitor.properties.capacitance || 1e-6;
+  const R = resistor.properties.resistance || 1000;
+  const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
+  const Vs = voltageSource?.properties.voltage || 5;
+  const tau = R * C;
+  const numPoints = options.numPoints || 20;
+  const maxTime = options.maxX || tau * 5;
+  const points: GraphPoint[] = [];
+  for (let i = 0; i <= numPoints; i++) {
+    const t = (i / numPoints) * maxTime;
+    points.push({ x: t, y: (Vs / R) * Math.exp(-t / tau) });
+  }
+  return {
+    id: 'rc_current',
+    type: 'line',
+    title: 'RC Circuit: Current vs Time',
+    xAxis: { label: 'Time', unit: 's' },
+    yAxis: { label: 'Current', unit: 'A' },
+    series: [{ name: 'i(t)', points, color: '#0891b2' }],
+    metadata: { tau, R, C, Vs },
+  };
+}
+
 export function generateAllGraphs(
   circuit: CircuitDefinition,
   dcResult: DCResult
 ): GraphData[] {
   const graphs: GraphData[] = [];
 
-  try {
-    graphs.push(generateOhmsLawGraph(circuit, dcResult));
-  } catch (_e) {
-    // Skip if not applicable
-  }
+  const tryPush = (fn: () => GraphData) => {
+    try {
+      graphs.push(fn());
+    } catch {
+      // Skip graphs that do not apply to this topology
+    }
+  };
 
-  try {
-    graphs.push(generateVoltageDividerGraph(circuit, dcResult));
-  } catch (_e) {
-    // Skip if not applicable
-  }
-
-  try {
-    graphs.push(generateRCGraph(circuit, dcResult));
-  } catch (_e) {
-    // Skip if not applicable
-  }
-
-  try {
-    graphs.push(generateRLGraph(circuit, dcResult));
-  } catch (_e) {
-    // Skip if not applicable
-  }
-
-  try {
-    graphs.push(generatePowerGraph(circuit, dcResult));
-  } catch (_e) {
-    // Skip if not applicable
-  }
-
-  try {
-    graphs.push(generateComponentAnalysisGraph(circuit, dcResult));
-  } catch (_e) {
-    // Skip if not applicable
-  }
+  tryPush(() => generateOhmsLawGraph(circuit, dcResult));
+  tryPush(() => generateVoltageDividerGraph(circuit, dcResult));
+  tryPush(() => generateSeriesGraph(circuit, dcResult));
+  tryPush(() => generateParallelGraph(circuit, dcResult));
+  tryPush(() => generateKVLGraph(circuit, dcResult));
+  tryPush(() => generateKCLGraph(circuit, dcResult));
+  tryPush(() => generateCurrentDividerGraph(circuit, dcResult));
+  tryPush(() => generateRCGraph(circuit, dcResult));
+  tryPush(() => generateRCCurrentGraph(circuit, dcResult));
+  tryPush(() => generateRLGraph(circuit, dcResult));
+  tryPush(() => generatePowerGraph(circuit, dcResult));
+  tryPush(() => generateComponentAnalysisGraph(circuit, dcResult));
 
   for (const component of circuit.components) {
     if (['resistor', 'diode', 'led'].includes(component.type)) {
-      try {
-        graphs.push(generateIVGraph(circuit, dcResult, component.id));
-      } catch (_e) {
-        // Skip if not applicable
-      }
+      tryPush(() => generateIVGraph(circuit, dcResult, component.id));
     }
   }
 

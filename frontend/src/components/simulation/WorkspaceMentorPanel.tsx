@@ -17,12 +17,14 @@ interface WorkspaceMentorPanelProps {
   experimentId: string | null;
   experimentTitle: string | null;
   simResult: SimulationResult | null;
+  simulationId?: string | null;
 }
 
 function WorkspaceMentorPanel({
   experimentId,
   experimentTitle,
   simResult,
+  simulationId = null,
 }: WorkspaceMentorPanelProps) {
   const { user } = useAuth();
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -90,6 +92,7 @@ function WorkspaceMentorPanel({
       {
         experimentId,
         stage: "simulation",
+        simulationId,
       },
       {
         onUserMessage: (message) => setMessages((prev) => [...prev, message]),

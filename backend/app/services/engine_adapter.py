@@ -17,14 +17,18 @@ def run_engine(circuit_definition: Dict[str, Any]) -> Dict[str, Any]:
 
     input_data = json.dumps({"circuitDefinition": circuit_definition})
 
+    # Quote path so spaces in Windows user dirs do not break npx/tsx
+    quoted_runner = f'"{runner_path}"' if " " in runner_path else runner_path
+
     # Use shell=True so npx is found on Windows
     result = subprocess.run(
-        f"npx tsx {runner_path}",
+        f"npx tsx {quoted_runner}",
         input=input_data,
         capture_output=True,
         text=True,
         check=False,
-        shell=True
+        shell=True,
+        cwd=os.path.dirname(runner_path),
     )
 
     if result.returncode != 0:

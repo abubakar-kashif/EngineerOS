@@ -571,9 +571,9 @@ function ExperimentDetailsPage() {
                 <p className="eyebrow">READY TO START?</p>
                 <h2 className="detail-cta-title">Run Simulation</h2>
                 <p className="detail-cta-desc">
-                  Open the workspace to build the circuit and run a live simulation.
+                  Open the freeform simulation lab to build the circuit and run live measurements.
                 </p>
-                <Button to={`/experiments/${experiment.id}/workspace`} variant="primary" size="lg">
+                <Button to={`/simulation?experiment=${encodeURIComponent(experiment.id)}`} variant="primary" size="lg">
                   Start Experiment <ArrowRight size={16} />
                 </Button>
               </div>

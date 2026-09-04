@@ -6872,6 +6872,101 @@
 .sim2-badge--warn { background: var(--color-warning-muted, #fef3c7); color: var(--color-warning); }
 .sim2-analysis-content { padding: var(--space-md); }
 .sim2-analysis-empty { font-size: 12px; color: var(--color-text-muted); margin: 0; }
+
+.sim2-experiment-banner {
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 12px;
+  background: var(--color-surface-muted, #f1f5f9);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.sim-instruments-panel {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+.sim-instruments-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-sm);
+  color: var(--color-text-secondary);
+}
+.sim-instruments-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sim-instrument-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--color-surface-muted, #f8fafc);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+.sim-instrument-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+.sim-instrument-reading {
+  font-size: 12px;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  color: var(--color-text);
+}
+.sim-instrument-error {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--color-danger);
+}
+
+.sim-comp-measurement--head {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+.sim-comp-measurement {
+  display: grid;
+  grid-template-columns: 1.2fr repeat(4, 1fr);
+  gap: 4px;
+  font-size: 11px;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sim-graph-viewer { display: flex; flex-direction: column; gap: 8px; }
+.sim-graph-toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  justify-content: space-between;
+}
+.sim-graph-select {
+  flex: 1; min-width: 140px; font-size: 12px;
+  padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 4px;
+}
+.sim-graph-actions { display: flex; gap: 4px; }
+.sim-graph-actions button {
+  font-size: 11px; padding: 4px 8px;
+  border: 1px solid var(--color-border); border-radius: 4px;
+  background: var(--color-surface); cursor: pointer;
+}
+.sim-graph-svg {
+  width: 100%; max-height: 240px;
+  border: 1px solid var(--color-border); border-radius: 4px;
+}
+.sim-graph-hover {
+  font-size: 11px;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  color: var(--color-text-secondary);
+}
+
 .sim2-results-heading {
   font-size: 11px; font-weight: 700; color: var(--color-text-secondary);
   text-transform: uppercase; letter-spacing: 0.05em;
