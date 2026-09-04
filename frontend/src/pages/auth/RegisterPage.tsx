@@ -79,7 +79,9 @@ function RegisterPage() {
         </div>
 
         <h1 className="auth-title">Create Account</h1>
-        <p className="auth-subtitle">Start your engineering learning experience</p>
+        <p className="auth-subtitle">
+          Create your EngineerOS account. We&apos;ll email a 6-digit verification code before you can sign in.
+        </p>
 
         {error && (
           <div className="auth-error" role="alert">{error}</div>
@@ -192,8 +194,6 @@ function RegisterPage() {
           <Link to="/login" className="auth-link">Sign in</Link>
         </p>
       </div>
-
-      <p className="auth-dev-notice">Development authentication — not for production use.</p>
     </div>
   );
 }

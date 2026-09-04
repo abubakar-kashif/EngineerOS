@@ -95,8 +95,14 @@ function SimToolbar({
         <span className="sim2-toolbar-title">
           {experimentTitle ? experimentTitle : "Simulation Lab"}
         </span>
-        <span className="sim2-status-dot" style={{ background: statusColors[status] }} />
-        <span className="sim2-status-label">{statusLabels[status]}</span>
+        <span
+          className={`sim2-status-dot${status === "running" ? " sim2-status-dot--pulse" : ""}`}
+          style={{ background: statusColors[status] }}
+          aria-hidden="true"
+        />
+        <span className="sim2-status-label" role="status" aria-live="polite">
+          {statusLabels[status]}
+        </span>
         {dirty && <span className="sim2-dirty">● Unsaved</span>}
       </div>
       <div className="sim2-toolbar-right" role="toolbar" aria-label="Simulation workspace controls">
@@ -119,7 +125,7 @@ function SimToolbar({
         <ToolbarBtn icon={<Trash2 size={14} />} label="Clear circuit" onClick={onClear} />
         <span className="sim2-toolbar-sep" aria-hidden="true" />
         {status === "running" ? (
-          <button type="button" className="sim2-btn sim2-btn--stop" onClick={onStop}>
+          <button type="button" className="sim2-btn sim2-btn--stop" onClick={onStop} aria-busy="true">
             <Square size={14} /> Stop
           </button>
         ) : (
@@ -128,6 +134,7 @@ function SimToolbar({
             className="sim2-btn sim2-btn--run"
             disabled={!canRun}
             onClick={onRun}
+            aria-disabled={!canRun}
           >
             <Play size={14} /> Run
           </button>

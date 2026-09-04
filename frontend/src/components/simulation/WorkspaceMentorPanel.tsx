@@ -200,6 +200,7 @@ function WorkspaceMentorPanel({
         onError: (err) => {
           setStreamingText(null);
           setBusy(false);
+          setDraft(text);
           setError(err.message || "AI Mentor could not generate a response. Please try again.");
         },
       },
@@ -231,7 +232,7 @@ function WorkspaceMentorPanel({
           <Bot size={16} />
           <span>AI Mentor</span>
         </div>
-        <Link to={mentorLink} className="sim2-mentor-expand" title="Open full Mentor">
+        <Link to={mentorLink} className="sim2-mentor-expand" title="Open full Mentor" aria-label="Open full Mentor">
           <ExternalLink size={14} />
         </Link>
       </div>
@@ -302,7 +303,17 @@ function WorkspaceMentorPanel({
 
       {error && (
         <div className="sim2-mentor-error" role="alert">
-          {error}
+          <span>{error}</span>
+          <button
+            type="button"
+            className="sim2-mentor-retry"
+            onClick={() => {
+              setError(null);
+              if (draft.trim()) void handleSend();
+            }}
+          >
+            Retry
+          </button>
         </div>
       )}
 

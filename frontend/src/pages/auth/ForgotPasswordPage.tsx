@@ -38,13 +38,19 @@ function ForgotPasswordPage() {
           <div className="auth-brand"><EngineerOSMark size="lg" /><span className="auth-brand-name">EngineerOS</span></div>
           <h1 className="auth-title">Check your email</h1>
           <p className="auth-subtitle">
-            If an account exists with <strong>{email}</strong>, we've sent password reset instructions.
+            If an account exists with <strong>{email}</strong>, we&apos;ve sent a 6-digit password reset code.
+            Enter that code on the next screen to choose a new password.
           </p>
-          <Link to="/login" className="auth-submit auth-submit-link">Back to Sign In</Link>
+          <Link to="/reset-password" className="auth-submit auth-submit-link">
+            Enter reset code
+          </Link>
+          <p className="auth-footer-text" style={{ marginTop: 12 }}>
+            <Link to="/login" className="auth-link">Back to Sign In</Link>
+          </p>
         </div>
         {devCode && (
           <p className="auth-dev-notice">
-            Development mode — no email is actually sent. Your reset code is <strong>{devCode}</strong>.{" "}
+            Development delivery — no email was sent. Your reset code is <strong>{devCode}</strong>.{" "}
             <Link to={`/reset-password/${devCode}`} className="auth-link">Reset now</Link>
           </p>
         )}
@@ -57,7 +63,9 @@ function ForgotPasswordPage() {
       <div className="auth-card animate-fade">
         <div className="auth-brand"><EngineerOSMark size="lg" /><span className="auth-brand-name">EngineerOS</span></div>
         <h1 className="auth-title">Forgot password?</h1>
-        <p className="auth-subtitle">Enter your email and we'll send you a reset code.</p>
+        <p className="auth-subtitle">
+          Enter your email and we&apos;ll send a 6-digit reset code. Codes expire after two minutes.
+        </p>
 
         {error && <div className="auth-error" role="alert">{error}</div>}
 
@@ -76,7 +84,7 @@ function ForgotPasswordPage() {
             {fieldError && <p className="auth-field-error">{fieldError}</p>}
           </div>
           <button type="submit" className="auth-submit" disabled={loading}>
-            {loading ? "Sending..." : "Send Reset Link"}
+            {loading ? "Sending..." : "Send reset code"}
           </button>
         </form>
 
@@ -85,7 +93,6 @@ function ForgotPasswordPage() {
           <Link to="/login" className="auth-link">Back to Sign In</Link>
         </p>
       </div>
-      <p className="auth-dev-notice">Development authentication — not for production use.</p>
     </div>
   );
 }

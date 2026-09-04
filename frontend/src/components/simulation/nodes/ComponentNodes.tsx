@@ -59,7 +59,22 @@ interface NodeProps {
 
 function NodeWrapper({ label, selected, terminals, activeTerminal, onTerminalMouseDown, onTerminalMouseUp, children }: NodeProps) {
   return (
-    <g>
+    <g className={selected ? "canvas-component--selected" : undefined}>
+      {selected && (
+        <rect
+          x={-36}
+          y={-36}
+          width={72}
+          height={72}
+          rx={6}
+          fill="none"
+          stroke="var(--color-primary)"
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
+          opacity={0.85}
+          pointerEvents="none"
+        />
+      )}
       {children}
       {/* Reference designator label */}
       <text x={0} y={-28} textAnchor="middle" fontSize={11} fontWeight={600}

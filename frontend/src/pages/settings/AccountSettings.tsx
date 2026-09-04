@@ -48,7 +48,7 @@ function AccountSettings() {
             </p>
           </div>
         </div>
-        <p className="settings-placeholder">
+        <p className="settings-empty">
           Your profile will appear here once you sign in.
         </p>
       </div>

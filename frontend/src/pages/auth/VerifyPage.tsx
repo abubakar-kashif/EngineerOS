@@ -114,6 +114,24 @@ function VerifyPage() {
     }
   }
 
+  if (!email) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card animate-fade">
+          <div className="auth-brand"><EngineerOSMark size="lg" /><span className="auth-brand-name">EngineerOS</span></div>
+          <h1 className="auth-title">Verify your email</h1>
+          <p className="auth-subtitle">
+            No email is attached to this page. Register a new account or sign in — if your address is unverified, you&apos;ll be sent here with a code.
+          </p>
+          <Link to="/register" className="auth-submit auth-submit-link">Create account</Link>
+          <p className="auth-footer-text" style={{ marginTop: 12 }}>
+            <Link to="/login" className="auth-link">Sign in</Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (success) {
     return (
       <div className="auth-page">

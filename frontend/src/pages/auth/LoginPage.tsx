@@ -56,7 +56,9 @@ function LoginPage() {
         </div>
 
         <h1 className="auth-title">Welcome back</h1>
-        <p className="auth-subtitle">Continue your engineering journey</p>
+        <p className="auth-subtitle">
+          Sign in with your verified email. Unverified accounts are sent a new code before access.
+        </p>
 
         {error && (
           <div className="auth-error" role="alert">
@@ -123,10 +125,6 @@ function LoginPage() {
           <Link to="/register" className="auth-link">Create one</Link>
         </p>
       </div>
-
-      <p className="auth-dev-notice">
-        Development authentication — not for production use.
-      </p>
     </div>
   );
 }

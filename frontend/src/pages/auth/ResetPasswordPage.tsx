@@ -167,7 +167,6 @@ function ResetPasswordPage() {
           <Link to="/login" className="auth-link">Back to Sign In</Link>
         </p>
       </div>
-      <p className="auth-dev-notice">Development authentication — not for production use.</p>
     </div>
   );
 }

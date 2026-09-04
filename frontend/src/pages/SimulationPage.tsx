@@ -363,7 +363,11 @@ function SimulationPage() {
             <div className="sim2-analysis-split">
               <div className="sim2-analysis-pane">
                 <h3 className="sim2-results-heading">Measurements / Results</h3>
-                {simResult ? (
+                {isRunning ? (
+                  <p className="sim2-analysis-empty" role="status">
+                    Simulation running…
+                  </p>
+                ) : simResult ? (
                   <>
                     <SimulationResults result={simResult} />
                     <MeasurementsPanel result={simResult} />
@@ -378,7 +382,11 @@ function SimulationPage() {
               </div>
               <div className="sim2-analysis-pane">
                 <h3 className="sim2-results-heading">Graphs</h3>
-                {simResult?.graphs && simResult.graphs.length > 0 ? (
+                {isRunning ? (
+                  <p className="sim2-analysis-empty" role="status">
+                    Waiting for solver graphs…
+                  </p>
+                ) : simResult?.graphs && simResult.graphs.length > 0 ? (
                   <GraphViewer graphs={simResult.graphs} />
                 ) : (
                   <p className="sim2-analysis-empty">
