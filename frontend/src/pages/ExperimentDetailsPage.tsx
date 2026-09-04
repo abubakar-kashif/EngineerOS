@@ -34,10 +34,9 @@ import QuizCTA from "../components/experiments/QuizCTA";
 import ReportCTA from "../components/experiments/ReportCTA";
 import MentorCTA from "../components/experiments/MentorCTA";
 
-import { getExperimentById } from "../services/experimentService";
+import { getExperimentById, getExperiments } from "../services/experimentService";
 import { getStatusMap, saveStatus } from "../services/progressService";
 import { getAuthToken } from "../services/api";
-import { mockExperiments } from "../data/mockExperiments";
 import type { Experiment } from "../types/experiment";
 import {
   addRecentExperiment,
@@ -79,6 +78,7 @@ function ExperimentDetailsPage() {
   const navigate = useNavigate();
 
   const [experiment, setExperiment] = useState<Experiment | null>(null);
+  const [catalog, setCatalog] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [progressOverride, setProgressOverride] = useState<UserProgress | null>(null);
@@ -89,24 +89,37 @@ function ExperimentDetailsPage() {
     getAuthToken() ? null : getAllProgress(),
   );
 
+  useEffect(() => {
+    let cancelled = false;
+    getExperiments()
+      .then((res) => {
+        if (!cancelled) setCatalog(res.items);
+      })
+      .catch(() => {
+        if (!cancelled) setCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   /* Derive recent experiments during render — avoids setState inside useEffect */
   const recentExperiments = useMemo(() => {
     if (!experiment) return [];
     const recentIds = getRecentExperiments().filter((id) => id !== experiment.id);
     return recentIds
-      .map((id) => mockExperiments.find((m) => m.id === id))
+      .map((id) => catalog.find((m) => m.id === id))
       .filter(Boolean)
       .slice(0, 3) as Experiment[];
-  }, [experiment]);
+  }, [experiment, catalog]);
 
-  /* Resolve experiment ids (prerequisites, related) via the offline catalog —
-     the list endpoint returns lean rows only. */
+  /* Resolve experiment ids (prerequisites, related) via the live catalog */
   const experimentById = useMemo(() => {
     const map = new Map<string, Experiment>();
-    mockExperiments.forEach((m) => map.set(m.id, m));
+    catalog.forEach((m) => map.set(m.id, m));
     if (experiment) map.set(experiment.id, experiment);
     return map;
-  }, [experiment]);
+  }, [experiment, catalog]);
 
   /* Related experiments, resolved through the offline catalog */
   const related = (experiment?.related_experiments ?? [])
@@ -158,23 +171,13 @@ function ExperimentDetailsPage() {
         if (data) {
           setExperiment(data);
         } else {
-          const mock = mockExperiments.find(
-            (m) => m.id === experimentId || m.slug === experimentId,
-          );
-          setExperiment(mock ?? null);
+          setExperiment(null);
+          setError("Experiment not found.");
         }
       } catch {
         if (cancelled) return;
-        const mock = mockExperiments.find(
-          (m) => m.id === experimentId || m.slug === experimentId,
-        );
-        if (mock) {
-          setExperiment(mock);
-          setError(null);
-        } else {
-          setExperiment(null);
-          setError("Unable to load this experiment. Please try again.");
-        }
+        setExperiment(null);
+        setError("Unable to load this experiment. Please try again.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -264,14 +267,14 @@ function ExperimentDetailsPage() {
     experiment.short_description ||
     "Explore this electrical engineering experiment.";
 
-  // Recommend next experiment (next by difficulty or first not-yet-completed)
-  const recommended = mockExperiments.find(
+  // Recommend next experiment (next by catalog order not yet completed)
+  const recommended = catalog.find(
     (m) => m.id !== experiment.id && statusMap?.[m.id] !== "completed",
   );
 
   // Experiment number (position in the catalog)
   const experimentNumber =
-    mockExperiments.findIndex((m) => m.id === experiment.id) + 1 || undefined;
+    catalog.findIndex((m) => m.id === experiment.id) + 1 || undefined;
 
   return (
     <main className="page">

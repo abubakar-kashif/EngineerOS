@@ -7,6 +7,7 @@ progress/report scoping, and the anonymous (legacy) behaviour.
 
 from app.data.quiz_bank import iter_questions
 from app.models.quiz import QuizAttempt
+from app.models.user import User
 
 
 def register_user(client, email, name="Ada Lovelace", password="supersecret1"):
@@ -485,6 +486,7 @@ def test_add_message_and_read_conversation(phase9_client):
     assert message.json()["role"] == "user"
     assert message.json()["content"] == "What is Ohm's law?"
 
+    # Clients must not invent assistant turns (Mentor service writes those).
     reply = client.post(
         f"/api/conversations/{conversation['id']}/messages",
         headers=headers,
@@ -494,23 +496,22 @@ def test_add_message_and_read_conversation(phase9_client):
             "metadata": {"is_simulated": True},
         },
     )
-    assert reply.status_code == 201
-    assert reply.json()["metadata"] == {"is_simulated": True}
+    assert reply.status_code == 403
 
     detail = client.get(
         f"/api/conversations/{conversation['id']}", headers=headers
     )
     assert detail.status_code == 200
-    assert len(detail.json()["messages"]) == 2
+    assert len(detail.json()["messages"]) == 1
 
     listed = client.get(
         f"/api/conversations/{conversation['id']}/messages", headers=headers
     )
-    assert [item["role"] for item in listed.json()] == ["user", "assistant"]
+    assert [item["role"] for item in listed.json()] == ["user"]
 
     # The message count shows up in the sidebar summary.
     summaries = client.get("/api/conversations", headers=headers).json()
-    assert summaries[0]["message_count"] == 2
+    assert summaries[0]["message_count"] == 1
 
 
 def test_rename_conversation(phase9_client):
@@ -548,17 +549,26 @@ def test_delete_conversation(phase9_client):
 
 
 def test_message_feedback_set_and_cleared(phase9_client):
-    client, _ = phase9_client
+    client, session_factory = phase9_client
     headers = register_headers(client, "feedback@example.com")
     conversation = create_conversation(client, headers)
-    message = client.post(
-        f"/api/conversations/{conversation['id']}/messages",
-        headers=headers,
-        json={"role": "assistant", "content": "An answer"},
-    ).json()
+
+    # Assistant rows are written by Mentor (service), not the public POST route.
+    from app.schemas.conversation import MessageCreateRequest
+    from app.services import conversation_service
+
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "feedback@example.com").one()
+        message = conversation_service.add_message(
+            db,
+            user.id,
+            conversation["id"],
+            MessageCreateRequest(role="assistant", content="An answer"),
+        )
+        message_id = message.id
 
     set_response = client.patch(
-        f"/api/conversations/{conversation['id']}/messages/{message['id']}",
+        f"/api/conversations/{conversation['id']}/messages/{message_id}",
         headers=headers,
         json={"feedback": "helpful"},
     )
@@ -566,7 +576,7 @@ def test_message_feedback_set_and_cleared(phase9_client):
     assert set_response.json()["feedback"] == "helpful"
 
     cleared = client.patch(
-        f"/api/conversations/{conversation['id']}/messages/{message['id']}",
+        f"/api/conversations/{conversation['id']}/messages/{message_id}",
         headers=headers,
         json={"feedback": None},
     )

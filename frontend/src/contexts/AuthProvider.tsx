@@ -13,6 +13,7 @@ import type {
 import { AuthContext, type AuthContextValue } from "./AuthContext";
 import * as authService from "../services/authService";
 import { requestThemeSync } from "../components/ui/ThemeContext";
+import { toast } from "../components/ui/useToast";
 
 /**
  * Restores the account-level theme preference (GET /auth/me → preferences).
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { user: loggedInUser } = await authService.login(credentials);
     setUser(loggedInUser);
     syncThemeFromAccount(loggedInUser);
+    toast.success("Login successful", "Welcome back to EngineerOS.");
   }, []);
 
   const register = useCallback(
@@ -74,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await authService.logout();
     setUser(null);
+    toast.info("Logged out", "Your session has ended.");
   }, []);
 
   const refreshUser = useCallback(async () => {

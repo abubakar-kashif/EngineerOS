@@ -15,6 +15,7 @@ import {
   Minimize2,
   RotateCcw,
   Expand,
+  Crosshair,
 } from "lucide-react";
 
 export type SimToolbarStatus =
@@ -44,6 +45,7 @@ interface SimToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
+  onResetView: () => void;
   onToggleFullscreen: () => void;
 }
 
@@ -84,6 +86,7 @@ function SimToolbar({
   onZoomIn,
   onZoomOut,
   onFit,
+  onResetView,
   onToggleFullscreen,
 }: SimToolbarProps) {
   return (
@@ -96,24 +99,25 @@ function SimToolbar({
         <span className="sim2-status-label">{statusLabels[status]}</span>
         {dirty && <span className="sim2-dirty">● Unsaved</span>}
       </div>
-      <div className="sim2-toolbar-right">
+      <div className="sim2-toolbar-right" role="toolbar" aria-label="Simulation workspace controls">
         <ToolbarBtn icon={<Undo2 size={14} />} label="Undo" disabled={!canUndo} onClick={onUndo} />
         <ToolbarBtn icon={<Redo2 size={14} />} label="Redo" disabled={!canRedo} onClick={onRedo} />
         <span className="sim2-toolbar-sep" />
         <ToolbarBtn icon={<ZoomIn size={14} />} label="Zoom In" onClick={onZoomIn} />
         <ToolbarBtn icon={<ZoomOut size={14} />} label="Zoom Out" onClick={onZoomOut} />
         <ToolbarBtn icon={<Maximize2 size={14} />} label="Fit to Screen" onClick={onFit} />
+        <ToolbarBtn icon={<Crosshair size={14} />} label="Reset View" onClick={onResetView} />
         <ToolbarBtn
           icon={fullscreen ? <Minimize2 size={14} /> : <Expand size={14} />}
           label={fullscreen ? "Exit Fullscreen" : "Fullscreen"}
           onClick={onToggleFullscreen}
         />
-        <span className="sim2-toolbar-sep" />
+        <span className="sim2-toolbar-sep" aria-hidden="true" />
         <ToolbarBtn icon={<FolderOpen size={14} />} label="Open" onClick={onOpen} />
         <ToolbarBtn icon={<Save size={14} />} label="Save" onClick={onSave} />
         <ToolbarBtn icon={<RotateCcw size={14} />} label="Reset results" onClick={onReset} />
         <ToolbarBtn icon={<Trash2 size={14} />} label="Clear circuit" onClick={onClear} />
-        <span className="sim2-toolbar-sep" />
+        <span className="sim2-toolbar-sep" aria-hidden="true" />
         {status === "running" ? (
           <button type="button" className="sim2-btn sim2-btn--stop" onClick={onStop}>
             <Square size={14} /> Stop

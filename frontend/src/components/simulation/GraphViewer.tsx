@@ -225,6 +225,10 @@ function GraphViewer({ graphs }: GraphViewerProps) {
           {hover.label}
         </div>
       )}
+      <p className="sim-graph-association">
+        Tied to current SimulationResult · {graphs.length} graph
+        {graphs.length === 1 ? "" : "s"}
+      </p>
     </div>
   );
 }

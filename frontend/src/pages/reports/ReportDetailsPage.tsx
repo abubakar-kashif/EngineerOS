@@ -27,7 +27,6 @@ import ErrorState from "../../components/ui/ErrorState";
 import ReportActions from "../../components/reports/ReportActions";
 import { getReport } from "../../services/reports/reportsService";
 import { ApiError } from "../../services/api";
-import { mockExperiments } from "../../data/mockExperiments";
 import type {
   Report,
   ReportCalculatedRow,
@@ -315,16 +314,13 @@ function ReportDetailsPage() {
     );
   }
 
-  // Fallbacks cover reports generated before the lab-document structure —
-  // the experiment content is the same source the backend copies from.
-  const experiment = mockExperiments.find((e) => e.id === report.experiment_id) ?? null;
-  const objective = report.objective ?? experiment?.objective ?? null;
-  const theory = report.theory ?? experiment?.theory ?? null;
-  const historicalBackground =
-    report.historical_background ?? experiment?.historical_background ?? null;
-  const components = report.components ?? experiment?.components ?? null;
-  const circuitDiagram = report.circuit_diagram ?? experiment?.circuit_diagram ?? null;
-  const procedure = report.procedure ?? experiment?.procedure ?? null;
+  // Prefer fields stored on the report — do not invent catalog content.
+  const objective = report.objective ?? null;
+  const theory = report.theory ?? null;
+  const historicalBackground = report.historical_background ?? null;
+  const components = report.components ?? null;
+  const circuitDiagram = report.circuit_diagram ?? null;
+  const procedure = report.procedure ?? null;
   const theoretical = report.theoretical_results;
 
   return (

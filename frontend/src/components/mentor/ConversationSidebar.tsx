@@ -112,17 +112,20 @@ function ConversationSidebar({
             <div className="mentor-sidebar-state">Loading conversations…</div>
           )}
 
+          {!loading && filtered.length === 0 && query.trim() === "" && (
+            <div className="mentor-sidebar-state">
+              <MessageSquare size={18} />
+              <span>No conversations yet.</span>
+              <span className="mentor-sidebar-state-hint">
+                Start a new conversation with EngineerOS Mentor.
+              </span>
+            </div>
+          )}
+
           {!loading && filtered.length === 0 && query.trim() !== "" && (
             <div className="mentor-sidebar-state">
               <MessageSquarePlus size={18} />
               <span>No conversations match “{query.trim()}”.</span>
-            </div>
-          )}
-
-          {!loading && filtered.length === 0 && query.trim() === "" && (
-            <div className="mentor-sidebar-state">
-              <MessageSquare size={18} />
-              <span>No conversations yet. Start a new chat.</span>
             </div>
           )}
 

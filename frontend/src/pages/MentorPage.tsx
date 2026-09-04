@@ -16,7 +16,6 @@ import Input from "../components/ui/Input";
 
 import { useAuth } from "../contexts/AuthContext";
 import { getExperimentById } from "../services/experimentService";
-import { mockExperiments } from "../data/mockExperiments";
 import * as mentorService from "../services/mentor/mentorService";
 
 import type { ChatMessage as ChatMessageType, ConversationSummary, MessageFeedback } from "../types/chat";
@@ -114,10 +113,10 @@ function MentorPage() {
       try {
         const data = await getExperimentById(experimentParam);
         if (cancelled) return;
-        setContextExperiment(data ?? mockExperiments.find((m) => m.id === experimentParam) ?? null);
+        setContextExperiment(data ?? null);
       } catch {
         if (cancelled) return;
-        setContextExperiment(mockExperiments.find((m) => m.id === experimentParam) ?? null);
+        setContextExperiment(null);
       }
     }
 

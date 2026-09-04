@@ -5,7 +5,7 @@
  * graphs → SimulationResult → persistence → UI (no competing result path).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useCircuitEditor } from "../hooks/useCircuitEditor";
 import { validateCircuit, solveCircuit } from "../components/simulation/engine";
 import type { SimulationResult } from "../components/simulation/engine";
@@ -23,6 +23,7 @@ import SimulationResults from "../components/simulation/SimulationResults";
 import MeasurementsPanel from "../components/simulation/MeasurementsPanel";
 import { getExperimentById } from "../services/experimentService";
 import { persistAndRunSimulation } from "../services/simulationPersistence";
+import { toast } from "../components/ui/useToast";
 import {
   createWorkspaceProject,
   downloadWorkspaceProject,
@@ -85,7 +86,6 @@ function SimulationPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
-  const [persistMessage, setPersistMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,11 +177,18 @@ function SimulationPage() {
       setSimulationRunId(persist.simulationRunId);
       if (persist.engineResult) setSimResult(persist.engineResult);
       if (persist.persisted) {
-        setPersistMessage("Simulation saved — Mentor context updated.");
-        window.setTimeout(() => setPersistMessage(null), 2500);
+        toast.success(
+          result.status === "completed" ? "Simulation completed" : "Simulation saved",
+          "Mentor context updated with this run.",
+        );
       } else if (persist.error) {
-        setPersistMessage(persist.error);
-        window.setTimeout(() => setPersistMessage(null), 3500);
+        toast.warning("Results not persisted", persist.error);
+      }
+      if (result.status === "failed" || result.status === "invalid") {
+        toast.error(
+          result.status === "invalid" ? "Circuit invalid" : "Simulation failed",
+          result.validation?.errors?.[0]?.message ?? result.error ?? "Check the measurements panel.",
+        );
       }
     } catch (err) {
       setSimResult({
@@ -219,8 +226,7 @@ function SimulationPage() {
       `${(experiment?.slug || experiment?.id || "circuit").replace(/\s+/g, "-")}.engineeros.json`,
     );
     markClean();
-    setPersistMessage("Circuit saved (browser + download).");
-    window.setTimeout(() => setPersistMessage(null), 2500);
+    toast.success("Circuit saved", "Browser storage and download updated.");
   }, [state.circuit, experiment, experimentParam, markClean]);
 
   const handleOpenClick = useCallback(() => {
@@ -232,8 +238,7 @@ function SimulationPage() {
       if (!file) return;
       const project = await readWorkspaceProjectFile(file);
       if (!project) {
-        setPersistMessage("Could not open that project file.");
-        window.setTimeout(() => setPersistMessage(null), 3000);
+        toast.error("Could not open project", "Choose a valid .engineeros.json file.");
         return;
       }
       loadCircuit(project.circuit);
@@ -244,8 +249,7 @@ function SimulationPage() {
       } else {
         requestAnimationFrame(() => canvasRef.current?.fitToScreen());
       }
-      setPersistMessage("Circuit opened.");
-      window.setTimeout(() => setPersistMessage(null), 2500);
+      toast.success("Circuit opened");
     },
     [loadCircuit],
   );
@@ -260,8 +264,7 @@ function SimulationPage() {
         await document.exitFullscreen();
       }
     } catch {
-      setPersistMessage("Fullscreen is not available in this browser.");
-      window.setTimeout(() => setPersistMessage(null), 3000);
+      toast.error("Fullscreen unavailable", "This browser blocked fullscreen mode.");
     }
   }, []);
 
@@ -289,14 +292,9 @@ function SimulationPage() {
         onZoomIn={() => canvasRef.current?.zoomIn()}
         onZoomOut={() => canvasRef.current?.zoomOut()}
         onFit={() => canvasRef.current?.fitToScreen()}
+        onResetView={() => canvasRef.current?.resetZoom()}
         onToggleFullscreen={toggleFullscreen}
       />
-
-      {persistMessage && (
-        <div className="sim2-toast" role="status">
-          {persistMessage}
-        </div>
-      )}
 
       {experimentParam && TEN_EXPERIMENT_IDS.includes(experimentParam as (typeof TEN_EXPERIMENT_IDS)[number]) && (
         <p className="sim2-experiment-banner">
@@ -395,6 +393,20 @@ function SimulationPage() {
           simulationRunId={simulationRunId}
         />
       </div>
+
+      <Link
+        className="sim2-mentor-mobile-link"
+        to={`/mentor?${new URLSearchParams({
+          ...(experiment?.id || experimentParam
+            ? { experiment: experiment?.id ?? experimentParam! }
+            : {}),
+          stage: "simulation",
+          ...(simulationRunId ? { simulation: simulationRunId } : {}),
+          ...(simResult?.status ? { sim: simResult.status } : {}),
+        }).toString()}`}
+      >
+        Open AI Mentor
+      </Link>
     </div>
   );
 }
