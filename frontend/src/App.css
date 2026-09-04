@@ -6904,14 +6904,27 @@
 }
 .sim2-analysis-split {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: 1.1fr 0.9fr;
   gap: var(--space-md);
   min-height: 0;
+  padding: var(--space-md);
+  align-items: stretch;
 }
 .sim2-analysis-pane {
   min-width: 0;
   overflow: auto;
-  max-height: 260px;
+  max-height: 280px;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted, #f8fafc);
+  box-shadow: none;
+}
+.sim2-analysis-pane--results {
+  background: var(--color-surface-muted, #f8fafc);
+}
+.sim2-analysis-pane--graphs {
+  background: var(--color-surface);
 }
 .sim2-graph-list {
   list-style: none;
@@ -7249,12 +7262,28 @@
 /* Analysis Panel */
 .sim2-analysis {
   border-top: 1px solid var(--color-border);
-  background: var(--color-surface); min-height: 180px;
-  max-height: 300px; overflow-y: auto;
+  background: var(--color-bg);
+  min-height: 200px;
+  max-height: 340px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.sim2-analysis > .sim2-analysis-split {
+  flex: 1;
+  min-height: 0;
+}
+.sim2-analysis-content { padding: var(--space-sm) 0 0; }
+.sim2-analysis-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .sim2-analysis-tabs {
-  display: flex; border-bottom: 1px solid var(--color-border);
-  padding: 0 var(--space-md);
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0;
+  gap: 2px;
 }
 .sim2-tab {
   padding: var(--space-sm) var(--space-md);
@@ -7271,7 +7300,46 @@
 .sim2-badge--error { background: var(--color-danger-muted); color: var(--color-danger); }
 .sim2-badge--warn { background: var(--color-warning-muted, #fef3c7); color: var(--color-warning); }
 .sim2-analysis-content { padding: var(--space-md); }
-.sim2-analysis-empty { font-size: 12px; color: var(--color-text-muted); margin: 0; }
+.sim2-analysis-empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: var(--space-sm) 0 0;
+  line-height: 1.45;
+}
+
+.sim-measurements-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.sim-measurements-block {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.sim-measurements-block-title {
+  margin: 0 0 var(--space-sm);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.sim-measurements-grid {
+  display: flex;
+  flex-direction: column;
+}
+.sim-component-measurements {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sim-comp-id {
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .sim2-experiment-banner {
   margin: 0;
@@ -7327,48 +7395,86 @@
 }
 
 .sim-comp-measurement--head {
-  font-size: 10px;
+  font-family: inherit;
   font-weight: 700;
   color: var(--color-text-muted);
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
 }
 .sim-comp-measurement {
   display: grid;
-  grid-template-columns: 1.2fr repeat(4, 1fr);
-  gap: 4px;
+  grid-template-columns: minmax(88px, 1.4fr) repeat(4, minmax(52px, 1fr));
+  gap: 8px;
   font-size: 11px;
   font-family: "IBM Plex Mono", "Courier New", monospace;
-  padding: 4px 0;
+  padding: 8px 4px;
   border-bottom: 1px solid var(--color-border);
+  align-items: center;
 }
+.sim-comp-measurement:last-child { border-bottom: none; }
 
-.sim-graph-viewer { display: flex; flex-direction: column; gap: 8px; }
+.sim-graph-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
 .sim-graph-toolbar {
-  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
   justify-content: space-between;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted, #f8fafc);
 }
 .sim-graph-axis-label {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 11px; font-weight: 600; color: var(--color-text-muted);
 }
 .sim-graph-select {
-  flex: 1; min-width: 140px; font-size: 12px;
-  padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 4px;
+  flex: 1; min-width: 120px; font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 .sim-graph-actions { display: flex; gap: 4px; }
 .sim-graph-actions button {
-  font-size: 11px; padding: 4px 8px;
-  border: 1px solid var(--color-border); border-radius: 4px;
-  background: var(--color-surface); cursor: pointer;
+  font-size: 11px; padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.sim-graph-actions button:hover {
+  background: var(--color-surface-muted);
 }
 .sim-graph-svg {
-  width: 100%; max-height: 240px;
-  border: 1px solid var(--color-border); border-radius: 4px;
+  width: 100%;
+  max-height: 220px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
+.sim-graph-svg-bg { fill: var(--color-surface); }
+.sim-graph-grid { stroke: var(--color-border); stroke-width: 1; opacity: 0.7; }
+.sim-graph-axis { stroke: var(--color-text-muted); stroke-width: 1.25; }
+.sim-graph-title { fill: var(--color-text); font-weight: 600; }
+.sim-graph-axis-text { fill: var(--color-text-secondary); }
 .sim-graph-hover {
   font-size: 11px;
   font-family: "IBM Plex Mono", "Courier New", monospace;
   color: var(--color-text-secondary);
+  padding: 4px 2px;
 }
 .sim-graph-association {
   margin: 0;
@@ -7377,8 +7483,11 @@
 }
 
 .sim2-results-heading {
-  font-size: 11px; font-weight: 700; color: var(--color-text-secondary);
-  text-transform: uppercase; letter-spacing: 0.05em;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: none;
+  letter-spacing: 0;
   margin: 0 0 var(--space-sm);
 }
 .sim2-result-row {
@@ -7481,7 +7590,7 @@
   .sim2-toolbar { flex-direction: column; align-items: stretch; }
   .sim2-toolbar-left, .sim2-toolbar-right { flex-wrap: wrap; }
   .sim2-toolbar-right { justify-content: flex-start; }
-  .sim2-analysis { max-height: none; min-height: 160px; }
+  .sim2-analysis { max-height: none; min-height: 160px; overflow: auto; }
   .sim2-analysis-split { grid-template-columns: 1fr; }
   .sim2-analysis-pane { max-height: none; }
   .sim-empty-steps { flex-direction: column; gap: var(--space-sm); }

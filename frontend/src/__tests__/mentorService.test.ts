@@ -385,4 +385,12 @@ describe("toMentorUserError", () => {
     expect(err.message).toBe("AI Mentor could not generate a response. Please try again.");
     expect(err.message).not.toMatch(/traceback|sk-secret|ProviderError/i);
   });
+
+  it("explains missing AI API key configuration", () => {
+    const err = toMentorUserError(
+      new ApiError(502, "OpenAI API key not provided. Set AI_API_KEY in the environment."),
+    );
+    expect(err.message).toMatch(/AI_API_KEY/);
+    expect(err.message).toMatch(/backend\/\.env/i);
+  });
 });

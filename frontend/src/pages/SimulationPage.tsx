@@ -19,7 +19,6 @@ import WorkspaceCircuitCanvas, {
   type CircuitCanvasHandle,
 } from "../components/simulation/WorkspaceCircuitCanvas";
 import WorkspaceMentorPanel from "../components/simulation/WorkspaceMentorPanel";
-import SimulationResults from "../components/simulation/SimulationResults";
 import MeasurementsPanel from "../components/simulation/MeasurementsPanel";
 import { getExperimentById } from "../services/experimentService";
 import { persistAndRunSimulation } from "../services/simulationPersistence";
@@ -534,17 +533,14 @@ function SimulationPage() {
           aria-busy={isRunning}
         >
           <div className="sim2-analysis-split">
-            <div className="sim2-analysis-pane">
-              <h3 className="sim2-results-heading">Measurements / Results</h3>
+            <div className="sim2-analysis-pane sim2-analysis-pane--results">
+              <h3 className="sim2-results-heading">Simulation Result</h3>
               {isRunning ? (
                 <p className="sim2-analysis-empty" role="status">
                   Simulation running…
                 </p>
               ) : simResult ? (
-                <>
-                  <SimulationResults result={simResult} />
-                  <MeasurementsPanel result={simResult} />
-                </>
+                <MeasurementsPanel result={simResult} />
               ) : (
                 <AnalysisPanel
                   circuit={getEngineCircuit()}
@@ -553,7 +549,7 @@ function SimulationPage() {
                 />
               )}
             </div>
-            <div className="sim2-analysis-pane">
+            <div className="sim2-analysis-pane sim2-analysis-pane--graphs" aria-label="Graphs">
               <h3 className="sim2-results-heading">Graphs</h3>
               {isRunning ? (
                 <p className="sim2-analysis-empty" role="status">

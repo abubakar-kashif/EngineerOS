@@ -101,7 +101,8 @@ function isNotFound(error: unknown): boolean {
 }
 
 function looksUnsafeDetail(message: string): boolean {
-  return /traceback|sqlalchemy|providererror|exception at|api[_-]?key|sk-[a-z0-9]|stack trace/i.test(
+  // Redact stack traces and literal secret material — keep actionable config hints.
+  return /traceback|sqlalchemy|providererror|exception at|sk-[a-z0-9]{8,}|stack trace/i.test(
     message,
   );
 }
@@ -125,9 +126,14 @@ export function toMentorUserError(error: unknown): Error {
       return new Error("AI Mentor timed out. Please try again.");
     }
     const detail = (error.message || "").trim();
+    if (/api key|AI_API_KEY|OPENAI_API_KEY|not provided|not configured/i.test(detail)) {
+      return new Error(
+        "AI Mentor is not configured. Add AI_API_KEY to backend/.env and restart the API server.",
+      );
+    }
     if (detail && detail.length < 160 && !detail.includes("\n") && !looksUnsafeDetail(detail)) {
       // Prefer known safe backend messages (e.g. "AI provider authentication failed").
-      if (/ai mentor|provider|timed|rate|unavailable|authentication|conversation|api key|configuration/i.test(detail)) {
+      if (/ai mentor|provider|timed|rate|unavailable|authentication|conversation|configuration/i.test(detail)) {
         return new Error(detail);
       }
     }

@@ -26,7 +26,7 @@ function AnalysisPanel({
   const warnCount = validationErrors.filter((e) => e.severity === "warning").length;
 
   return (
-    <div className="sim2-analysis">
+    <div className="sim2-analysis-inner">
       <div className="sim2-analysis-tabs">
         <TabBtn active={tab === "results"} onClick={() => setTab("results")}>
           Results

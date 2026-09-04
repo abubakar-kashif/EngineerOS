@@ -206,25 +206,39 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
         role="img"
         aria-label={graph.title}
       >
-        <rect x={0} y={0} width={W} height={H} fill="var(--color-surface, #f8fafc)" />
+        <rect x={0} y={0} width={W} height={H} className="sim-graph-svg-bg" />
+        {/* subtle grid */}
+        {[0.25, 0.5, 0.75].map((t) => {
+          const y = PAD.top + (H - PAD.top - PAD.bottom) * (1 - t);
+          return (
+            <line
+              key={`gy-${t}`}
+              x1={PAD.left}
+              y1={y}
+              x2={W - PAD.right}
+              y2={y}
+              className="sim-graph-grid"
+            />
+          );
+        })}
         <line
           x1={PAD.left}
           y1={H - PAD.bottom}
           x2={W - PAD.right}
           y2={H - PAD.bottom}
-          stroke="#94a3b8"
+          className="sim-graph-axis"
         />
         <line
           x1={PAD.left}
           y1={PAD.top}
           x2={PAD.left}
           y2={H - PAD.bottom}
-          stroke="#94a3b8"
+          className="sim-graph-axis"
         />
-        <text x={W / 2} y={16} textAnchor="middle" fontSize={11} fill="#0f172a">
+        <text x={W / 2} y={16} textAnchor="middle" fontSize={12} className="sim-graph-title">
           {graph.title}
         </text>
-        <text x={W / 2} y={H - 8} textAnchor="middle" fontSize={10} fill="#475569">
+        <text x={W / 2} y={H - 8} textAnchor="middle" fontSize={10} className="sim-graph-axis-text">
           {graph.xAxis.label}
           {graph.xAxis.unit ? ` (${graph.xAxis.unit})` : ""}
         </text>
@@ -233,7 +247,7 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
           y={H / 2}
           textAnchor="middle"
           fontSize={10}
-          fill="#475569"
+          className="sim-graph-axis-text"
           transform={`rotate(-90 14 ${H / 2})`}
         >
           {graph.yAxis.label}

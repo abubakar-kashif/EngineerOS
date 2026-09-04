@@ -134,7 +134,7 @@ function WorkspaceMentorPanel({
         experimentTitle
           ? `I want to build the ${experimentTitle} experiment. What components should I use?`
           : "I want to build a KVL loop. What components do I need?",
-        "What should I look for after I run the simulation?",
+        "How should I wire a series loop with a source, resistor, and ground?",
       ];
     }
     if (simResult.status === "invalid") {
