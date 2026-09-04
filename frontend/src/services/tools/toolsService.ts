@@ -888,6 +888,7 @@ export function evaluateExpression(expression: string, mode: AngleMode = "deg"):
   if (!trimmed) throw new Error("Empty expression");
   const result = evaluateRpn(toRpn(tokenize(trimmed)), mode);
   if (Number.isNaN(result)) throw new Error("Invalid expression");
+  if (!Number.isFinite(result)) throw new Error("Result is undefined");
   return result;
 }
 

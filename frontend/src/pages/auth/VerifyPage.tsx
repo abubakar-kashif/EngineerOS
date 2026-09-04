@@ -1,8 +1,19 @@
-import { useState, useRef, type FormEvent, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { verifyEmail, resendVerification } from "../../services/authService";
 import EngineerOSMark from "../../components/branding/EngineerOSMark";
+
+/** UI-only display of remaining validity. Backend enforces EMAIL_CODE_TTL_SECONDS=120. */
+const CODE_VALIDITY_SECONDS = 120;
+const RESEND_COOLDOWN_SECONDS = 60;
+
+function formatCountdown(totalSeconds: number): string {
+  const s = Math.max(0, totalSeconds);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
 
 function VerifyPage() {
   const { refreshUser } = useAuth();
@@ -15,8 +26,25 @@ function VerifyPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [validityLeft, setValidityLeft] = useState(CODE_VALIDITY_SECONDS);
   const [devCode, setDevCode] = useState<string | null>(locationState?.dev_code ?? null);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (success || validityLeft <= 0) return;
+    const id = window.setInterval(() => {
+      setValidityLeft((c) => (c <= 1 ? 0 : c - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [success, validityLeft > 0]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setResendCooldown((c) => (c <= 1 ? 0 : c - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [resendCooldown > 0]);
 
   function focusInput(index: number) {
     inputsRef.current[index]?.focus();
@@ -73,19 +101,16 @@ function VerifyPage() {
   }
 
   async function handleResend() {
-    if (resendCooldown > 0) return;
+    if (resendCooldown > 0 || !email) return;
     try {
+      setError("");
       const response = await resendVerification(email);
       setDevCode(response.dev_code ?? null);
-      setResendCooldown(60);
-      const interval = setInterval(() => {
-        setResendCooldown((c) => {
-          if (c <= 1) { clearInterval(interval); return 0; }
-          return c - 1;
-        });
-      }, 1000);
-    } catch {
-      setError("Failed to resend code. Please try again.");
+      setValidityLeft(CODE_VALIDITY_SECONDS);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      setCode(["", "", "", "", "", ""]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend code. Please try again.");
     }
   }
 
@@ -110,6 +135,11 @@ function VerifyPage() {
         <p className="auth-subtitle">
           We sent a verification code to<br />
           <strong>{email || "your email"}</strong>
+        </p>
+        <p className="auth-code-timer" aria-live="polite">
+          {validityLeft > 0
+            ? `Code expires in ${formatCountdown(validityLeft)}`
+            : "Code may have expired — request a new one."}
         </p>
 
         {error && <div className="auth-error" role="alert">{error}</div>}
@@ -145,7 +175,7 @@ function VerifyPage() {
               type="button"
               className="auth-link auth-link-button"
               onClick={handleResend}
-              disabled={resendCooldown > 0}
+              disabled={resendCooldown > 0 || !email}
             >
               {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
             </button>

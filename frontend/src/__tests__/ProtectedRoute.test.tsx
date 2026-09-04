@@ -68,7 +68,7 @@ describe("ProtectedRoute", () => {
     );
   });
 
-  it("renders nothing while the cached session is still being validated", () => {
+  it("shows loading screen while the cached session is still being validated", () => {
     localStorage.setItem("engineeros_auth_token", "token-abc");
     localStorage.setItem(USER_CACHE_KEY, JSON.stringify(testUser));
     // /auth/me never settles → the provider stays in the loading state.
@@ -78,6 +78,7 @@ describe("ProtectedRoute", () => {
 
     expect(screen.queryByTestId("dashboard-content")).not.toBeInTheDocument();
     expect(screen.queryByTestId("login-page")).not.toBeInTheDocument();
+    expect(screen.getByText(/Preparing your workspace/i)).toBeInTheDocument();
   });
 
   it("renders the protected content once /auth/me confirms the session", async () => {

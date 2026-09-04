@@ -49,7 +49,8 @@ function RegisterPage() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Enter a valid email address.";
     if (!password) errors.password = "Password is required.";
     else if (checks.filter((c) => c.met).length < 3) errors.password = "Password does not meet minimum requirements.";
-    if (password !== confirmPassword) errors.confirmPassword = "Passwords do not match.";
+    if (!confirmPassword) errors.confirmPassword = "Please confirm your password.";
+    else if (password !== confirmPassword) errors.confirmPassword = "Passwords do not match.";
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   }

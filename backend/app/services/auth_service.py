@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import (
     EMAIL_CODE_TTL_SECONDS,
+    EMAIL_RESEND_COOLDOWN_SECONDS,
     RESET_CODE_TTL_SECONDS,
     SESSION_TTL_SECONDS,
     generate_code,
@@ -157,8 +158,8 @@ def verify_email_code(db: Session, email: str, code: str) -> User:
 def resend_email_code(db: Session, email: str) -> tuple[User, str]:
     """Regenerate the verification code. Returns (user, new code).
 
-    Raises 404 for unknown emails (the caller decides how much of that to
-    reveal — this endpoint is user-initiated from the verify screen).
+    Enforces a server-side cooldown between codes. Invalidates the previous
+    code by overwriting it. Raises 404 for unknown emails / 409 if verified.
     """
     user = get_user_by_email(db, email)
 
@@ -167,6 +168,15 @@ def resend_email_code(db: Session, email: str) -> tuple[User, str]:
 
     if user.email_verified:
         raise HTTPException(status_code=409, detail="Email is already verified.")
+
+    if user.email_code_expires_at is not None:
+        issued_at = user.email_code_expires_at - timedelta(seconds=EMAIL_CODE_TTL_SECONDS)
+        cooldown_until = issued_at + timedelta(seconds=EMAIL_RESEND_COOLDOWN_SECONDS)
+        if datetime.utcnow() < cooldown_until:
+            raise HTTPException(
+                status_code=429,
+                detail="Please wait before requesting another verification code.",
+            )
 
     code = issue_email_code(db, user)
     email_service.send_verification_email(user.email, code)

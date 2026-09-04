@@ -12,9 +12,10 @@ import secrets
 PBKDF2_ITERATIONS = 260_000
 ALGORITHM = "pbkdf2_sha256"
 
-# Bearer sessions live for 7 days; email/reset codes for 24h / 30min.
+# Bearer sessions live for 7 days; email codes 120s; password reset 30min.
 SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
-EMAIL_CODE_TTL_SECONDS = 24 * 60 * 60
+EMAIL_CODE_TTL_SECONDS = 120
+EMAIL_RESEND_COOLDOWN_SECONDS = 60
 RESET_CODE_TTL_SECONDS = 30 * 60
 
 

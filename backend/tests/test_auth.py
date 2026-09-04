@@ -276,8 +276,19 @@ def test_verify_unknown_email(phase9_client):
 
 
 def test_resend_verification_issues_new_code(phase9_client):
-    client, _ = phase9_client
-    register_user(client, "resend@example.com")
+    client, session_factory = phase9_client
+    registered = register_user(client, "resend@example.com")
+    old_code = registered["dev_code"]
+
+    # Expire the resend cooldown (server enforces EMAIL_RESEND_COOLDOWN_SECONDS).
+    from app.core.security import EMAIL_CODE_TTL_SECONDS
+
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "resend@example.com").one()
+        user.email_code_expires_at = datetime.utcnow() + timedelta(
+            seconds=EMAIL_CODE_TTL_SECONDS - 70
+        )
+        db.commit()
 
     response = client.post("/api/auth/resend", json={"email": "resend@example.com"})
 
@@ -285,13 +296,45 @@ def test_resend_verification_issues_new_code(phase9_client):
     assert response.json()["message"] == "Verification code sent."
     new_code = response.json()["dev_code"]
     assert isinstance(new_code, str)
+    assert new_code != old_code
 
-    # The new code completes verification.
+    # Old code must no longer work after resend invalidation.
+    stale = client.post(
+        "/api/auth/verify",
+        json={"email": "resend@example.com", "code": old_code},
+    )
+    assert stale.status_code == 400
+
     verify = client.post(
         "/api/auth/verify",
         json={"email": "resend@example.com", "code": new_code},
     )
     assert verify.status_code == 200
+
+
+def test_resend_cooldown_enforced(phase9_client):
+    client, _ = phase9_client
+    register_user(client, "cooldown@example.com")
+
+    response = client.post("/api/auth/resend", json={"email": "cooldown@example.com"})
+    assert response.status_code == 429
+
+
+def test_verify_rejects_expired_code(phase9_client):
+    client, session_factory = phase9_client
+    registered = register_user(client, "expire@example.com")
+
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "expire@example.com").one()
+        user.email_code_expires_at = datetime.utcnow() - timedelta(seconds=1)
+        db.commit()
+
+    response = client.post(
+        "/api/auth/verify",
+        json={"email": "expire@example.com", "code": registered["dev_code"]},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired verification code."
 
 
 def test_resend_after_verification_conflicts(phase9_client):

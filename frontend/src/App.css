@@ -1026,6 +1026,12 @@
 .auth-brand-name { font-size: 20px; font-weight: 700; color: var(--color-text); }
 .auth-title { font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 var(--space-xs); }
 .auth-subtitle { font-size: 14px; color: var(--color-text-secondary); margin: 0 0 var(--space-xl); line-height: 1.5; }
+.auth-code-timer {
+  margin: calc(var(--space-md) * -1) 0 var(--space-lg);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
 .auth-error { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: var(--color-danger); padding: var(--space-md); border-radius: var(--radius-md); font-size: 13px; margin-bottom: var(--space-lg); }
 .auth-field { margin-bottom: var(--space-lg); }
 .auth-label { font-size: 13px; font-weight: 500; color: var(--color-text); display: block; margin-bottom: var(--space-xs); }
