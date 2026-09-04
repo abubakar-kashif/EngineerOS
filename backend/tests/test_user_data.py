@@ -701,8 +701,8 @@ def test_quiz_submission_records_attempt_progress_and_notification(phase9_client
     assert submission.status_code == 200
     assert submission.json() == {
         "score": 100.0,
-        "total_questions": 40,
-        "correct_answers": 40,
+        "total_questions": 55,
+        "correct_answers": 55,
         "passed": True,
     }
 
@@ -713,7 +713,7 @@ def test_quiz_submission_records_attempt_progress_and_notification(phase9_client
         assert attempt.experiment_id == "ohms-law"
         assert attempt.score == 100.0
         assert attempt.passed is True
-        assert len(attempt.answers) == 40
+        assert len(attempt.answers) == 55
 
     # Passing completes the experiment for this user.
     progress_rows = client.get("/api/progress/me", headers=headers).json()

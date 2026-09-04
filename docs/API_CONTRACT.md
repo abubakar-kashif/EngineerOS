@@ -539,13 +539,13 @@ Additional experiments may be added later.
 ## 8. Quiz API
 
 Quizzes are associated with engineering experiments. Each experiment has a
-40-question bank; clients present a random 20-question attempt per quiz run
-(`QUIZ_ATTEMPT_SIZE = 20`).
+bank of at least 40 questions (typically 50–60); clients present a random
+40-question attempt per quiz run (`QUIZ_ATTEMPT_SIZE = 40`).
 
 ### GET `/api/quizzes/{experiment_id}`
 
 Returns the full question bank for an experiment (the client samples a
-random 20-question attempt from it).
+random 40-question attempt from it).
 
 Example:
 
@@ -570,7 +570,7 @@ GET /api/quizzes/ohms-law
 ### POST `/api/quizzes/{experiment_id}/submit`
 
 Submits quiz answers for an experiment. **Optional authentication.** The
-submission represents one attempt: a random 20-question sample of the bank
+submission represents one attempt: a random 40-question sample of the bank
 (full-bank submissions from older clients remain valid).
 
 Example request structure:
@@ -591,15 +591,15 @@ Example response:
 ```json
 {
   "score": 80.0,
-  "total_questions": 20,
-  "correct_answers": 16,
+  "total_questions": 40,
+  "correct_answers": 32,
   "passed": true
 }
 ```
 
 Behaviour:
 
-- A submission must cover a complete attempt — at least 20 questions (the
+- A submission must cover a complete attempt — at least 40 questions (the
   whole bank when it is smaller); the score is graded over the submitted
   answers and the passing score is 70%.
 - **Authenticated** submissions are persisted as a quiz attempt (answers +
@@ -768,7 +768,7 @@ Example response:
     "percentage_error": [
       {"label": "Total Current", "theoretical": 0.009, "measured": 0.009, "unit": "A", "error_percent": 0.0}
     ],
-    "quiz_performance": {"score": 85.0, "correct_answers": 17, "total_questions": 20, "passed": true},
+    "quiz_performance": {"score": 85.0, "correct_answers": 34, "total_questions": 40, "passed": true},
     "observations": "Measured voltage and current values.",
     "conclusion": "The experimental results followed Ohm's Law.",
     "status": "generated",

@@ -10,6 +10,7 @@ from app.db.database import Base, SessionLocal, engine
 from app.db.seed import seed_quizzes
 from app.main import app
 from app.models.quiz import QuizQuestion
+from app.services.quiz_service import QUIZ_ATTEMPT_SIZE
 
 
 Base.metadata.drop_all(bind=engine)
@@ -19,6 +20,8 @@ seed_quizzes()
 client = TestClient(app)
 
 ANSWER_LETTERS = ("A", "B", "C", "D")
+EXPECTED_BANK_SIZE = 55
+EXPECTED_TOTAL = EXPECTED_BANK_SIZE * 10
 
 
 def seeded_answer_key(experiment_id="ohms-law"):
@@ -49,7 +52,7 @@ def test_get_quiz_success():
     assert response.status_code == 200
     data = response.json()
     assert data["experiment_id"] == "ohms-law"
-    assert len(data["questions"]) == 40
+    assert len(data["questions"]) == EXPECTED_BANK_SIZE
     assert "correct_answer" not in data["questions"][0]
     assert "explanation" not in data["questions"][0]
 
@@ -78,8 +81,8 @@ def test_correct_score():
     answers = [{"question_id": q["id"], "answer": key[q["id"]]} for q in questions]
     response = client.post("/api/quizzes/ohms-law/submit", json={"answers": answers})
     assert response.json()["score"] == 100.0
-    assert response.json()["correct_answers"] == 40
-    assert response.json()["total_questions"] == 40
+    assert response.json()["correct_answers"] == EXPECTED_BANK_SIZE
+    assert response.json()["total_questions"] == EXPECTED_BANK_SIZE
     assert response.json()["passed"] is True
 
 
@@ -141,18 +144,21 @@ def test_partial_submission_rejected():
         json={"answers": [{"question_id": questions[0]["id"], "answer": "A"}]},
     )
     assert response.status_code == 400
-    assert "at least 20 of 40 questions" in response.json()["detail"]
+    assert (
+        f"at least {QUIZ_ATTEMPT_SIZE} of {EXPECTED_BANK_SIZE} questions"
+        in response.json()["detail"]
+    )
 
 
 def test_attempt_size_submission_grades_over_attempt():
-    """Phase 6: a 20-question attempt is graded over its own size."""
+    """Phase 2: a 40-question attempt is graded over its own size."""
     key = seeded_answer_key()
-    questions = client.get("/api/quizzes/ohms-law").json()["questions"][:20]
+    questions = client.get("/api/quizzes/ohms-law").json()["questions"][:QUIZ_ATTEMPT_SIZE]
     answers = [{"question_id": q["id"], "answer": key[q["id"]]} for q in questions]
     response = client.post("/api/quizzes/ohms-law/submit", json={"answers": answers})
     assert response.status_code == 200
-    assert response.json()["total_questions"] == 20
-    assert response.json()["correct_answers"] == 20
+    assert response.json()["total_questions"] == QUIZ_ATTEMPT_SIZE
+    assert response.json()["correct_answers"] == QUIZ_ATTEMPT_SIZE
     assert response.json()["score"] == 100.0
     assert response.json()["passed"] is True
 
@@ -160,31 +166,53 @@ def test_attempt_size_submission_grades_over_attempt():
 def test_passing_threshold():
     key = seeded_answer_key()
     questions = client.get("/api/quizzes/ohms-law").json()["questions"]
-    # 14 of 20 attempted questions correct — exactly the 70% threshold.
+    # 28 of 40 attempted questions correct — exactly the 70% threshold.
     answers = [
         {
             "question_id": q["id"],
-            "answer": key[q["id"]] if index < 14 else wrong_letter(key[q["id"]]),
+            "answer": key[q["id"]] if index < 28 else wrong_letter(key[q["id"]]),
         }
-        for index, q in enumerate(questions[:20])
+        for index, q in enumerate(questions[:QUIZ_ATTEMPT_SIZE])
     ]
     response = client.post("/api/quizzes/ohms-law/submit", json={"answers": answers})
     assert response.json()["score"] == 70.0
     assert response.json()["passed"] is True
 
 
-def test_quiz_bank_has_40_questions_per_experiment():
+def test_quiz_bank_has_at_least_40_questions_per_experiment():
     from app.data.quiz_bank import QUIZ_BANK
 
     assert len(QUIZ_BANK) == 10
-    assert all(len(questions) == 40 for questions in QUIZ_BANK.values())
-    assert sum(len(questions) for questions in QUIZ_BANK.values()) == 400
+    assert all(len(questions) >= 40 for questions in QUIZ_BANK.values())
+    assert all(len(questions) == EXPECTED_BANK_SIZE for questions in QUIZ_BANK.values())
+    assert sum(len(questions) for questions in QUIZ_BANK.values()) == EXPECTED_TOTAL
+
+    for experiment_id, questions in QUIZ_BANK.items():
+        seen = set()
+        for question in questions:
+            assert question["question"].strip()
+            options = [
+                question["option_a"],
+                question["option_b"],
+                question["option_c"],
+                question["option_d"],
+            ]
+            assert len(options) == 4
+            assert len(set(options)) == 4
+            assert question["correct_answer"] in ANSWER_LETTERS
+            assert question["explanation"].strip()
+            assert question["question"] not in seen
+            seen.add(question["question"])
 
     # The original ten ohms-law answers keep their order, so question IDs
-    # stay stable against the frontend mirror.
+    # stay stable against the frontend mirror for the base bank.
     assert [q["correct_answer"] for q in QUIZ_BANK["ohms-law"][:10]] == [
         "A", "B", "C", "B", "C", "A", "B", "C", "A", "A",
     ]
+
+
+def test_attempt_size_constant():
+    assert QUIZ_ATTEMPT_SIZE == 40
 
 
 def test_seed_is_idempotent_and_repairs_partial_seed():
@@ -200,7 +228,7 @@ def test_seed_is_idempotent_and_repairs_partial_seed():
     seed_quizzes()
 
     with SessionLocal() as db:
-        assert db.query(QuizQuestion).count() == 400
+        assert db.query(QuizQuestion).count() == EXPECTED_TOTAL
 
 
 def test_seed_refreshes_stale_rows():
@@ -219,4 +247,3 @@ def test_seed_refreshes_stale_rows():
         row = db.query(QuizQuestion).filter(QuizQuestion.id == 1).first()
         assert row.question == QUIZ_BANK["ohms-law"][0]["question"]
         assert row.correct_answer == QUIZ_BANK["ohms-law"][0]["correct_answer"]
-

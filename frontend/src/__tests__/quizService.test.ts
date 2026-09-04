@@ -86,12 +86,15 @@ describe("getQuiz", () => {
     expect(quiz.questions).toHaveLength(2);
     expect(quiz.attempt_size).toBe(2);
     expect(quiz.bank_size).toBe(2);
-    expect(quiz.questions[0].options).toEqual([
-      { key: "A", text: "V = IR" },
-      { key: "B", text: "V = I/R" },
-      { key: "C", text: "V = R/I" },
-      { key: "D", text: "V = I + R" },
+    expect(quiz.questions[0].options.map((option) => option.key)).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
     ]);
+    expect(new Set(quiz.questions[0].options.map((option) => option.text))).toEqual(
+      new Set(["V = IR", "V = I/R", "V = R/I", "V = I + R"]),
+    );
     expect(quiz.estimated_minutes).toBe(1);
   });
 
@@ -102,7 +105,7 @@ describe("getQuiz", () => {
     const quiz = await getQuiz("ohms-law");
 
     expect(quiz.source).toBe("seed");
-    // The 40-question bank is sampled down to a random 20-question attempt.
+    // The bank is sampled down to a random 40-question attempt.
     expect(quiz.bank_size).toBe(QUIZ_BANK["ohms-law"].length);
     expect(quiz.attempt_size).toBe(QUIZ_ATTEMPT_SIZE);
     expect(quiz.questions).toHaveLength(QUIZ_ATTEMPT_SIZE);
@@ -115,6 +118,17 @@ describe("getQuiz", () => {
     expect(new Set(quiz.questions.map((question) => question.id)).size).toBe(
       QUIZ_ATTEMPT_SIZE,
     );
+  });
+
+  it("randomizes attempt order across retries", async () => {
+    mockApiRoutes({});
+
+    const orders = new Set<string>();
+    for (let i = 0; i < 12; i += 1) {
+      const quiz = await getQuiz("ohms-law");
+      orders.add(quiz.questions.map((question) => question.id).join(","));
+    }
+    expect(orders.size).toBeGreaterThan(1);
   });
 
   it("throws NO_QUIZ_ERROR when neither the API nor the seed bank has a quiz", async () => {
@@ -143,6 +157,27 @@ describe("submitQuiz", () => {
     expect(result.feedback[0].explanation).toBe(QUIZ_BANK["ohms-law"][0].explanation);
     // A seed quiz never touches the backend.
     expect(calls).toHaveLength(0);
+  });
+
+  it("maps shuffled option letters back to the bank answer key", async () => {
+    mockApiRoutes({});
+    const quiz = seedQuiz();
+    const first = quiz.questions[0];
+    const bank = QUIZ_BANK["ohms-law"][0];
+    // Rotate options so the bank's correct text is no longer under letter A.
+    first.options = [
+      { key: "A", text: bank.options[1] },
+      { key: "B", text: bank.options[2] },
+      { key: "C", text: bank.options[3] },
+      { key: "D", text: bank.options[0] },
+    ];
+    const answers: QuizAnswers = { ...correctAnswers(), 1: "D" };
+
+    const result = await submitQuiz("ohms-law", quiz, answers);
+
+    expect(result.feedback[0].is_correct).toBe(true);
+    expect(result.feedback[0].correct_answer).toBe("D");
+    expect(result.correct_answers).toBe(TEST_SIZE);
   });
 
   it("counts wrong and unanswered questions for failed attempts", async () => {
