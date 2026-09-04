@@ -13,7 +13,7 @@ import {
   useState,
 } from "react";
 import type { ComponentInstance, ComponentType } from "./editorTypes";
-import { getTerminalWorldPosition } from "./editorUtils";
+import { getTerminalLocalOffset, getTerminalWorldPosition } from "./editorUtils";
 import type { SimulationResult } from "./engine";
 import type { EditorState } from "../../hooks/useCircuitEditor";
 import type { WorkspaceViewport } from "../../services/workspaceCircuitStorage";
@@ -50,6 +50,7 @@ interface CircuitCanvasProps {
   onSelectComponent: (id: string | null) => void;
   onSelectWire: (id: string | null) => void;
   onMoveComponent: (id: string, x: number, y: number) => void;
+  onBeginMoveComponent?: (id: string) => void;
   onStartWire: (compId: string, termId: string, x: number, y: number) => void;
   onCompleteWire: (compId: string, termId: string) => void;
   onUpdateWirePreview: (x: number, y: number) => void;
@@ -71,6 +72,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
     onSelectComponent,
     onSelectWire,
     onMoveComponent,
+    onBeginMoveComponent,
     onStartWire,
     onCompleteWire,
     onUpdateWirePreview,
@@ -148,9 +150,20 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
     (clientX: number, clientY: number): { x: number; y: number } => {
       const svg = svgRef.current;
       if (!svg) return { x: 0, y: 0 };
+
+      // Prefer SVG CTM so letterboxing / zoom / pan stay aligned with the cursor.
+      const ctm = svg.getScreenCTM();
+      if (ctm) {
+        const pt = svg.createSVGPoint();
+        pt.x = clientX;
+        pt.y = clientY;
+        const sp = pt.matrixTransform(ctm.inverse());
+        return { x: sp.x, y: sp.y };
+      }
+
       const rect = svg.getBoundingClientRect();
-      const scaleX = viewBox.w / rect.width;
-      const scaleY = viewBox.h / rect.height;
+      const scaleX = viewBox.w / Math.max(rect.width, 1);
+      const scaleY = viewBox.h / Math.max(rect.height, 1);
       return {
         x: (clientX - rect.left) * scaleX + viewBox.x,
         y: (clientY - rect.top) * scaleY + viewBox.y,
@@ -163,6 +176,11 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      if (e.button === 2) {
+        if (editor.wireStart) onCancelWire();
+        else if (placementType) onCancelPlacement();
+        return;
+      }
       const pos = screenToCanvas(e.clientX, e.clientY);
       if (e.button === 1 || (e.button === 0 && e.altKey)) {
         setPanning(true);
@@ -174,10 +192,8 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         onAddComponent(placementType, snap(pos.x), snap(pos.y));
         return;
       }
-      if (editor.wireStart) {
-        onUpdateWirePreview(snap(pos.x), snap(pos.y));
-        return;
-      }
+      // While wiring, empty-canvas clicks do not add waypoints — only terminal B commits.
+      if (editor.wireStart) return;
       if ((e.target as Element).closest(".canvas-component")) return;
       if ((e.target as Element).closest(".canvas-terminal")) return;
       if ((e.target as Element).closest(".canvas-wire")) return;
@@ -189,7 +205,8 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       editor.wireStart,
       onAddComponent,
       onSelectComponent,
-      onUpdateWirePreview,
+      onCancelWire,
+      onCancelPlacement,
     ],
   );
 
@@ -213,8 +230,10 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         return;
       }
       if (editor.wireStart) {
+        // Do not grid-snap the rubber-band — keeps endpoint on the cursor and
+        // avoids a jump when terminal B commits to the exact terminal position.
         const pos = screenToCanvas(e.clientX, e.clientY);
-        onUpdateWirePreview(snap(pos.x), snap(pos.y));
+        onUpdateWirePreview(pos.x, pos.y);
       }
     },
     [
@@ -299,10 +318,11 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
   const handleTerminalMouseDown = useCallback(
     (e: React.MouseEvent, compId: string, termId: string) => {
       e.stopPropagation();
+      e.preventDefault();
       const comp = editor.circuit.components.find((c) => c.id === compId);
       if (!comp) return;
       const world = getTerminalWorldPosition(comp, termId);
-      if (!world) return;
+      // Click terminal A starts; click terminal B commits immediately (no second click / mouseup).
       if (editor.wireStart) {
         onCompleteWire(compId, termId);
       } else {
@@ -310,16 +330,6 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       }
     },
     [editor.circuit.components, editor.wireStart, onStartWire, onCompleteWire],
-  );
-
-  const handleTerminalMouseUp = useCallback(
-    (e: React.MouseEvent, compId: string, termId: string) => {
-      e.stopPropagation();
-      if (editor.wireStart && editor.wireStart.componentId !== compId) {
-        onCompleteWire(compId, termId);
-      }
-    },
-    [editor.wireStart, onCompleteWire],
   );
 
   const handleComponentMouseDown = useCallback(
@@ -331,13 +341,20 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       const pos = screenToCanvas(e.clientX, e.clientY);
       const comp = editor.circuit.components.find((c) => c.id === compId);
       if (!comp) return;
+      onBeginMoveComponent?.(compId);
       setDragging({
         id: compId,
         offsetX: pos.x - comp.x,
         offsetY: pos.y - comp.y,
       });
     },
-    [editor.wireStart, editor.circuit.components, screenToCanvas, onSelectComponent],
+    [
+      editor.wireStart,
+      editor.circuit.components,
+      screenToCanvas,
+      onSelectComponent,
+      onBeginMoveComponent,
+    ],
   );
 
   const getComponentResult = (id: string) => {
@@ -357,11 +374,12 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       const connected = editor.circuit.connections.some(
         (conn) => conn.from === `${comp.id}:${t}` || conn.to === `${comp.id}:${t}`,
       );
-      const world = getTerminalWorldPosition(comp, t);
+      // Local offsets only — parent <g> already applies rotation.
+      const local = getTerminalLocalOffset(comp.type, t);
       return {
         id: t,
-        x: world ? world.x - comp.x : 0,
-        y: world ? world.y - comp.y : 0,
+        x: local.x,
+        y: local.y,
         connected,
       };
     });
@@ -373,8 +391,6 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       activeTerminal,
       onTerminalMouseDown: (e: React.MouseEvent, termId: string) =>
         handleTerminalMouseDown(e, comp.id, termId),
-      onTerminalMouseUp: (e: React.MouseEvent, termId: string) =>
-        handleTerminalMouseUp(e, comp.id, termId),
     };
 
     let node: React.ReactNode;
@@ -470,10 +486,16 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         ref={svgRef}
         className="sim-canvas-svg"
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+        preserveAspectRatio="none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (editor.wireStart) onCancelWire();
+          else if (placementType) onCancelPlacement();
+        }}
       >
         {gridPattern}
         <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="url(#grid-dots)" />
@@ -508,7 +530,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         )}
         {editor.wireStart && (
           <span className="sim-mode-indicator sim-mode-indicator--wire">
-            Click terminal to connect • Esc to cancel
+            Click a terminal to connect • Esc / right-click to cancel
           </span>
         )}
         {!placementType && !editor.wireStart && (

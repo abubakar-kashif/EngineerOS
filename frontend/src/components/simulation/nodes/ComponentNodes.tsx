@@ -21,17 +21,27 @@ interface TerminalDotProps {
 
 function TerminalDot({ x, y, id, connected, active, onMouseDown, onMouseUp }: TerminalDotProps) {
   return (
-    <circle
-      cx={x} cy={y} r={active ? 6 : 4}
-      fill={active ? "var(--color-primary)" : connected ? "var(--color-text-muted)" : "var(--color-surface)"}
-      stroke={active ? "var(--color-primary)" : "var(--color-text-muted)"}
-      strokeWidth={1.5}
-      className="canvas-terminal"
-      data-terminal-id={id}
-      onMouseDown={(e) => onMouseDown?.(e, id)}
-      onMouseUp={(e) => onMouseUp?.(e, id)}
-      style={{ cursor: "crosshair" }}
-    />
+    <g className="canvas-terminal" data-terminal-id={id} style={{ cursor: "crosshair" }}>
+      {/* Invisible larger hit target for reliable pin picking */}
+      <circle
+        cx={x}
+        cy={y}
+        r={12}
+        fill="transparent"
+        stroke="none"
+        onMouseDown={(e) => onMouseDown?.(e, id)}
+        onMouseUp={(e) => onMouseUp?.(e, id)}
+      />
+      <circle
+        cx={x}
+        cy={y}
+        r={active ? 6 : 4}
+        fill={active ? "var(--color-primary)" : connected ? "var(--color-text-muted)" : "var(--color-surface)"}
+        stroke={active ? "var(--color-primary)" : "var(--color-text-muted)"}
+        strokeWidth={1.5}
+        pointerEvents="none"
+      />
+    </g>
   );
 }
 

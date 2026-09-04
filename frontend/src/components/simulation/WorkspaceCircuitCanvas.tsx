@@ -16,6 +16,7 @@ interface WorkspaceCircuitCanvasProps {
   onSelectComponent: (id: string | null) => void;
   onSelectWire: (id: string | null) => void;
   onMoveComponent: (id: string, x: number, y: number) => void;
+  onBeginMoveComponent?: (id: string) => void;
   onStartWire: (compId: string, termId: string, x: number, y: number) => void;
   onCompleteWire: (compId: string, termId: string) => void;
   onUpdateWirePreview: (x: number, y: number) => void;

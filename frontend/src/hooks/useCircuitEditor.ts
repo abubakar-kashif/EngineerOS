@@ -18,6 +18,10 @@ import {
   DEFAULT_TERMINALS,
   DEFAULT_PROPERTIES,
 } from "../components/simulation/editorTypes";
+import {
+  buildOrthogonalPreview,
+  getTerminalWorldPosition,
+} from "../components/simulation/editorUtils";
 import { nextDesignator } from "../components/simulation/referenceDesignators";
 
 // Engine types (only needed for conversion, not for state)
@@ -179,22 +183,55 @@ export function useCircuitEditor(initial?: EditorCircuit) {
 
   // ── Move component ──
 
-  const moveComponent = useCallback(
-    (id: string, canvasX: number, canvasY: number) => {
+  /** Call once when a drag starts so undo records a single snapshot. */
+  const beginMoveComponent = useCallback(
+    (id: string) => {
       const circuit = circuitRef.current;
+      if (!circuit.components.some((c) => c.id === id)) return;
       pushUndo(circuit);
-      setState((s) => ({
-        ...s,
-        circuit: {
-          ...s.circuit,
-          components: s.circuit.components.map((c) =>
-            c.id === id ? { ...c, x: snap(canvasX), y: snap(canvasY) } : c,
-          ),
-        },
-      }));
     },
     [pushUndo],
   );
+
+  const moveComponent = useCallback((id: string, canvasX: number, canvasY: number) => {
+    setState((s) => {
+      const comp = s.circuit.components.find((c) => c.id === id);
+      if (!comp) return s;
+      const nx = snap(canvasX);
+      const ny = snap(canvasY);
+      if (nx === comp.x && ny === comp.y) return s;
+
+      const moved = { ...comp, x: nx, y: ny };
+      const components = s.circuit.components.map((c) => (c.id === id ? moved : c));
+
+      // Keep connected wires attached to terminals after the move.
+      const wires = s.circuit.wires.map((wire, index) => {
+        const conn = s.circuit.connections[index];
+        if (!conn) return wire;
+        const [fromId, fromTerm] = conn.from.split(":");
+        const [toId, toTerm] = (conn.to || "").split(":");
+        if (fromId !== id && toId !== id) return wire;
+
+        const startComp = components.find((c) => c.id === fromId);
+        const endComp = components.find((c) => c.id === toId);
+        if (!startComp || !endComp) return wire;
+
+        return {
+          ...wire,
+          points: buildOrthogonalPreview(
+            getTerminalWorldPosition(startComp, fromTerm),
+            getTerminalWorldPosition(endComp, toTerm),
+          ),
+        };
+      });
+
+      return {
+        ...s,
+        circuit: { ...s.circuit, components, wires },
+        dirty: true,
+      };
+    });
+  }, []);
 
   // ── Rotate ──
 
@@ -202,17 +239,35 @@ export function useCircuitEditor(initial?: EditorCircuit) {
     (id: string) => {
       const circuit = circuitRef.current;
       pushUndo(circuit);
-      setState((s) => ({
-        ...s,
-        circuit: {
-          ...s.circuit,
-          components: s.circuit.components.map((c) =>
-            c.id === id
-              ? { ...c, rotation: ((c.rotation + 90) % 360) as 0 | 90 | 180 | 270 }
-              : c,
-          ),
-        },
-      }));
+      setState((s) => {
+        const components = s.circuit.components.map((c) =>
+          c.id === id
+            ? { ...c, rotation: ((c.rotation + 90) % 360) as 0 | 90 | 180 | 270 }
+            : c,
+        );
+        const wires = s.circuit.wires.map((wire, index) => {
+          const conn = s.circuit.connections[index];
+          if (!conn) return wire;
+          const [fromId, fromTerm] = conn.from.split(":");
+          const [toId, toTerm] = (conn.to || "").split(":");
+          if (fromId !== id && toId !== id) return wire;
+          const startComp = components.find((c) => c.id === fromId);
+          const endComp = components.find((c) => c.id === toId);
+          if (!startComp || !endComp) return wire;
+          return {
+            ...wire,
+            points: buildOrthogonalPreview(
+              getTerminalWorldPosition(startComp, fromTerm),
+              getTerminalWorldPosition(endComp, toTerm),
+            ),
+          };
+        });
+        return {
+          ...s,
+          circuit: { ...s.circuit, components, wires },
+          dirty: true,
+        };
+      });
     },
     [pushUndo],
   );
@@ -224,8 +279,7 @@ export function useCircuitEditor(initial?: EditorCircuit) {
       const circuit = circuitRef.current;
       pushUndo(circuit);
       setState((s) => {
-        // Remove component and any connections/wires referencing it
-        const connections = s.circuit.connections.filter((conn) => {
+        const keep: boolean[] = s.circuit.connections.map((conn) => {
           const fromId = conn.from.split(":")[0];
           const toId = conn.to?.split(":")[0];
           return fromId !== id && toId !== id;
@@ -235,7 +289,8 @@ export function useCircuitEditor(initial?: EditorCircuit) {
           circuit: {
             ...s.circuit,
             components: s.circuit.components.filter((c) => c.id !== id),
-            connections,
+            connections: s.circuit.connections.filter((_, i) => keep[i]),
+            wires: s.circuit.wires.filter((_, i) => keep[i]),
           },
           selectedComponentId: s.selectedComponentId === id ? null : s.selectedComponentId,
         };
@@ -249,14 +304,14 @@ export function useCircuitEditor(initial?: EditorCircuit) {
       const circuit = circuitRef.current;
       pushUndo(circuit);
       setState((s) => {
-        const wire = s.circuit.wires.find((w) => w.id === id);
-        if (!wire) return s;
-        // Remove the wire itself
+        const index = s.circuit.wires.findIndex((w) => w.id === id);
+        if (index < 0) return s;
         return {
           ...s,
           circuit: {
             ...s.circuit,
-            wires: s.circuit.wires.filter((w) => w.id !== id),
+            wires: s.circuit.wires.filter((_, i) => i !== index),
+            connections: s.circuit.connections.filter((_, i) => i !== index),
           },
           selectedWireId: s.selectedWireId === id ? null : s.selectedWireId,
         };
@@ -339,19 +394,9 @@ export function useCircuitEditor(initial?: EditorCircuit) {
     (worldX: number, worldY: number) => {
       setState((s) => {
         if (!s.wireStart) return s;
-        // Orthogonal routing: add intermediate point
-        const last = s.wirePreviewPoints[s.wirePreviewPoints.length - 1];
-        const dx = worldX - last.x;
-        const dy = worldY - last.y;
-        const newPoints = [...s.wirePreviewPoints];
-        if (Math.abs(dx) > Math.abs(dy)) {
-          // Horizontal first
-          newPoints.push({ x: worldX, y: last.y });
-        } else {
-          newPoints.push({ x: last.x, y: worldY });
-        }
-        newPoints.push({ x: worldX, y: worldY });
-        return { ...s, wirePreviewPoints: newPoints };
+        const start = { x: s.wireStart.x, y: s.wireStart.y };
+        const preview = buildOrthogonalPreview(start, { x: worldX, y: worldY });
+        return { ...s, wirePreviewPoints: preview };
       });
     },
     [],
@@ -359,38 +404,47 @@ export function useCircuitEditor(initial?: EditorCircuit) {
 
   const completeWire = useCallback(
     (componentId: string, terminalId: string) => {
-      const circuit = circuitRef.current;
-      const s = state;
-      if (!s.wireStart) return;
+      setState((s) => {
+        if (!s.wireStart) return s;
+        // Same terminal — ignore (no self-loop from a single click).
+        if (
+          s.wireStart.componentId === componentId &&
+          s.wireStart.terminalId === terminalId
+        ) {
+          return s;
+        }
 
-      const fromRef = `${s.wireStart.componentId}:${s.wireStart.terminalId}`;
-      const toRef = `${componentId}:${terminalId}`;
+        const endComp = s.circuit.components.find((c) => c.id === componentId);
+        if (!endComp) return s;
+        const end = getTerminalWorldPosition(endComp, terminalId);
 
-      const wireId = uid("wire");
-      const wire: WireSegment = {
-        id: wireId,
-        points: [
+        const fromRef = `${s.wireStart.componentId}:${s.wireStart.terminalId}`;
+        const toRef = `${componentId}:${terminalId}`;
+        const points = buildOrthogonalPreview(
           { x: s.wireStart.x, y: s.wireStart.y },
-          ...s.wirePreviewPoints.slice(1),
-        ],
-      };
+          end,
+        );
 
-      const connection: WireConnection = { from: fromRef, to: toRef };
+        const wire: WireSegment = { id: uid("wire"), points };
+        const connection: WireConnection = { from: fromRef, to: toRef };
 
-      pushUndo(circuit);
-      setState((prev) => ({
-        ...prev,
-        circuit: {
-          ...prev.circuit,
-          wires: [...prev.circuit.wires, wire],
-          connections: [...prev.circuit.connections, connection],
-        },
-        mode: "select",
-        wireStart: null,
-        wirePreviewPoints: [],
-      }));
+        return {
+          ...s,
+          circuit: {
+            ...s.circuit,
+            wires: [...s.circuit.wires, wire],
+            connections: [...s.circuit.connections, connection],
+          },
+          undoStack: [...s.undoStack.slice(-49), s.circuit],
+          redoStack: [],
+          dirty: true,
+          mode: "select",
+          wireStart: null,
+          wirePreviewPoints: [],
+        };
+      });
     },
-    [pushUndo, state],
+    [],
   );
 
   const cancelWire = useCallback(() => {
@@ -488,6 +542,7 @@ export function useCircuitEditor(initial?: EditorCircuit) {
     cancelPlacement,
     addComponent,
     moveComponent,
+    beginMoveComponent,
     rotateComponent,
     deleteComponent,
     deleteWire,

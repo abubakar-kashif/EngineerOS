@@ -9,6 +9,7 @@ interface ComponentInspectorProps {
   onUpdateProperty: (id: string, property: string, value: number | string | boolean) => void;
   onDeleteComponent: (id: string) => void;
   onDuplicateComponent: (id: string) => void;
+  onRotateComponent?: (id: string) => void;
 }
 
 function ComponentInspector({
@@ -16,6 +17,7 @@ function ComponentInspector({
   onUpdateProperty,
   onDeleteComponent,
   onDuplicateComponent,
+  onRotateComponent,
 }: ComponentInspectorProps) {
   if (!component) {
     return (
@@ -67,6 +69,14 @@ function ComponentInspector({
         })}
 
         <div className="sim-inspector-actions">
+          {onRotateComponent && (
+            <button
+              className="sim-inspector-btn"
+              onClick={() => onRotateComponent(component.id)}
+            >
+              Rotate 90°
+            </button>
+          )}
           <button
             className="sim-inspector-btn sim-inspector-btn--duplicate"
             onClick={() => onDuplicateComponent(component.id)}

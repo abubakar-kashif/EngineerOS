@@ -57,9 +57,11 @@ function SimulationPage() {
     state,
     addComponent,
     moveComponent,
+    beginMoveComponent,
     deleteComponent,
     deleteWire,
     duplicateComponent,
+    rotateComponent,
     updateProperty,
     startWire,
     updateWirePreview,
@@ -326,6 +328,7 @@ function SimulationPage() {
             onUpdateProperty={updateProperty}
             onDeleteComponent={deleteComponent}
             onDuplicateComponent={duplicateComponent}
+            onRotateComponent={rotateComponent}
           />
           <InstrumentsPanel
             result={simResult}
@@ -344,6 +347,7 @@ function SimulationPage() {
               onSelectComponent={selectComponent}
               onSelectWire={selectWire}
               onMoveComponent={moveComponent}
+              onBeginMoveComponent={beginMoveComponent}
               onStartWire={startWire}
               onCompleteWire={completeWire}
               onUpdateWirePreview={updateWirePreview}
