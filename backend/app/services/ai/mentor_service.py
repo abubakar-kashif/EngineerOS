@@ -28,8 +28,11 @@ from app.services.ai.errors import (
     ConversationNotFoundError,
     ConversationForbiddenError,
     AIProviderError,
+    InvalidResponseError,
+    normalize_provider_error,
     safe_error_response,
 )
+from app.services.ai.types import ProviderError as TypesProviderError
 from app.services.ai.protection import (
     protection_manager,
     get_protection_manager,
@@ -172,11 +175,15 @@ class MentorService:
                         delay = self.protection.get_retry_delay(attempt)
                         time.sleep(delay)
                         continue
+                    if isinstance(e, TypesProviderError):
+                        raise normalize_provider_error(e) from e
                     raise
         finally:
             self.protection.retry_controller.finish_request(request_id)
 
-        # 11. Validate response
+        # 11. Validate response — never accept empty/fabricated success
+        if response is None or not (response.content or "").strip():
+            raise InvalidResponseError("AI provider returned empty response")
         validated_content = self.protection.validate_response(response.content)
 
         # 12. Security: check for data leakage

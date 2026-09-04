@@ -36,7 +36,8 @@ class SecurityVerifier:
         Verify that a user owns a conversation.
         """
         try:
-            conv = get_conversation(db, conversation_id, user_id)
+            # get_conversation(db, user_id, conversation_id) enforces ownership
+            get_conversation(db, user_id, conversation_id)
             return True
         except Exception:
             return False

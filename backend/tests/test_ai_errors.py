@@ -113,3 +113,20 @@ class TestErrorNormalization:
         response = safe_error_response(error)
         assert response["code"] == "INTERNAL_ERROR"
         assert "unexpected" in response["message"].lower()
+        # Must not leak raw traceback details
+        assert "Something went wrong" not in response["message"]
+        assert "traceback" not in response["message"].lower()
+
+    def test_normalize_provider_error_auth(self):
+        from app.services.ai.errors import normalize_provider_error
+        from app.services.ai.types import ProviderError
+
+        err = normalize_provider_error(ProviderError("OpenAI authentication failed: invalid key"))
+        assert isinstance(err, AuthenticationError)
+
+    def test_normalize_provider_error_empty_response(self):
+        from app.services.ai.errors import normalize_provider_error
+        from app.services.ai.types import ProviderError
+
+        err = normalize_provider_error(ProviderError("OpenAI returned an empty response"))
+        assert isinstance(err, InvalidResponseError)

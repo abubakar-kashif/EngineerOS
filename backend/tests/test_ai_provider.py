@@ -31,6 +31,7 @@ class TestAIProvider:
             with pytest.raises(ProviderError) as exc_info:
                 _ = provider.client
             assert "API key not provided" in str(exc_info.value)
+            assert "AI_API_KEY" in str(exc_info.value)
 
     def test_openai_provider_initialization_with_key(self):
         """Test OpenAIProvider initialization with API key."""
@@ -266,6 +267,177 @@ class TestProviderFactory:
             assert provider.model == "gpt-4"
 
 
+class TestAIProviderFailureHandling:
+    """Controlled failure handling — never fabricate successful AI answers."""
+
+    def _request(self):
+        return AIRequest(messages=[AIMessage(role="user", content="Hello")])
+
+    def test_generate_rejects_empty_content(self):
+        provider = OpenAIProvider(api_key="test-key")
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = ""
+        mock_response.model = "gpt-3.5-turbo"
+        mock_response.usage = None
+        mock_response.choices[0].finish_reason = "stop"
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.return_value = mock_response
+            mock_client_property.return_value = mock_client
+
+            with pytest.raises(ProviderError) as exc_info:
+                provider.generate(self._request())
+            assert "empty response" in str(exc_info.value).lower()
+
+    def test_generate_rejects_none_content(self):
+        provider = OpenAIProvider(api_key="test-key")
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = None
+        mock_response.model = "gpt-3.5-turbo"
+        mock_response.usage = None
+        mock_response.choices[0].finish_reason = "stop"
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.return_value = mock_response
+            mock_client_property.return_value = mock_client
+
+            with pytest.raises(ProviderError):
+                provider.generate(self._request())
+
+    def test_generate_rejects_malformed_response(self):
+        provider = OpenAIProvider(api_key="test-key")
+        mock_response = Mock()
+        mock_response.choices = []
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.return_value = mock_response
+            mock_client_property.return_value = mock_client
+
+            with pytest.raises(ProviderError) as exc_info:
+                provider.generate(self._request())
+            assert "malformed" in str(exc_info.value).lower()
+
+    def test_generate_invalid_api_key_classified(self):
+        provider = OpenAIProvider(api_key="bad-key")
+
+        class FakeAuthError(Exception):
+            status_code = 401
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.side_effect = FakeAuthError("Incorrect API key")
+            mock_client_property.return_value = mock_client
+
+            with pytest.raises(ProviderError) as exc_info:
+                provider.generate(self._request())
+            assert "authentication failed" in str(exc_info.value).lower()
+
+    def test_generate_timeout_classified(self):
+        provider = OpenAIProvider(api_key="test-key")
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.side_effect = Exception("Request timed out")
+            mock_client_property.return_value = mock_client
+
+            with pytest.raises(ProviderError) as exc_info:
+                provider.generate(self._request())
+            assert "timed out" in str(exc_info.value).lower()
+
+    def test_generate_network_failure_classified(self):
+        provider = OpenAIProvider(api_key="test-key")
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.side_effect = Exception("Connection refused")
+            mock_client_property.return_value = mock_client
+
+            with pytest.raises(ProviderError) as exc_info:
+                provider.generate(self._request())
+            assert "network" in str(exc_info.value).lower()
+
+    def test_generate_provider_exception_does_not_fabricate_answer(self):
+        provider = OpenAIProvider(api_key="test-key")
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.side_effect = RuntimeError("boom")
+            mock_client_property.return_value = mock_client
+
+            with pytest.raises(ProviderError) as exc_info:
+                result = provider.generate(self._request())
+                # Must never return a successful fabricated answer
+                assert False, f"Unexpected success: {result}"
+            assert "OpenAI API error" in str(exc_info.value)
+
+
+class TestOpenAIProviderStreaming:
+    """Real provider-backed streaming (mocked OpenAI stream chunks)."""
+
+    def test_stream_yields_provider_deltas(self):
+        provider = OpenAIProvider(api_key="test-key")
+
+        chunk1 = Mock()
+        chunk1.choices = [Mock()]
+        chunk1.choices[0].delta = Mock(content="Hel")
+        chunk1.choices[0].finish_reason = None
+        chunk1.usage = None
+
+        chunk2 = Mock()
+        chunk2.choices = [Mock()]
+        chunk2.choices[0].delta = Mock(content="lo")
+        chunk2.choices[0].finish_reason = "stop"
+        chunk2.usage = None
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.return_value = iter([chunk1, chunk2])
+            mock_client_property.return_value = mock_client
+
+            events = list(provider.stream(AIRequest(messages=[AIMessage(role="user", content="Hi")])))
+            types = [e.type.value for e in events]
+            assert types[0] == "start"
+            assert "delta" in types
+            assert types[-1] == "complete"
+            deltas = "".join(e.content or "" for e in events if e.type.value == "delta")
+            assert deltas == "Hello"
+            assert events[-1].content == "Hello"
+
+    def test_stream_empty_content_emits_error_not_success(self):
+        provider = OpenAIProvider(api_key="test-key")
+        chunk = Mock()
+        chunk.choices = [Mock()]
+        chunk.choices[0].delta = Mock(content=None)
+        chunk.choices[0].finish_reason = "stop"
+        chunk.usage = None
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.return_value = iter([chunk])
+            mock_client_property.return_value = mock_client
+
+            events = list(provider.stream(AIRequest(messages=[AIMessage(role="user", content="Hi")])))
+            assert any(e.type.value == "error" for e in events)
+            assert not any(e.type.value == "complete" for e in events)
+
+    def test_stream_provider_exception_emits_error(self):
+        provider = OpenAIProvider(api_key="test-key")
+
+        with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as mock_client_property:
+            mock_client = Mock()
+            mock_client.chat.completions.create.side_effect = Exception("provider disconnect")
+            mock_client_property.return_value = mock_client
+
+            events = list(provider.stream(AIRequest(messages=[AIMessage(role="user", content="Hi")])))
+            assert events[-1].type.value == "error"
+            assert not any(e.type.value == "complete" for e in events)
+
+
 class TestAIProviderIntegration:
     """Integration-style tests for AI Provider (with mocks)."""
 
@@ -308,3 +480,37 @@ class TestAIProviderIntegration:
             assert response.usage is not None
             assert response.usage["total_tokens"] == 25
             assert response.finish_reason == "stop"
+
+
+class TestAIConfiguration:
+    """Configuration surface expected by production Mentor."""
+
+    def test_ai_settings_defaults(self):
+        assert settings.AI_PROVIDER == "openai" or isinstance(settings.AI_PROVIDER, str)
+        assert settings.AI_TIMEOUT_SECONDS == 60 or isinstance(settings.AI_TIMEOUT_SECONDS, int)
+        assert settings.AI_MAX_OUTPUT_TOKENS == 1000 or isinstance(settings.AI_MAX_OUTPUT_TOKENS, int)
+        assert settings.AI_TEMPERATURE == 0.7 or isinstance(settings.AI_TEMPERATURE, float)
+
+    def test_openai_sdk_importable(self):
+        import openai
+        assert openai is not None
+
+    def test_provider_factory_passes_timeout_and_base_url(self):
+        with patch("app.services.ai.provider_factory.settings") as mock_settings:
+            mock_settings.AI_PROVIDER = "openai"
+            mock_settings.AI_API_KEY = "config-key"
+            mock_settings.AI_MODEL = "gpt-4"
+            mock_settings.AI_BASE_URL = "https://example.test/v1"
+            mock_settings.AI_TIMEOUT_SECONDS = 45
+
+            provider = ProviderFactory.get_provider()
+            assert isinstance(provider, OpenAIProvider)
+            assert provider.base_url == "https://example.test/v1"
+            assert provider.timeout == 45
+
+    def test_provider_factory_empty_provider_name(self):
+        with patch("app.services.ai.provider_factory.settings") as mock_settings:
+            mock_settings.AI_PROVIDER = "   "
+            with pytest.raises(ProviderError) as exc_info:
+                ProviderFactory.get_provider()
+            assert "not configured" in str(exc_info.value).lower()

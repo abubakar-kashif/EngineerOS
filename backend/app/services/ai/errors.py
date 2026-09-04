@@ -203,24 +203,41 @@ def normalize_provider_error(error: Exception) -> AIError:
     Returns:
         AIError: Normalized error
     """
+    if isinstance(error, AIError):
+        return error
+
     error_str = str(error).lower()
-    
+
     # Check for specific error patterns
-    if "api key" in error_str or "authentication" in error_str:
-        return AuthenticationError(original_error=error)
-    
+    if (
+        "api key" in error_str
+        or "authentication" in error_str
+        or "auth" in error_str and "fail" in error_str
+    ):
+        return AuthenticationError(
+            message="AI provider authentication failed",
+            original_error=error,
+        )
+
     if "rate limit" in error_str or "too many" in error_str:
         return RateLimitedError(original_error=error)
-    
+
     if "timeout" in error_str or "timed out" in error_str:
         return TimeoutError(original_error=error)
-    
-    if "unavailable" in error_str or "connection" in error_str:
+
+    if (
+        "unavailable" in error_str
+        or "connection" in error_str
+        or "network" in error_str
+    ):
         return ProviderUnavailableError(original_error=error)
-    
+
+    if "empty response" in error_str or ("malformed" in error_str and "response" in error_str):
+        return InvalidResponseError(original_error=error)
+
     if "invalid" in error_str and "response" in error_str:
         return InvalidResponseError(original_error=error)
-    
+
     # Default to generic provider error
     return ProviderUnavailableError(
         message=f"Provider error: {str(error)}",
