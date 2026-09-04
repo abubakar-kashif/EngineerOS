@@ -40,8 +40,9 @@ const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 360;
 const MENTOR_MIN = 240;
 const MENTOR_MAX = 480;
-const ANALYSIS_MIN = 160;
-const ANALYSIS_MAX = 480;
+const ANALYSIS_MIN = 140;
+const ANALYSIS_COLLAPSE = 110;
+const ANALYSIS_DEFAULT = 280;
 const RESULTS_RATIO_MIN = 0.28;
 const RESULTS_RATIO_MAX = 0.72;
 
@@ -135,7 +136,28 @@ function SimulationPage() {
   }, []);
 
   const onResizeAnalysis = useCallback((delta: number) => {
-    setAnalysisH((h) => clamp(h + delta, ANALYSIS_MIN, ANALYSIS_MAX));
+    const layoutH = layoutRef.current?.clientHeight ?? 720;
+    // Nearly full lab height — leave a thin canvas strip so the sash stays usable
+    const maxH = Math.max(ANALYSIS_MIN, layoutH - 64);
+    setAnalysisH((h) => {
+      const next = h + delta;
+      if (next < ANALYSIS_COLLAPSE) {
+        setShowResults(false);
+        setShowGraphs(false);
+        return ANALYSIS_DEFAULT;
+      }
+      return clamp(next, ANALYSIS_MIN, maxH);
+    });
+  }, []);
+
+  const openResults = useCallback(() => {
+    setShowResults(true);
+    setAnalysisH((h) => Math.max(h, ANALYSIS_DEFAULT));
+  }, []);
+
+  const openGraphs = useCallback(() => {
+    setShowGraphs(true);
+    setAnalysisH((h) => Math.max(h, ANALYSIS_DEFAULT));
   }, []);
 
   const onResizeResultsSplit = useCallback((delta: number) => {
@@ -500,8 +522,8 @@ function SimulationPage() {
         }}
         onOpenSidebar={() => setShowSidebar(true)}
         onOpenMentor={() => setShowMentor(true)}
-        onOpenResults={() => setShowResults(true)}
-        onOpenGraphs={() => setShowGraphs(true)}
+        onOpenResults={openResults}
+        onOpenGraphs={openGraphs}
       />
 
       {experimentParam && TEN_EXPERIMENT_IDS.includes(experimentParam as (typeof TEN_EXPERIMENT_IDS)[number]) && (
@@ -558,13 +580,6 @@ function SimulationPage() {
                 onSelectType={setPlacementType}
                 selectedType={state.placementType}
               />
-              <ComponentInspector
-                component={selectedComponent}
-                onUpdateProperty={onUpdateProperty}
-                onDeleteComponent={onDeleteComponent}
-                onDuplicateComponent={onDuplicateComponent}
-                onRotateComponent={onRotateComponent}
-              />
               <InstrumentsPanel
                 result={simResult}
                 selectedComponentId={state.selectedComponentId}
@@ -610,6 +625,17 @@ function SimulationPage() {
                 onBeginMoveWireEndpoint={beginMoveWireEndpoint}
                 placementType={state.placementType}
               />
+              {selectedComponent && (
+                <ComponentInspector
+                  variant="popover"
+                  component={selectedComponent}
+                  onUpdateProperty={onUpdateProperty}
+                  onDeleteComponent={onDeleteComponent}
+                  onDuplicateComponent={onDuplicateComponent}
+                  onRotateComponent={onRotateComponent}
+                  onClose={() => selectComponent(null)}
+                />
+              )}
             </div>
           </div>
 

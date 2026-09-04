@@ -1,13 +1,13 @@
 /**
- * Drag resize handle for simulation lab panels (horizontal or vertical).
+ * Drag resize sash — VS Code / Cursor style (no visible rails or glyphs).
  */
 import { useCallback, useRef } from "react";
 
 interface PanelResizeHandleProps {
   axis: "x" | "y";
-  /** Positive delta grows the primary panel (left for x, top for y when inverted=false). */
+  /** Positive delta grows the primary panel (left for x; with invert, down grows analysis). */
   onDelta: (deltaPx: number) => void;
-  /** When true, dragging down grows analysis (inverted Y). */
+  /** When true, dragging down grows the panel below the sash. */
   invert?: boolean;
   label: string;
   className?: string;
@@ -27,6 +27,7 @@ function PanelResizeHandle({
       e.preventDefault();
       const el = e.currentTarget;
       el.setPointerCapture(e.pointerId);
+      el.classList.add("sim2-resize-handle--dragging");
       lastRef.current = axis === "x" ? e.clientX : e.clientY;
       document.body.style.cursor = axis === "x" ? "col-resize" : "row-resize";
       document.body.style.userSelect = "none";
@@ -50,6 +51,7 @@ function PanelResizeHandle({
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
+    e.currentTarget.classList.remove("sim2-resize-handle--dragging");
     lastRef.current = null;
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
@@ -66,11 +68,7 @@ function PanelResizeHandle({
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-    >
-      <span className="sim2-resize-handle-glyph" aria-hidden="true">
-        {axis === "x" ? "<-->" : "↕"}
-      </span>
-    </div>
+    />
   );
 }
 

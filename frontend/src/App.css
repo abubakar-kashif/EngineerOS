@@ -6937,46 +6937,55 @@
   outline-offset: 1px;
 }
 .sim2-resize-handle {
-  flex: 0 0 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-muted, #0f172a);
-  border: 0;
-  z-index: 2;
+  position: relative;
+  flex: 0 0 5px;
+  z-index: 6;
   touch-action: none;
-  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
 }
 .sim2-resize-handle--x {
   cursor: col-resize;
-  width: 8px;
+  width: 5px;
   align-self: stretch;
-  border-left: 1px solid var(--color-border);
-  border-right: 1px solid var(--color-border);
+  margin: 0 -2px;
 }
 .sim2-resize-handle--y {
   cursor: row-resize;
-  height: 8px;
+  height: 5px;
   width: 100%;
-  flex: 0 0 8px;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  flex: 0 0 5px;
+  margin: -2px 0;
 }
-.sim2-resize-handle:hover,
-.sim2-resize-handle:active {
-  background: var(--color-primary-muted, rgba(59, 130, 246, 0.15));
-  color: var(--color-primary);
-}
-.sim2-resize-handle-glyph {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+/* VS Code / Cursor sash: invisible until hover, then a thin accent line */
+.sim2-resize-handle::before {
+  content: "";
+  position: absolute;
+  background: transparent;
+  transition: background-color 80ms ease;
   pointer-events: none;
-  opacity: 0.85;
-  user-select: none;
 }
-.sim2-resize-handle--y .sim2-resize-handle-glyph {
-  transform: scale(0.9);
+.sim2-resize-handle--x::before {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+.sim2-resize-handle--y::before {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+.sim2-resize-handle:hover::before,
+.sim2-resize-handle:focus-visible::before,
+.sim2-resize-handle--dragging::before {
+  background: var(--color-primary, #3b82f6);
+}
+.sim2-resize-handle:focus-visible {
+  outline: none;
 }
 .sim2-page--fullscreen {
   height: 100vh;
@@ -7004,6 +7013,7 @@
   overflow: hidden;
   overscroll-behavior: none;
   background: var(--color-surface-muted, #f8fafc);
+  position: relative;
 }
 .sim2-canvas-host {
   flex: 1;
@@ -7020,6 +7030,7 @@
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   gap: 0;
+  column-gap: 0;
   min-height: 0;
   height: 100%;
   padding: var(--space-md);
@@ -7036,7 +7047,7 @@
   height: 100%;
   padding: var(--space-md);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   background: var(--color-surface-muted, #f8fafc);
   box-shadow: none;
 }
@@ -7275,53 +7286,149 @@
 }
 .sim-palette-label { font-weight: 500; }
 
-/* Inspector */
-.sim-inspector { padding: var(--space-md); border-top: 1px solid var(--color-border); }
-.sim-inspector-empty { font-size: 12px; color: var(--color-text-muted); }
+/* Inspector — styled specification card */
+.sim-inspector {
+  padding: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.sim-inspector--popover {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 12;
+  width: min(300px, calc(100% - 32px));
+  max-height: min(420px, calc(100% - 32px));
+  overflow: auto;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+.sim-inspector-empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: var(--space-md);
+}
+.sim-inspector-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-muted, rgba(255, 255, 255, 0.03));
+}
+.sim-inspector-heading {
+  min-width: 0;
+}
 .sim-inspector-title {
-  font-size: 16px; font-weight: 700; color: var(--color-primary);
-  margin: var(--space-xs) 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 2px;
 }
 .sim-inspector-type {
-  font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-md);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin: 0;
   text-transform: capitalize;
 }
+.sim-inspector-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 14px;
+}
+.sim-inspector-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
 .sim-inspector-fields { display: flex; flex-direction: column; gap: var(--space-sm); }
-.sim-inspector-field { display: flex; flex-direction: column; gap: 4px; }
+.sim-inspector-field { display: flex; flex-direction: column; gap: 6px; }
 .sim-inspector-label {
-  font-size: 11px; font-weight: 600; color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
-.sim-inspector-input-row { display: flex; align-items: center; gap: var(--space-xs); }
-.sim-inspector-input {
-  flex: 1; height: 32px; padding: 0 8px;
-  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
-  background: var(--color-surface); color: var(--color-text);
-  font-size: 12px; font-weight: 600; outline: none;
+.sim-inspector-input-row,
+.sim-inspector-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
-.sim-inspector-input:focus { border-color: var(--color-primary); }
-.sim-inspector-unit { font-size: 11px; color: var(--color-text-muted); min-width: 20px; }
+.sim-inspector-input,
+.sim-inspector input[type="text"] {
+  flex: 1;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg, #0b1220);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  box-sizing: border-box;
+}
+.sim-inspector-input:focus,
+.sim-inspector input[type="text"]:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-muted, rgba(59, 130, 246, 0.25));
+}
+.sim-inspector-unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  min-width: 22px;
+}
 .sim-inspector-value { font-size: 12px; font-weight: 600; color: var(--color-text); }
 .sim-inspector-toggle {
-  flex: 1; height: 32px; border-radius: var(--radius-sm);
-  border: 2px solid var(--color-danger); background: var(--color-danger-muted);
-  color: var(--color-danger); font-size: 11px; font-weight: 700;
-  cursor: pointer; transition: all var(--motion-fast);
+  flex: 1;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--color-danger);
+  background: var(--color-danger-muted);
+  color: var(--color-danger);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--motion-fast);
 }
 .sim-inspector-toggle--on {
-  border-color: var(--color-success); background: var(--color-success-muted);
+  border-color: var(--color-success);
+  background: var(--color-success-muted);
   color: var(--color-success);
 }
 .sim-inspector-btn {
-  padding: 6px 12px; border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border); background: var(--color-surface);
-  font-size: 11px; font-weight: 600; cursor: pointer;
-  color: var(--color-text); transition: all var(--motion-fast);
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted, rgba(255, 255, 255, 0.04));
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-text);
+  transition: all var(--motion-fast);
 }
-.sim-inspector-btn:hover { background: var(--color-surface-muted); }
+.sim-inspector-btn:hover { background: var(--color-surface); border-color: var(--color-primary); }
 .sim-inspector-btn--danger { color: var(--color-danger); border-color: var(--color-danger); }
 .sim-inspector-btn--danger:hover { background: var(--color-danger-muted); }
 .sim-inspector-actions {
-  display: flex; gap: var(--space-sm); margin-top: var(--space-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
 }
 
 /* Canvas */
