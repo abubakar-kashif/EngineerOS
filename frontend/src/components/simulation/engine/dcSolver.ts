@@ -264,8 +264,8 @@ function solveResistiveNetwork(
     const resistance = resistor.properties.resistance || 0;
     if (resistance <= 0) continue;
 
-    let voltageDrop = 0;
-    let current = 0;
+    let voltageDrop: number;
+    let current: number;
 
     if (isParallel) {
       // In parallel: voltage is same across all resistors = source voltage

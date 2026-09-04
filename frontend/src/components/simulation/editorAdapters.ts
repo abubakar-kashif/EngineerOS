@@ -3,7 +3,7 @@
  */
 import type { EditorCircuit } from './editorTypes';
 import type { CircuitDefinition, Component, Connection } from './engine';
-import { createTerminalId } from './engine/circuitGraph';
+import { createTerminalId, type TerminalType } from './engine/circuitGraph';
 
 export function toEngineCircuit(editor: EditorCircuit): CircuitDefinition {
   const components: Component[] = editor.components.map((comp) => ({
@@ -30,8 +30,8 @@ export function toEngineCircuit(editor: EditorCircuit): CircuitDefinition {
     const to = parseRef(conn.to);
     return {
       id: `conn_${index}_${Date.now()}`,
-      from: createTerminalId(from.componentId, from.terminalType as any),
-      to: createTerminalId(to.componentId, to.terminalType as any),
+      from: createTerminalId(from.componentId, from.terminalType as TerminalType),
+      to: createTerminalId(to.componentId, to.terminalType as TerminalType),
     };
   });
 

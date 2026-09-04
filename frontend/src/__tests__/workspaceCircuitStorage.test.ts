@@ -87,8 +87,9 @@ describe("workspaceCircuitStorage", () => {
     document.createElement = ((tag: string) => {
       const el = originalCreateElement(tag);
       if (tag === "a") {
-        el.click = () => {
-          clicks.push(el.download);
+        const anchor = el as HTMLAnchorElement;
+        anchor.click = () => {
+          clicks.push(anchor.download);
         };
       }
       return el;

@@ -3,8 +3,8 @@
  * Tabbed interface: Results | Measurements | Validation.
  */
 import { useState } from "react";
-import type { CircuitDefinition } from "./engine";
-import type { SimulationResult } from "./engine";
+import type { CircuitDefinition, SimulationResult } from "./engine";
+import type { SimulationError } from "./engine/errors";
 
 type AnalysisTab = "results" | "measurements" | "validation";
 
@@ -22,8 +22,8 @@ function AnalysisPanel({
   const [tab, setTab] = useState<AnalysisTab>("results");
 
   const validationErrors = result?.validation?.errors ?? [];
-  const errorCount = validationErrors.filter((e: any) => e.severity === "error").length;
-  const warnCount = validationErrors.filter((e: any) => e.severity === "warning").length;
+  const errorCount = validationErrors.filter((e) => e.severity === "error").length;
+  const warnCount = validationErrors.filter((e) => e.severity === "warning").length;
 
   return (
     <div className="sim2-analysis">
@@ -85,7 +85,7 @@ function ResultsTab({ result }: { result: SimulationResult | null }) {
         </div>
       ))}
       <h4 className="sim2-results-heading" style={{ marginTop: 16 }}>Component Results</h4>
-      {measurements.componentMeasurements.map((cr: any) => (
+      {measurements.componentMeasurements.map((cr) => (
         <div key={cr.componentId} className="sim2-comp-result">
           <span className="sim2-comp-result-label">{cr.componentId}</span>
           <span className="sim2-comp-result-values">
@@ -112,8 +112,8 @@ function MeasurementsTab({
   if (!measurements) return <p className="sim2-analysis-empty">No measurements available.</p>;
 
   if (selectedComponentId) {
-    const comp = circuit.components.find((c: any) => c.id === selectedComponentId);
-    const compMeas = measurements.componentMeasurements.find((m: any) => m.componentId === selectedComponentId);
+    const comp = circuit.components.find((c) => c.id === selectedComponentId);
+    const compMeas = measurements.componentMeasurements.find((m) => m.componentId === selectedComponentId);
     if (compMeas) {
       const rows = [
         { label: "Voltage", value: `${compMeas.voltage.toFixed(3)} V` },
@@ -137,7 +137,7 @@ function MeasurementsTab({
   return <p className="sim2-analysis-empty">Select a component to view its measurements.</p>;
 }
 
-function ValidationTab({ errors }: { errors: any[] }) {
+function ValidationTab({ errors }: { errors: SimulationError[] }) {
   if (errors.length === 0) {
     return (
       <div className="sim2-validation-ok">
@@ -153,7 +153,7 @@ function ValidationTab({ errors }: { errors: any[] }) {
             {err.severity === "error" ? "ERROR" : err.severity === "warning" ? "WARNING" : "INFO"}
           </p>
           <p className="sim2-error-msg">{err.message}</p>
-          {err.suggestion && <p className="sim2-error-suggestion">{err.suggestion}</p>}
+          {err.suggestedFix && <p className="sim2-error-suggestion">{err.suggestedFix}</p>}
         </div>
       ))}
     </div>

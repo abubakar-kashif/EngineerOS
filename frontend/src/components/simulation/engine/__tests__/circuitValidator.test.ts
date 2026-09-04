@@ -9,6 +9,7 @@ import {
 
 import type {
   CircuitDefinition,
+  ComponentType,
 } from '../circuitGraph';
 import {
   createTerminalId,
@@ -32,7 +33,7 @@ describe('Circuit Validator', () => {
         components: [
           {
             id: 'X1',
-            type: 'invalid_type' as any,
+            type: 'invalid_type' as ComponentType,
             label: 'X1',
             position: { x: 0, y: 0 },
             rotation: 0,

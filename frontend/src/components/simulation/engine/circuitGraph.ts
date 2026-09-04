@@ -43,7 +43,7 @@ export interface ComponentProperties {
   inductance?: number;      // H
   forwardVoltage?: number;  // V
   state?: SwitchState;
-  [key: string]: any;
+  [key: string]: string | number | boolean | SwitchState | undefined;
 }
 
 export interface Terminal {
@@ -61,7 +61,7 @@ export interface Component {
   rotation: number; // degrees
   properties: ComponentProperties;
   terminals: Terminal[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Connection {

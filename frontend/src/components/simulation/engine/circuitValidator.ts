@@ -32,6 +32,8 @@ import {
   ErrorMessages,
 } from './errors';
 
+import type { GraphBuilderResult } from './circuitGraphBuilder';
+
 export interface ValidatorOptions {
   strictMode?: boolean;
   checkLEDCurrentLimit?: boolean;
@@ -337,7 +339,7 @@ function checkLEDCurrentLimit(circuit: CircuitDefinition, led: Component): boole
 
 function validateElectricalRules(
   circuit: CircuitDefinition,
-  graphResult: { nodes: any[]; errors: string[] },
+  graphResult: GraphBuilderResult,
   errors: SimulationError[],
   warnings: SimulationError[]
 ): void {

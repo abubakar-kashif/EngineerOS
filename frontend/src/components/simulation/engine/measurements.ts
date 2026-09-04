@@ -287,7 +287,7 @@ function generateSummaryMeasurements(
   const componentCount = circuit.components.length;
   measurements.push({
     id: 'component_count',
-    type: 'resistance' as any,
+    type: 'resistance',
     value: componentCount,
     unit: '',
     label: 'Total Components',
@@ -296,7 +296,7 @@ function generateSummaryMeasurements(
   const resistorCount = circuit.components.filter(c => c.type === 'resistor').length;
   measurements.push({
     id: 'resistor_count',
-    type: 'resistance' as any,
+    type: 'resistance',
     value: resistorCount,
     unit: '',
     label: 'Resistors',
@@ -307,7 +307,7 @@ function generateSummaryMeasurements(
   ).length;
   measurements.push({
     id: 'source_count',
-    type: 'resistance' as any,
+    type: 'resistance',
     value: sourceCount,
     unit: '',
     label: 'Sources',
@@ -316,7 +316,7 @@ function generateSummaryMeasurements(
   const hasGround = circuit.components.some(c => c.type === 'ground');
   measurements.push({
     id: 'has_ground',
-    type: 'resistance' as any,
+    type: 'resistance',
     value: hasGround ? 1 : 0,
     unit: '',
     label: 'Ground Present',
@@ -324,7 +324,7 @@ function generateSummaryMeasurements(
 
   measurements.push({
     id: 'solver_success',
-    type: 'resistance' as any,
+    type: 'resistance',
     value: dcResult.success ? 1 : 0,
     unit: '',
     label: 'Solver Success',

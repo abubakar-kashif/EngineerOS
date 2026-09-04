@@ -96,7 +96,7 @@ function SimulationPage() {
       }
       try {
         const data = await getExperimentById(experimentParam);
-        if (!cancelled) setExperiment(data);
+        if (!cancelled) setExperiment(data ?? null);
       } catch {
         if (!cancelled) setExperiment(null);
       }

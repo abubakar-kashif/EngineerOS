@@ -30,11 +30,12 @@ import {
 
 import {
   solveDC,
+  type DCResult,
 } from '../dcSolver';
 
 describe('Graph Data', () => {
   let circuit: CircuitDefinition;
-  let dcResult: any;
+  let dcResult: DCResult;
 
   beforeEach(() => {
     circuit = {

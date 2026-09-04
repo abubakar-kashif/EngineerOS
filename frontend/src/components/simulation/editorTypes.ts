@@ -22,7 +22,7 @@ export interface ComponentInstance {
   rotation: number;
   properties: ComponentProperties;
   terminals: TerminalType[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

@@ -40,7 +40,7 @@ export interface GraphData {
     unit: string;
   };
   series: GraphSeries[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface GraphOptions {

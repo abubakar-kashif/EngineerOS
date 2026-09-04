@@ -23,7 +23,7 @@ import type {
   ComponentMeasurement,
 } from './types';
 
-import { generateAllGraphs } from './graphData';
+import { generateAllGraphs, type GraphData } from './graphData';
 
 /**
  * Main circuit solver
@@ -58,7 +58,7 @@ export function solveCircuit(circuit: CircuitDefinition): SimulationResult {
     const measurements = generateMeasurementsFromDCResult(circuit, dcResult);
 
     // Step 4: Graphs from the same SimulationResult path (no competing pipeline)
-    let graphs = [];
+    let graphs: GraphData[] = [];
     try {
       graphs = generateAllGraphs(circuit, dcResult);
     } catch {
@@ -85,7 +85,7 @@ export function solveCircuit(circuit: CircuitDefinition): SimulationResult {
  * Resolve node voltage for a terminal from DC node voltages / component results.
  */
 function terminalVoltage(
-  circuit: CircuitDefinition,
+  _circuit: CircuitDefinition,
   dcResult: DCResult,
   componentId: string,
   terminalType: string,

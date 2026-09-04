@@ -34,5 +34,5 @@ export interface SimulationResult {
   measurements?: Measurements;
   graphs?: GraphData[];
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

@@ -57,14 +57,20 @@ function WorkspaceMentorPanel({
   }, [simResult]);
 
   // Flash when a new authoritative run arrives (closed-loop freshness)
-  useEffect(() => {
-    if (!simulationRunId && !simResult) return;
+  const contextKey = `${simulationRunId ?? ""}|${simResult?.status ?? ""}|${simResult?.measurements?.totalCurrent ?? ""}`;
+  const [flashKey, setFlashKey] = useState<string | null>(null);
+  if ((simulationRunId || simResult) && contextKey !== flashKey) {
+    setFlashKey(contextKey);
     setContextFlash(true);
+  }
+
+  useEffect(() => {
+    if (!contextFlash) return;
     const t = window.setTimeout(() => setContextFlash(false), 2200);
     return () => window.clearTimeout(t);
-  }, [simulationRunId, simResult?.status, simResult?.measurements?.totalCurrent]);
+  }, [contextFlash, flashKey]);
 
-  const mentorLink = useMemo(() => {
+  const mentorLink = (() => {
     const params = new URLSearchParams();
     if (experimentId) params.set("experiment", experimentId);
     params.set("stage", "simulation");
@@ -72,7 +78,7 @@ function WorkspaceMentorPanel({
     if (simulationRunId) params.set("simulation", simulationRunId);
     const qs = params.toString();
     return qs ? `/mentor?${qs}` : "/mentor";
-  }, [experimentId, simResult?.status, simulationRunId]);
+  })();
 
   const contextHint = useMemo(() => {
     if (!simResult) {
