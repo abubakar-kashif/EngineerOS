@@ -464,6 +464,10 @@ export function useCircuitEditor(initial?: EditorCircuit) {
     }));
   }, []);
 
+  const markClean = useCallback(() => {
+    setState((s) => (s.dirty ? { ...s, dirty: false } : s));
+  }, []);
+
   // ── Selected component reference ──
 
   const selectedComponent = state.selectedComponentId
@@ -497,6 +501,7 @@ export function useCircuitEditor(initial?: EditorCircuit) {
     redo,
     clearCircuit,
     loadCircuit,
+    markClean,
     selectedComponent,
     canUndo: state.undoStack.length > 0,
     canRedo: state.redoStack.length > 0,

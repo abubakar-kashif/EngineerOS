@@ -1,10 +1,13 @@
 /**
- * Workspace wrapper for CircuitCanvas, adds controls and passes props.
+ * Workspace wrapper for CircuitCanvas — forwards viewport handle.
  */
+import { forwardRef } from "react";
 import type { SimulationResult } from "./engine";
 import type { EditorState } from "../../hooks/useCircuitEditor";
 import type { ComponentType } from "./editorTypes";
-import CircuitCanvas from "./CircuitCanvas";
+import CircuitCanvas, { type CircuitCanvasHandle } from "./CircuitCanvas";
+
+export type { CircuitCanvasHandle };
 
 interface WorkspaceCircuitCanvasProps {
   editor: EditorState;
@@ -18,12 +21,20 @@ interface WorkspaceCircuitCanvasProps {
   onUpdateWirePreview: (x: number, y: number) => void;
   onCancelWire: () => void;
   onCancelPlacement: () => void;
+  onDeleteWire?: (id: string) => void;
+  onDeleteComponent?: (id: string) => void;
   placementType: ComponentType | null;
   className?: string;
 }
 
-function WorkspaceCircuitCanvas(props: WorkspaceCircuitCanvasProps) {
-  return <CircuitCanvas {...props} />;
-}
+const WorkspaceCircuitCanvas = forwardRef<CircuitCanvasHandle, WorkspaceCircuitCanvasProps>(
+  function WorkspaceCircuitCanvas({ className, ...props }, ref) {
+    return (
+      <div className={className}>
+        <CircuitCanvas ref={ref} {...props} />
+      </div>
+    );
+  },
+);
 
 export default WorkspaceCircuitCanvas;
