@@ -1,26 +1,86 @@
 /**
- * Interactive graph viewer for engine GraphData (zoom, hover, axes, reset).
+ * Graph viewer: axes are measurable signals from SimulationResult.
+ * Never invents series; shows an explicit empty reason when data is missing.
  */
-import { useCallback, useMemo, useState } from "react";
-import type { GraphData, GraphPoint } from "./engine/graphData";
+import { useMemo, useState } from "react";
+import type { SimulationResult } from "./engine/types";
+import {
+  buildGraphFromSignals,
+  listAvailableSignals,
+  type GraphData,
+  type GraphPoint,
+  type MeasurementSignal,
+} from "./engine/graphData";
 
 interface GraphViewerProps {
-  graphs: GraphData[];
+  result: SimulationResult;
+  graphs?: GraphData[];
 }
 
 const W = 420;
 const H = 240;
 const PAD = { top: 28, right: 16, bottom: 40, left: 52 };
 
-function GraphViewer({ graphs }: GraphViewerProps) {
-  const [activeId, setActiveId] = useState(graphs[0]?.id ?? "");
+function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
+  const signals = useMemo(() => listAvailableSignals(result), [result]);
+  const available = useMemo(() => signals.filter((s) => s.available), [signals]);
+  const yCandidates = useMemo(
+    () => available.filter((s) => s.quantity !== "index" && s.quantity !== "time"),
+    [available],
+  );
+  const xCandidates = useMemo(() => {
+    const idx = available.filter((s) => s.quantity === "index");
+    const scalars = available.filter(
+      (s) =>
+        s.quantity === "voltage" ||
+        s.quantity === "current" ||
+        s.quantity === "power" ||
+        s.quantity === "resistance",
+    );
+    const time = signals.filter((s) => s.quantity === "time");
+    return [...idx, ...scalars, ...time];
+  }, [available, signals]);
+
+  const presets = useMemo(
+    () => (presetGraphs?.length ? presetGraphs : result.graphs ?? []),
+    [presetGraphs, result.graphs],
+  );
+
+  const [mode, setMode] = useState<"preset" | "custom">("preset");
+  const [activeId, setActiveId] = useState(presets[0]?.id ?? "");
+  const [xId, setXId] = useState(xCandidates[0]?.id ?? "index");
+  const [yId, setYId] = useState(yCandidates[0]?.id ?? "");
   const [zoom, setZoom] = useState(1);
   const [hover, setHover] = useState<{ x: number; y: number; label: string } | null>(null);
 
-  const graph = useMemo(
-    () => graphs.find(g => g.id === activeId) ?? graphs[0],
-    [graphs, activeId],
-  );
+  const resolvedActiveId = presets.some((g) => g.id === activeId)
+    ? activeId
+    : (presets[0]?.id ?? "");
+  const resolvedXId = xCandidates.some((s) => s.id === xId)
+    ? xId
+    : (xCandidates[0]?.id ?? "index");
+  const resolvedYId = yCandidates.some((s) => s.id === yId)
+    ? yId
+    : (yCandidates[0]?.id ?? "");
+
+  const customBuild = useMemo(() => {
+    if (mode !== "custom" || !result.measurements || !resolvedYId) {
+      return { graph: null as GraphData | null, unavailableReason: undefined as string | undefined };
+    }
+    return buildGraphFromSignals(result.measurements, resolvedXId, [resolvedYId]);
+  }, [mode, result.measurements, resolvedXId, resolvedYId]);
+
+  const graph = useMemo(() => {
+    if (mode === "custom") return customBuild.graph;
+    return presets.find((g) => g.id === resolvedActiveId) ?? presets[0] ?? null;
+  }, [mode, customBuild.graph, presets, resolvedActiveId]);
+
+  const unavailableReason =
+    mode === "custom"
+      ? customBuild.unavailableReason
+      : !presets.length
+        ? "No measurement-based graphs are available for this SimulationRun."
+        : undefined;
 
   const bounds = useMemo(() => {
     if (!graph) return { minX: 0, maxX: 1, minY: 0, maxY: 1 };
@@ -53,67 +113,92 @@ function GraphViewer({ graphs }: GraphViewerProps) {
     };
   }, [graph, zoom]);
 
-  const toSvg = useCallback(
-    (p: GraphPoint) => {
-      const iw = W - PAD.left - PAD.right;
-      const ih = H - PAD.top - PAD.bottom;
-      const x =
-        PAD.left +
-        ((p.x - bounds.minX) / (bounds.maxX - bounds.minX || 1)) * iw;
-      const y =
-        PAD.top +
-        ih -
-        ((p.y - bounds.minY) / (bounds.maxY - bounds.minY || 1)) * ih;
-      return { x, y };
-    },
-    [bounds],
-  );
+  const toSvg = (p: GraphPoint) => {
+    const iw = W - PAD.left - PAD.right;
+    const ih = H - PAD.top - PAD.bottom;
+    const x = PAD.left + ((p.x - bounds.minX) / (bounds.maxX - bounds.minX || 1)) * iw;
+    const y = PAD.top + ih - ((p.y - bounds.minY) / (bounds.maxY - bounds.minY || 1)) * ih;
+    return { x, y };
+  };
 
-  if (!graphs.length || !graph) {
+  const axisOptionLabel = (s: MeasurementSignal) =>
+    s.available ? `${s.label}${s.unit ? ` (${s.unit})` : ""}` : `${s.label} — unavailable`;
+
+  if (!result.measurements) {
     return (
       <p className="sim2-analysis-empty">
-        No graph arrays on this SimulationResult.
+        Run a simulation to plot measurement signals.
       </p>
     );
   }
 
-  return (
-    <div className="sim-graph-viewer">
-      <div className="sim-graph-toolbar">
-        <select
-          className="sim-graph-select"
-          value={graph.id}
-          onChange={e => {
-            setActiveId(e.target.value);
+  if (unavailableReason && !graph) {
+    return (
+      <div className="sim-graph-viewer">
+        <SignalToolbar
+          mode={mode}
+          setMode={setMode}
+          presets={presets}
+          activeId={resolvedActiveId}
+          setActiveId={(id) => {
+            setActiveId(id);
             setZoom(1);
             setHover(null);
           }}
-          aria-label="Select graph"
-        >
-          {graphs.map(g => (
-            <option key={g.id} value={g.id}>
-              {g.title}
-            </option>
-          ))}
-        </select>
-        <div className="sim-graph-actions">
-          <button type="button" onClick={() => setZoom(z => Math.min(8, z * 1.25))}>
-            Zoom +
-          </button>
-          <button type="button" onClick={() => setZoom(z => Math.max(0.5, z / 1.25))}>
-            Zoom −
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setZoom(1);
-              setHover(null);
-            }}
-          >
-            Reset view
-          </button>
-        </div>
+          xId={resolvedXId}
+          setXId={setXId}
+          yId={resolvedYId}
+          setYId={setYId}
+          xCandidates={xCandidates}
+          yCandidates={yCandidates}
+          axisOptionLabel={axisOptionLabel}
+          onResetView={() => {
+            setZoom(1);
+            setHover(null);
+          }}
+        />
+        <p className="sim2-analysis-empty" role="status">
+          {unavailableReason}
+        </p>
       </div>
+    );
+  }
+
+  if (!graph) {
+    return (
+      <p className="sim2-analysis-empty">
+        No measurement-based graphs are available for this SimulationRun.
+      </p>
+    );
+  }
+
+  const categoryLabels = (graph.metadata?.labels as string[] | undefined) ?? [];
+
+  return (
+    <div className="sim-graph-viewer">
+      <SignalToolbar
+        mode={mode}
+        setMode={setMode}
+        presets={presets}
+        activeId={graph.id}
+        setActiveId={(id) => {
+          setActiveId(id);
+          setZoom(1);
+          setHover(null);
+        }}
+        xId={resolvedXId}
+        setXId={setXId}
+        yId={resolvedYId}
+        setYId={setYId}
+        xCandidates={xCandidates}
+        yCandidates={yCandidates}
+        axisOptionLabel={axisOptionLabel}
+        setZoom={setZoom}
+        onResetView={() => {
+          setZoom(1);
+          setHover(null);
+        }}
+      />
 
       <svg
         className="sim-graph-svg"
@@ -139,13 +224,7 @@ function GraphViewer({ graphs }: GraphViewerProps) {
         <text x={W / 2} y={16} textAnchor="middle" fontSize={11} fill="#0f172a">
           {graph.title}
         </text>
-        <text
-          x={W / 2}
-          y={H - 8}
-          textAnchor="middle"
-          fontSize={10}
-          fill="#475569"
-        >
+        <text x={W / 2} y={H - 8} textAnchor="middle" fontSize={10} fill="#475569">
           {graph.xAxis.label}
           {graph.xAxis.unit ? ` (${graph.xAxis.unit})` : ""}
         </text>
@@ -161,15 +240,16 @@ function GraphViewer({ graphs }: GraphViewerProps) {
           {graph.yAxis.unit ? ` (${graph.yAxis.unit})` : ""}
         </text>
 
-        {graph.series.map(series => {
+        {graph.series.map((series) => {
           const pts = series.points.map(toSvg);
           if (graph.type === "bar") {
-            const barW = Math.max(4, (W - PAD.left - PAD.right) / (series.points.length * 2));
+            const barW = Math.max(4, (W - PAD.left - PAD.right) / (series.points.length * 2 || 2));
             return series.points.map((p, i) => {
               const c = toSvg(p);
               const base = toSvg({ x: p.x, y: Math.min(0, bounds.minY) });
               const y0 = Math.min(c.y, base.y);
               const h = Math.abs(c.y - base.y) || 1;
+              const cat = categoryLabels[i] ?? series.name;
               return (
                 <rect
                   key={`${series.name}-${i}`}
@@ -183,7 +263,7 @@ function GraphViewer({ graphs }: GraphViewerProps) {
                     setHover({
                       x: p.x,
                       y: p.y,
-                      label: `${series.name}: (${p.x.toPrecision(4)}, ${p.y.toPrecision(4)})`,
+                      label: `${cat}: ${p.y.toPrecision(4)} ${graph.yAxis.unit}`,
                     })
                   }
                   onMouseLeave={() => setHover(null)}
@@ -194,7 +274,9 @@ function GraphViewer({ graphs }: GraphViewerProps) {
           const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
           return (
             <g key={series.name}>
-              <path d={d} fill="none" stroke={series.color || "#2563eb"} strokeWidth={2} />
+              {pts.length > 1 && (
+                <path d={d} fill="none" stroke={series.color || "#2563eb"} strokeWidth={2} />
+              )}
               {series.points.map((p, i) => {
                 const c = pts[i];
                 return (
@@ -202,7 +284,7 @@ function GraphViewer({ graphs }: GraphViewerProps) {
                     key={i}
                     cx={c.x}
                     cy={c.y}
-                    r={3}
+                    r={3.5}
                     fill={series.color || "#2563eb"}
                     onMouseEnter={() =>
                       setHover({
@@ -226,9 +308,116 @@ function GraphViewer({ graphs }: GraphViewerProps) {
         </div>
       )}
       <p className="sim-graph-association">
-        Tied to current SimulationResult · {graphs.length} graph
-        {graphs.length === 1 ? "" : "s"}
+        From SimulationRun measurements · signals only (no synthetic sweeps)
       </p>
+    </div>
+  );
+}
+
+function SignalToolbar({
+  mode,
+  setMode,
+  presets,
+  activeId,
+  setActiveId,
+  xId,
+  setXId,
+  yId,
+  setYId,
+  xCandidates,
+  yCandidates,
+  axisOptionLabel,
+  setZoom,
+  onResetView,
+}: {
+  mode: "preset" | "custom";
+  setMode: (m: "preset" | "custom") => void;
+  presets: GraphData[];
+  activeId: string;
+  setActiveId: (id: string) => void;
+  xId: string;
+  setXId: (id: string) => void;
+  yId: string;
+  setYId: (id: string) => void;
+  xCandidates: MeasurementSignal[];
+  yCandidates: MeasurementSignal[];
+  axisOptionLabel: (s: MeasurementSignal) => string;
+  setZoom?: (fn: (z: number) => number) => void;
+  onResetView: () => void;
+}) {
+  return (
+    <div className="sim-graph-toolbar">
+      <select
+        className="sim-graph-select"
+        value={mode}
+        onChange={(e) => setMode(e.target.value as "preset" | "custom")}
+        aria-label="Graph mode"
+      >
+        <option value="preset">Measurement plots</option>
+        <option value="custom">Custom X / Y signals</option>
+      </select>
+      {mode === "preset" ? (
+        <select
+          className="sim-graph-select"
+          value={activeId}
+          onChange={(e) => setActiveId(e.target.value)}
+          aria-label="Select measurement graph"
+        >
+          {presets.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.title}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <>
+          <label className="sim-graph-axis-label">
+            X
+            <select
+              className="sim-graph-select"
+              value={xId}
+              onChange={(e) => setXId(e.target.value)}
+              aria-label="X-axis signal"
+            >
+              {xCandidates.map((s) => (
+                <option key={s.id} value={s.id} disabled={!s.available && s.quantity !== "time"}>
+                  {axisOptionLabel(s)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sim-graph-axis-label">
+            Y
+            <select
+              className="sim-graph-select"
+              value={yId}
+              onChange={(e) => setYId(e.target.value)}
+              aria-label="Y-axis signal"
+            >
+              {yCandidates.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {axisOptionLabel(s)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
+      <div className="sim-graph-actions">
+        {setZoom && (
+          <>
+            <button type="button" onClick={() => setZoom((z) => Math.min(8, z * 1.25))}>
+              Zoom +
+            </button>
+            <button type="button" onClick={() => setZoom((z) => Math.max(0.5, z / 1.25))}>
+              Zoom −
+            </button>
+          </>
+        )}
+        <button type="button" onClick={onResetView}>
+          Reset view
+        </button>
+      </div>
     </div>
   );
 }

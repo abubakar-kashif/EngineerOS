@@ -1,20 +1,12 @@
 /**
- * Graph Data Generation
- * Person 1: Simulation Engine
- * Generates graph data from simulation results
+ * Graph data from SimulationRun measurements only.
+ * Axes are measurable signals (V, I, P, …) — never experiment names.
+ * No synthetic sweeps or invented time series.
  */
 
-import type {
-  CircuitDefinition,
-} from './circuitGraph';
-
-import {
-  findComponent,
-} from './circuitGraph';
-
-import type {
-  DCResult,
-} from './dcSolver';
+import type { CircuitDefinition } from './circuitGraph';
+import type { DCResult } from './dcSolver';
+import type { Measurements, SimulationResult } from './types';
 
 export interface GraphPoint {
   x: number;
@@ -43,653 +35,460 @@ export interface GraphData {
   metadata?: Record<string, unknown>;
 }
 
-export interface GraphOptions {
-  title?: string;
-  xLabel?: string;
-  xUnit?: string;
-  yLabel?: string;
-  yUnit?: string;
-  numPoints?: number;
-  minX?: number;
-  maxX?: number;
+export type SignalQuantity =
+  | 'voltage'
+  | 'current'
+  | 'power'
+  | 'resistance'
+  | 'time'
+  | 'index';
+
+/** A measurable axis candidate derived from the current SimulationResult. */
+export interface MeasurementSignal {
+  id: string;
+  label: string;
+  unit: string;
+  quantity: SignalQuantity;
+  /** Scalar from this run; null when the quantity is not on this result. */
+  value: number | null;
+  available: boolean;
+  unavailableReason?: string;
 }
 
-export function generateOhmsLawGraph(
-  circuit: CircuitDefinition,
-  _dcResult: DCResult,
-  options: GraphOptions = {}
-): GraphData {
-  const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
-  const resistor = circuit.components.find(c => c.type === 'resistor');
-  
-  if (!voltageSource || !resistor) {
-    throw new Error('Circuit must have a voltage source and resistor for Ohm\'s Law graph');
-  }
+const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#7c3aed', '#0891b2'];
 
-  const resistance = resistor.properties.resistance || 1000;
-  const maxVoltage = voltageSource.properties.voltage || 10;
-  const numPoints = options.numPoints || 10;
-  
-  const points: GraphPoint[] = [];
-  
-  for (let i = 0; i <= numPoints; i++) {
-    const voltage = (i / numPoints) * maxVoltage;
-    const current = voltage / resistance;
-    points.push({ x: voltage, y: current });
-  }
-
-  return {
-    id: 'ohms_law',
-    type: 'line',
-    title: options.title || 'Ohm\'s Law: Voltage vs Current',
-    xAxis: {
-      label: options.xLabel || 'Voltage',
-      unit: options.xUnit || 'V',
-    },
-    yAxis: {
-      label: options.yLabel || 'Current',
-      unit: options.yUnit || 'A',
-    },
-    series: [
-      {
-        name: `R = ${resistance}Ω`,
-        points,
-        color: '#3b82f6',
-      },
-    ],
-    metadata: {
-      resistance,
-      maxVoltage,
-      numPoints,
-    },
-  };
+function labelForComponent(
+  circuit: CircuitDefinition | undefined,
+  componentId: string,
+  fallbackType: string,
+): string {
+  const comp = circuit?.components.find((c) => c.id === componentId);
+  return comp?.label || fallbackType || componentId;
 }
 
-export function generateVoltageDividerGraph(
-  circuit: CircuitDefinition,
-  dcResult: DCResult,
-  options: GraphOptions = {}
-): GraphData {
-  const resistors = circuit.components.filter(c => c.type === 'resistor');
-  
-  if (resistors.length < 2) {
-    throw new Error('Voltage divider graph requires at least 2 resistors');
-  }
+/**
+ * Inspect SimulationResult measurements and list real signal axes.
+ * Time is listed but marked unavailable unless the run carries a time series.
+ */
+export function listAvailableSignals(
+  result: Pick<SimulationResult, 'measurements' | 'metadata'> | null | undefined,
+  circuit?: CircuitDefinition,
+): MeasurementSignal[] {
+  const m = result?.measurements;
+  if (!m) return [];
 
-  const r1 = resistors[0].properties.resistance || 1000;
-  const r2 = resistors[1].properties.resistance || 1000;
-  const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
-  const maxVoltage =
-    voltageSource?.properties.voltage ??
-    dcResult.componentResults.get(voltageSource?.id || '')?.voltage ??
-    10;
-  const numPoints = options.numPoints || 10;
-  
-  const points: GraphPoint[] = [];
-  
-  for (let i = 0; i <= numPoints; i++) {
-    const vin = (i / numPoints) * maxVoltage;
-    const vout = vin * (r2 / (r1 + r2));
-    points.push({ x: vin, y: vout });
-  }
-
-  return {
-    id: 'voltage_divider',
-    type: 'line',
-    title: options.title || 'Voltage Divider: Input vs Output Voltage',
-    xAxis: {
-      label: options.xLabel || 'Input Voltage',
-      unit: options.xUnit || 'V',
+  const signals: MeasurementSignal[] = [
+    {
+      id: 'Vs',
+      label: 'Vs (source)',
+      unit: 'V',
+      quantity: 'voltage',
+      value: m.totalVoltage,
+      available: Number.isFinite(m.totalVoltage),
     },
-    yAxis: {
-      label: options.yLabel || 'Output Voltage',
-      unit: options.yUnit || 'V',
+    {
+      id: 'ΣI',
+      label: 'ΣI (total current)',
+      unit: 'A',
+      quantity: 'current',
+      value: m.totalCurrent,
+      available: Number.isFinite(m.totalCurrent),
     },
-    series: [
-      {
-        name: `R1 = ${r1}Ω, R2 = ${r2}Ω`,
-        points,
-        color: '#10b981',
-      },
-    ],
-    metadata: {
-      r1,
-      r2,
-      maxVoltage,
-      numPoints,
+    {
+      id: 'P_total',
+      label: 'Total power',
+      unit: 'W',
+      quantity: 'power',
+      value: m.totalPower,
+      available: Number.isFinite(m.totalPower),
     },
-  };
-}
-
-export function generateRCGraph(
-  circuit: CircuitDefinition,
-  _dcResult: DCResult,
-  options: GraphOptions = {}
-): GraphData {
-  const capacitor = circuit.components.find(c => c.type === 'capacitor');
-  const resistor = circuit.components.find(c => c.type === 'resistor');
-  
-  if (!capacitor || !resistor) {
-    throw new Error('Circuit must have a capacitor and resistor for RC graph');
-  }
-
-  const capacitance = capacitor.properties.capacitance || 0.000001;
-  const resistance = resistor.properties.resistance || 1000;
-  const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
-  const sourceVoltage = voltageSource?.properties.voltage || 5;
-  
-  const tau = resistance * capacitance;
-  const numPoints = options.numPoints || 20;
-  const maxTime = options.maxX || (tau * 5);
-  
-  const chargingPoints: GraphPoint[] = [];
-  const dischargingPoints: GraphPoint[] = [];
-  
-  for (let i = 0; i <= numPoints; i++) {
-    const time = (i / numPoints) * maxTime;
-    
-    const chargingVoltage = sourceVoltage * (1 - Math.exp(-time / tau));
-    chargingPoints.push({ x: time, y: chargingVoltage });
-    
-    const dischargingVoltage = sourceVoltage * Math.exp(-time / tau);
-    dischargingPoints.push({ x: time, y: dischargingVoltage });
-  }
-
-  return {
-    id: 'rc_charging',
-    type: 'line',
-    title: options.title || 'RC Circuit: Time vs Capacitor Voltage',
-    xAxis: {
-      label: options.xLabel || 'Time',
-      unit: options.xUnit || 's',
+    {
+      id: 'Req',
+      label: 'Req',
+      unit: 'Ω',
+      quantity: 'resistance',
+      value: m.equivalentResistance,
+      available: Number.isFinite(m.equivalentResistance),
     },
-    yAxis: {
-      label: options.yLabel || 'Capacitor Voltage',
-      unit: options.yUnit || 'V',
+    {
+      id: 'time',
+      label: 'Time',
+      unit: 's',
+      quantity: 'time',
+      value: null,
+      available: false,
+      unavailableReason: 'No time-series data is available on this SimulationRun (DC solve).',
     },
-    series: [
-      {
-        name: `Charging (τ = ${(tau * 1000).toFixed(2)}ms)`,
-        points: chargingPoints,
-        color: '#3b82f6',
-      },
-      {
-        name: `Discharging (τ = ${(tau * 1000).toFixed(2)}ms)`,
-        points: dischargingPoints,
-        color: '#ef4444',
-      },
-    ],
-    metadata: {
-      capacitance,
-      resistance,
-      sourceVoltage,
-      tau,
-      maxTime,
-      numPoints,
+    {
+      id: 'index',
+      label: 'Component',
+      unit: '',
+      quantity: 'index',
+      value: 0,
+      available: m.componentMeasurements.length > 0,
+      unavailableReason:
+        m.componentMeasurements.length === 0
+          ? 'No component measurements are available.'
+          : undefined,
     },
-  };
-}
+  ];
 
-export function generateRLGraph(
-  circuit: CircuitDefinition,
-  _dcResult: DCResult,
-  options: GraphOptions = {}
-): GraphData {
-  const inductor = circuit.components.find(c => c.type === 'inductor');
-  const resistor = circuit.components.find(c => c.type === 'resistor');
-  
-  if (!inductor || !resistor) {
-    throw new Error('Circuit must have an inductor and resistor for RL graph');
-  }
-
-  const inductance = inductor.properties.inductance || 0.001;
-  const resistance = resistor.properties.resistance || 1000;
-  const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
-  const sourceVoltage = voltageSource?.properties.voltage || 5;
-  
-  const tau = inductance / resistance;
-  const maxCurrent = sourceVoltage / resistance;
-  const numPoints = options.numPoints || 20;
-  const maxTime = options.maxX || (tau * 5);
-  
-  const points: GraphPoint[] = [];
-  
-  for (let i = 0; i <= numPoints; i++) {
-    const time = (i / numPoints) * maxTime;
-    const current = maxCurrent * (1 - Math.exp(-time / tau));
-    points.push({ x: time, y: current });
-  }
-
-  return {
-    id: 'rl_charging',
-    type: 'line',
-    title: options.title || 'RL Circuit: Time vs Inductor Current',
-    xAxis: {
-      label: options.xLabel || 'Time',
-      unit: options.xUnit || 's',
-    },
-    yAxis: {
-      label: options.yLabel || 'Inductor Current',
-      unit: options.yUnit || 'A',
-    },
-    series: [
-      {
-        name: `L = ${inductance * 1000}mH, R = ${resistance}Ω`,
-        points,
-        color: '#8b5cf6',
-      },
-    ],
-    metadata: {
-      inductance,
-      resistance,
-      sourceVoltage,
-      tau,
-      maxCurrent,
-      maxTime,
-      numPoints,
-    },
-  };
-}
-
-export function generatePowerGraph(
-  circuit: CircuitDefinition,
-  _dcResult: DCResult,
-  options: GraphOptions = {}
-): GraphData {
-  const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
-  const resistor = circuit.components.find(c => c.type === 'resistor');
-  
-  if (!voltageSource || !resistor) {
-    throw new Error('Circuit must have a voltage source and resistor for power graph');
-  }
-
-  const sourceVoltage = voltageSource.properties.voltage || 5;
-  const baseResistance = resistor.properties.resistance || 1000;
-  const numPoints = options.numPoints || 10;
-  
-  const points: GraphPoint[] = [];
-  const minR = baseResistance * 0.1;
-  const maxR = baseResistance * 10;
-  
-  for (let i = 0; i <= numPoints; i++) {
-    const resistance = minR + (i / numPoints) * (maxR - minR);
-    const current = sourceVoltage / resistance;
-    const power = current * current * resistance;
-    points.push({ x: resistance, y: power });
-  }
-
-  return {
-    id: 'power_graph',
-    type: 'line',
-    title: options.title || 'Power vs Resistance',
-    xAxis: {
-      label: options.xLabel || 'Resistance',
-      unit: options.xUnit || 'Ω',
-    },
-    yAxis: {
-      label: options.yLabel || 'Power',
-      unit: options.yUnit || 'W',
-    },
-    series: [
-      {
-        name: `V = ${sourceVoltage}V`,
-        points,
-        color: '#f59e0b',
-      },
-    ],
-    metadata: {
-      sourceVoltage,
-      baseResistance,
-      minR,
-      maxR,
-      numPoints,
-    },
-  };
-}
-
-export function generateComponentAnalysisGraph(
-  circuit: CircuitDefinition,
-  dcResult: DCResult,
-  options: GraphOptions = {}
-): GraphData {
-  const points: GraphPoint[] = [];
-  
-  const components = circuit.components.filter(
-    c => ['resistor', 'capacitor', 'inductor', 'diode', 'led'].includes(c.type)
-  );
-
-  for (const component of components) {
-    const result = dcResult.componentResults.get(component.id);
-    if (!result) continue;
-    
-    points.push({
-      x: components.indexOf(component),
-      y: result.power,
+  let i = 1;
+  for (const cm of m.componentMeasurements) {
+    const name = labelForComponent(circuit, cm.componentId, cm.type);
+    signals.push({
+      id: `V_${cm.componentId}`,
+      label: `V_${name}`,
+      unit: 'V',
+      quantity: 'voltage',
+      value: cm.voltage,
+      available: Number.isFinite(cm.voltage),
     });
+    signals.push({
+      id: `I_${cm.componentId}`,
+      label: `I${i}`,
+      unit: 'A',
+      quantity: 'current',
+      value: cm.current,
+      available: Number.isFinite(cm.current),
+    });
+    signals.push({
+      id: `P_${cm.componentId}`,
+      label: `P_${name}`,
+      unit: 'W',
+      quantity: 'power',
+      value: cm.power,
+      available: Number.isFinite(cm.power),
+    });
+    if (cm.resistance != null && Number.isFinite(cm.resistance)) {
+      signals.push({
+        id: `R_${cm.componentId}`,
+        label: `R_${name}`,
+        unit: 'Ω',
+        quantity: 'resistance',
+        value: cm.resistance,
+        available: true,
+      });
+    }
+    i += 1;
+  }
+
+  return signals;
+}
+
+export function getSignalById(
+  signals: MeasurementSignal[],
+  id: string,
+): MeasurementSignal | undefined {
+  return signals.find((s) => s.id === id);
+}
+
+/**
+ * Build a plot from selected X/Y signal ids using only this run's measurements.
+ * Returns null + reason when the requested data does not exist (never invents points).
+ */
+export function buildGraphFromSignals(
+  measurements: Measurements,
+  xSignalId: string,
+  ySignalIds: string[],
+  circuit?: CircuitDefinition,
+): { graph: GraphData | null; unavailableReason?: string } {
+  const fakeResult = { measurements };
+  const signals = listAvailableSignals(fakeResult, circuit);
+  const x = getSignalById(signals, xSignalId);
+  if (!x) {
+    return { graph: null, unavailableReason: `Unknown X-axis signal "${xSignalId}".` };
+  }
+
+  const ys = ySignalIds
+    .map((id) => getSignalById(signals, id))
+    .filter((s): s is MeasurementSignal => Boolean(s));
+
+  if (ys.length === 0) {
+    return { graph: null, unavailableReason: 'Select at least one Y-axis signal.' };
+  }
+
+  // Time domain is never invented under DC — prefer the specific current-vs-time copy.
+  if (x.quantity === 'time') {
+    return {
+      graph: null,
+      unavailableReason: ys.some((y) => y.quantity === 'current')
+        ? 'No current-vs-time data is available.'
+        : x.unavailableReason ??
+          'No time-series data is available on this SimulationRun.',
+    };
+  }
+
+  if (!x.available) {
+    return {
+      graph: null,
+      unavailableReason:
+        x.unavailableReason ??
+        `No ${x.label}-axis data is available.`,
+    };
+  }
+
+  for (const y of ys) {
+    if (!y.available) {
+      return {
+        graph: null,
+        unavailableReason: y.unavailableReason ?? `No ${y.label} data is available.`,
+      };
+    }
+  }
+
+  if (x.quantity === 'index') {
+    // Bar chart: one bar per component for each Y quantity family
+    const comps = measurements.componentMeasurements;
+    if (comps.length === 0) {
+      return { graph: null, unavailableReason: 'No component measurements are available.' };
+    }
+    const series: GraphSeries[] = ys.map((y, si) => {
+      const points: GraphPoint[] = [];
+      comps.forEach((cm, idx) => {
+        let val: number | null = null;
+        if (y.id.startsWith('V_') && y.id === `V_${cm.componentId}`) val = cm.voltage;
+        else if (y.id.startsWith('I_') && y.id === `I_${cm.componentId}`) val = cm.current;
+        else if (y.id.startsWith('P_') && y.id === `P_${cm.componentId}`) val = cm.power;
+        else if (y.id.startsWith('R_') && y.id === `R_${cm.componentId}`) val = cm.resistance ?? null;
+        else if (y.quantity === 'voltage' && y.id.startsWith('V_')) {
+          // single-component voltage handled below via y.value
+        }
+        if (val != null && Number.isFinite(val)) {
+          points.push({ x: idx + 1, y: val });
+        }
+      });
+      // If Y is a single component signal, still place it at its index
+      if (points.length === 0) {
+        const idx = comps.findIndex((cm) => y.id.endsWith(cm.componentId));
+        if (idx >= 0 && y.value != null) {
+          points.push({ x: idx + 1, y: y.value });
+        }
+      }
+      return { name: y.label, points, color: COLORS[si % COLORS.length] };
+    });
+
+    // Better default: if user selected quantity groups via multiple V_* — merge into one series per quantity
+    const allVoltage = ys.every((y) => y.quantity === 'voltage' && y.id.startsWith('V_'));
+    const allCurrent = ys.every((y) => y.quantity === 'current' && y.id.startsWith('I_'));
+    const allPower = ys.every((y) => y.quantity === 'power' && y.id.startsWith('P_'));
+
+    let finalSeries = series.filter((s) => s.points.length > 0);
+    if ((allVoltage || allCurrent || allPower) && ys.length === comps.length) {
+      const qty = allVoltage ? 'voltage' : allCurrent ? 'current' : 'power';
+      finalSeries = [
+        {
+          name: allVoltage ? 'Voltage' : allCurrent ? 'Current' : 'Power',
+          color: COLORS[0],
+          points: comps.map((cm, idx) => ({
+            x: idx + 1,
+            y: qty === 'voltage' ? cm.voltage : qty === 'current' ? cm.current : cm.power,
+          })),
+        },
+      ];
+    }
+
+    if (finalSeries.length === 0) {
+      return { graph: null, unavailableReason: 'No plottable points for the selected signals.' };
+    }
+
+    const yUnit = ys[0].unit;
+    const yLabel = ys.map((y) => y.label).join(', ');
+    return {
+      graph: {
+        id: `plot_${xSignalId}_${ySignalIds.join('_')}`,
+        type: 'bar',
+        title: `${yLabel} vs Component`,
+        xAxis: { label: 'Component', unit: '' },
+        yAxis: { label: yLabel, unit: yUnit },
+        series: finalSeries,
+        metadata: {
+          source: 'measurements',
+          labels: comps.map((cm) => labelForComponent(circuit, cm.componentId, cm.type)),
+        },
+      },
+    };
+  }
+
+  // Scalar vs scalar: one measured point per Y against X (honest DC snapshot — not a sweep)
+  if (x.value == null || !Number.isFinite(x.value)) {
+    return { graph: null, unavailableReason: `No ${x.label} data is available.` };
+  }
+
+  const series: GraphSeries[] = ys.map((y, si) => {
+    if (y.value == null || !Number.isFinite(y.value)) {
+      return { name: y.label, points: [], color: COLORS[si % COLORS.length] };
+    }
+    return {
+      name: y.label,
+      points: [{ x: x.value as number, y: y.value }],
+      color: COLORS[si % COLORS.length],
+    };
+  }).filter((s) => s.points.length > 0);
+
+  if (series.length === 0) {
+    return { graph: null, unavailableReason: 'No plottable points for the selected signals.' };
   }
 
   return {
-    id: 'component_analysis',
+    graph: {
+      id: `plot_${xSignalId}_${ySignalIds.join('_')}`,
+      type: 'scatter',
+      title: `${ys.map((y) => y.label).join(', ')} vs ${x.label}`,
+      xAxis: { label: x.label, unit: x.unit },
+      yAxis: { label: ys.map((y) => y.label).join(', '), unit: ys[0].unit },
+      series,
+      metadata: { source: 'measurements', pointCount: series.reduce((n, s) => n + s.points.length, 0) },
+    },
+  };
+}
+
+/**
+ * Default graphs attached to a SimulationResult — all derived from measurements.
+ * Titles describe signals, not experiment names (KVL/KCL/Ohm's Law).
+ */
+export function generateGraphsFromMeasurements(
+  measurements: Measurements,
+  circuit?: CircuitDefinition,
+): GraphData[] {
+  const graphs: GraphData[] = [];
+  const comps = measurements.componentMeasurements;
+  if (comps.length === 0) return graphs;
+
+  const labels = comps.map((cm) => labelForComponent(circuit, cm.componentId, cm.type));
+
+  graphs.push({
+    id: 'component_voltages',
     type: 'bar',
-    title: options.title || 'Component Power Analysis',
-    xAxis: {
-      label: options.xLabel || 'Component',
-      unit: options.xUnit || '',
+    title: 'Component voltage',
+    xAxis: { label: 'Component', unit: '' },
+    yAxis: { label: 'Voltage', unit: 'V' },
+    series: [
+      {
+        name: 'Voltage',
+        color: COLORS[0],
+        points: comps.map((cm, i) => ({ x: i + 1, y: cm.voltage })),
+      },
+    ],
+    metadata: { source: 'measurements', labels, signals: comps.map((cm) => `V_${cm.componentId}`) },
+  });
+
+  graphs.push({
+    id: 'component_currents',
+    type: 'bar',
+    title: 'Component current',
+    xAxis: { label: 'Component', unit: '' },
+    yAxis: { label: 'Current', unit: 'A' },
+    series: [
+      {
+        name: 'Current',
+        color: COLORS[1],
+        points: comps.map((cm, i) => ({ x: i + 1, y: cm.current })),
+      },
+    ],
+    metadata: {
+      source: 'measurements',
+      labels,
+      signals: comps.map((_, i) => `I${i + 1}`),
     },
-    yAxis: {
-      label: options.yLabel || 'Power',
-      unit: options.yUnit || 'W',
-    },
+  });
+
+  graphs.push({
+    id: 'component_power',
+    type: 'bar',
+    title: 'Component power',
+    xAxis: { label: 'Component', unit: '' },
+    yAxis: { label: 'Power', unit: 'W' },
     series: [
       {
         name: 'Power',
-        points,
-        color: '#ec4899',
+        color: COLORS[2],
+        points: comps.map((cm, i) => ({ x: i + 1, y: cm.power })),
       },
     ],
-    metadata: {
-      components: components.map(c => c.id),
-      numComponents: components.length,
-    },
-  };
-}
+    metadata: { source: 'measurements', labels },
+  });
 
-export function generateIVGraph(
-  circuit: CircuitDefinition,
-  dcResult: DCResult,
-  componentId: string,
-  options: GraphOptions = {}
-): GraphData {
-  const component = findComponent(circuit, componentId);
-  if (!component) {
-    throw new Error(`Component ${componentId} not found`);
-  }
-
-  const result = dcResult.componentResults.get(componentId);
-  if (!result) {
-    throw new Error(`No results for component ${componentId}`);
-  }
-
-  const points: GraphPoint[] = [];
-  const numPoints = options.numPoints || 10;
-  const maxVoltage = result.voltage * 1.5;
-
-  for (let i = 0; i <= numPoints; i++) {
-    const voltage = (i / numPoints) * maxVoltage;
-    let current = 0;
-    
-    if (component.type === 'resistor') {
-      const resistance = component.properties.resistance || 1000;
-      current = voltage / resistance;
-    } else if (component.type === 'diode') {
-      const forwardVoltage = component.properties.forwardVoltage || 0.7;
-      if (voltage > forwardVoltage) {
-        current = (voltage - forwardVoltage) / 100;
-      }
-    } else {
-      current = voltage / 1000;
-    }
-    
-    points.push({ x: voltage, y: current });
-  }
-
-  return {
-    id: `iv_${componentId}`,
-    type: 'line',
-    title: options.title || `${component.label}: Current vs Voltage`,
-    xAxis: {
-      label: options.xLabel || 'Voltage',
-      unit: options.xUnit || 'V',
-    },
-    yAxis: {
-      label: options.yLabel || 'Current',
-      unit: options.yUnit || 'A',
-    },
+  // Measured V–I points (one per component) — not a fabricated Ohm sweep
+  graphs.push({
+    id: 'measured_vi',
+    type: 'scatter',
+    title: 'Measured V–I',
+    xAxis: { label: 'Voltage', unit: 'V' },
+    yAxis: { label: 'Current', unit: 'A' },
     series: [
       {
-        name: component.label,
-        points,
-        color: '#06b6d4',
+        name: 'Components',
+        color: COLORS[0],
+        points: comps.map((cm) => ({ x: cm.voltage, y: cm.current })),
       },
     ],
-    metadata: {
-      componentId,
-      componentType: component.type,
-      numPoints,
-    },
-  };
-}
-
-/** Element voltages + shared current for series topologies (from DC results). */
-export function generateSeriesGraph(
-  circuit: CircuitDefinition,
-  dcResult: DCResult,
-): GraphData {
-  const resistors = circuit.components.filter(c => c.type === 'resistor');
-  if (resistors.length < 2) {
-    throw new Error('Series graph requires at least 2 resistors');
-  }
-  const voltagePoints: GraphPoint[] = [];
-  const currentPoints: GraphPoint[] = [];
-  resistors.forEach((r, i) => {
-    const res = dcResult.componentResults.get(r.id);
-    if (!res) return;
-    voltagePoints.push({ x: i, y: res.voltage });
-    currentPoints.push({ x: i, y: res.current });
+    metadata: { source: 'measurements', labels },
   });
-  if (voltagePoints.length === 0) throw new Error('No series measurements');
-  return {
-    id: 'series_elements',
-    type: 'bar',
-    title: 'Series: Element Voltage & Current',
-    xAxis: { label: 'Element index', unit: '' },
-    yAxis: { label: 'Value', unit: 'V / A' },
-    series: [
-      { name: 'Voltage (V)', points: voltagePoints, color: '#2563eb' },
-      { name: 'Current (A)', points: currentPoints, color: '#dc2626' },
-    ],
-    metadata: { componentIds: resistors.map(r => r.id) },
-  };
-}
 
-/** Branch currents for parallel topologies. */
-export function generateParallelGraph(
-  circuit: CircuitDefinition,
-  dcResult: DCResult,
-): GraphData {
-  const resistors = circuit.components.filter(c => c.type === 'resistor');
-  if (resistors.length < 2) {
-    throw new Error('Parallel graph requires at least 2 resistors');
-  }
-  const points: GraphPoint[] = [];
-  resistors.forEach((r, i) => {
-    const res = dcResult.componentResults.get(r.id);
-    if (res) points.push({ x: i, y: res.current });
-  });
-  if (points.length < 2) throw new Error('Need branch currents');
-  // Heuristic: same voltage across branches → parallel
-  const voltages = resistors
-    .map(r => dcResult.componentResults.get(r.id)?.voltage)
-    .filter((v): v is number => v !== undefined);
-  const sameV =
-    voltages.length >= 2 &&
-    voltages.every(v => Math.abs(v - voltages[0]) < 1e-9);
-  if (!sameV) throw new Error('Not a parallel branch set');
-  return {
-    id: 'parallel_branches',
+  // KVL-style voltage set: Vs + each V_comp + sum of component voltages
+  const sumV = comps.reduce((s, cm) => s + cm.voltage, 0);
+  const kvlPoints: GraphPoint[] = [
+    { x: 1, y: measurements.totalVoltage },
+    ...comps.map((cm, i) => ({ x: i + 2, y: cm.voltage })),
+    { x: comps.length + 2, y: sumV },
+  ];
+  const kvlLabels = ['Vs', ...labels.map((l) => `V_${l}`), 'ΣV'];
+  graphs.push({
+    id: 'voltage_signals',
     type: 'bar',
-    title: 'Parallel: Branch Currents',
-    xAxis: { label: 'Branch', unit: '' },
-    yAxis: { label: 'Current', unit: 'A' },
-    series: [{ name: 'Branch current', points, color: '#059669' }],
-    metadata: { componentIds: resistors.map(r => r.id) },
-  };
-}
-
-/** KVL: loop voltage contributions from solved components. */
-export function generateKVLGraph(
-  circuit: CircuitDefinition,
-  dcResult: DCResult,
-): GraphData {
-  const parts = circuit.components.filter(c =>
-    ['resistor', 'voltage_source', 'diode', 'led'].includes(c.type)
-  );
-  const points: GraphPoint[] = [];
-  const labels: string[] = [];
-  parts.forEach((c, i) => {
-    const res = dcResult.componentResults.get(c.id);
-    if (!res) return;
-    const signed = c.type === 'voltage_source' ? -Math.abs(res.voltage) : res.voltage;
-    points.push({ x: i, y: signed });
-    labels.push(c.label || c.id);
-  });
-  if (points.length < 2) throw new Error('KVL needs multiple loop elements');
-  return {
-    id: 'kvl_loop',
-    type: 'bar',
-    title: 'KVL: Loop Voltage Contributions',
-    xAxis: { label: 'Element', unit: '' },
+    title: 'Voltage signals (Vs, Vn, ΣV)',
+    xAxis: { label: 'Signal', unit: '' },
     yAxis: { label: 'Voltage', unit: 'V' },
-    series: [{ name: 'ΔV', points, color: '#7c3aed' }],
-    metadata: { labels },
-  };
-}
-
-/** KCL: currents into a shared node from branch results. */
-export function generateKCLGraph(
-  circuit: CircuitDefinition,
-  dcResult: DCResult,
-): GraphData {
-  const resistors = circuit.components.filter(c => c.type === 'resistor');
-  if (resistors.length < 2) throw new Error('KCL needs multiple branches');
-  const points: GraphPoint[] = [];
-  resistors.forEach((r, i) => {
-    const res = dcResult.componentResults.get(r.id);
-    if (res) points.push({ x: i, y: res.current });
+    series: [{ name: 'Voltage', color: COLORS[0], points: kvlPoints }],
+    metadata: { source: 'measurements', labels: kvlLabels },
   });
-  if (points.length < 2) throw new Error('KCL needs branch currents');
-  // Include source current leaving as negative of total for balance view
-  points.push({ x: points.length, y: -dcResult.totalCurrent });
-  return {
-    id: 'kcl_node',
+
+  // KCL-style current set: each In + ΣI
+  const kclPoints: GraphPoint[] = [
+    ...comps.map((cm, i) => ({ x: i + 1, y: cm.current })),
+    { x: comps.length + 1, y: measurements.totalCurrent },
+  ];
+  const kclLabels = [...comps.map((_, i) => `I${i + 1}`), 'ΣI'];
+  graphs.push({
+    id: 'current_signals',
     type: 'bar',
-    title: 'KCL: Node Current Contributions',
-    xAxis: { label: 'Branch', unit: '' },
+    title: 'Current signals (In, ΣI)',
+    xAxis: { label: 'Signal', unit: '' },
     yAxis: { label: 'Current', unit: 'A' },
-    series: [{ name: 'I', points, color: '#ea580c' }],
-    metadata: { totalCurrent: dcResult.totalCurrent },
-  };
-}
-
-/** Current divider: branch currents vs total. */
-export function generateCurrentDividerGraph(
-  circuit: CircuitDefinition,
-  dcResult: DCResult,
-): GraphData {
-  return {
-    ...generateParallelGraph(circuit, dcResult),
-    id: 'current_divider',
-    title: 'Current Divider: Branch Currents',
-  };
-}
-
-/** RC current vs time from the same R/C parameters as voltage graph. */
-export function generateRCCurrentGraph(
-  circuit: CircuitDefinition,
-  _dcResult: DCResult,
-  options: GraphOptions = {}
-): GraphData {
-  const capacitor = circuit.components.find(c => c.type === 'capacitor');
-  const resistor = circuit.components.find(c => c.type === 'resistor');
-  if (!capacitor || !resistor) {
-    throw new Error('RC current graph requires R and C');
-  }
-  const C = capacitor.properties.capacitance || 1e-6;
-  const R = resistor.properties.resistance || 1000;
-  const voltageSource = circuit.components.find(c => c.type === 'voltage_source');
-  const Vs = voltageSource?.properties.voltage || 5;
-  const tau = R * C;
-  const numPoints = options.numPoints || 20;
-  const maxTime = options.maxX || tau * 5;
-  const points: GraphPoint[] = [];
-  for (let i = 0; i <= numPoints; i++) {
-    const t = (i / numPoints) * maxTime;
-    points.push({ x: t, y: (Vs / R) * Math.exp(-t / tau) });
-  }
-  return {
-    id: 'rc_current',
-    type: 'line',
-    title: 'RC Circuit: Current vs Time',
-    xAxis: { label: 'Time', unit: 's' },
-    yAxis: { label: 'Current', unit: 'A' },
-    series: [{ name: 'i(t)', points, color: '#0891b2' }],
-    metadata: { tau, R, C, Vs },
-  };
-}
-
-export function generateAllGraphs(
-  circuit: CircuitDefinition,
-  dcResult: DCResult
-): GraphData[] {
-  const graphs: GraphData[] = [];
-
-  const tryPush = (fn: () => GraphData) => {
-    try {
-      graphs.push(fn());
-    } catch {
-      // Skip graphs that do not apply to this topology
-    }
-  };
-
-  tryPush(() => generateOhmsLawGraph(circuit, dcResult));
-  tryPush(() => generateVoltageDividerGraph(circuit, dcResult));
-  tryPush(() => generateSeriesGraph(circuit, dcResult));
-  tryPush(() => generateParallelGraph(circuit, dcResult));
-  tryPush(() => generateKVLGraph(circuit, dcResult));
-  tryPush(() => generateKCLGraph(circuit, dcResult));
-  tryPush(() => generateCurrentDividerGraph(circuit, dcResult));
-  tryPush(() => generateRCGraph(circuit, dcResult));
-  tryPush(() => generateRCCurrentGraph(circuit, dcResult));
-  tryPush(() => generateRLGraph(circuit, dcResult));
-  tryPush(() => generatePowerGraph(circuit, dcResult));
-  tryPush(() => generateComponentAnalysisGraph(circuit, dcResult));
-
-  for (const component of circuit.components) {
-    if (['resistor', 'diode', 'led'].includes(component.type)) {
-      tryPush(() => generateIVGraph(circuit, dcResult, component.id));
-    }
-  }
+    series: [{ name: 'Current', color: COLORS[1], points: kclPoints }],
+    metadata: { source: 'measurements', labels: kclLabels },
+  });
 
   return graphs;
 }
 
+/**
+ * @deprecated Use generateGraphsFromMeasurements — kept as a name alias for callers.
+ * Intentionally ignores DC topology sweeps; only measurements are plotted.
+ */
+export function generateAllGraphs(
+  circuit: CircuitDefinition,
+  _dcResult: DCResult,
+  measurements?: Measurements,
+): GraphData[] {
+  if (measurements) {
+    return generateGraphsFromMeasurements(measurements, circuit);
+  }
+  return [];
+}
+
 export function validateGraphData(graph: GraphData): boolean {
-  if (!graph.id || !graph.title || !graph.xAxis || !graph.yAxis) {
-    return false;
-  }
-
-  if (!graph.series || graph.series.length === 0) {
-    return false;
-  }
-
-  for (const series of graph.series) {
-    if (!series.points || series.points.length === 0) {
-      return false;
-    }
-
-    for (const point of series.points) {
-      if (point.x === undefined || point.y === undefined) {
-        return false;
-      }
-      if (isNaN(point.x) || isNaN(point.y) || !isFinite(point.x) || !isFinite(point.y)) {
-        return false;
-      }
-    }
-  }
-
-  return true;
+  if (!graph.id || !graph.series?.length) return false;
+  if (!graph.xAxis?.label || !graph.yAxis?.label) return false;
+  return graph.series.every(
+    (s) =>
+      s.name &&
+      Array.isArray(s.points) &&
+      s.points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)),
+  );
 }
 
 export function getGraphById(graphs: GraphData[], id: string): GraphData | undefined {
-  return graphs.find(g => g.id === id);
+  return graphs.find((g) => g.id === id);
 }

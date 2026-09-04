@@ -3,7 +3,7 @@
  * voltage divider, parallel, RC, diode, LED invalid/valid, graphs, instruments
  */
 import { solveCircuit } from '../circuitSolver';
-import { generateAllGraphs } from '../graphData';
+import { buildGraphFromSignals } from '../graphData';
 import type { CircuitDefinition } from '../circuitGraph';
 import { createTerminalId } from '../circuitGraph';
 
@@ -91,8 +91,9 @@ describe('Block 5 simulation pipeline', () => {
     expect(result.measurements?.totalCurrent).toBeCloseTo(9 / 3000, 6);
     const r2 = result.measurements?.componentMeasurements.find(m => m.componentId === 'R2');
     expect(r2?.voltage).toBeCloseTo(6, 3); // Vout = 9 * 2/3
-    expect(result.graphs?.some(g => g.id === 'voltage_divider')).toBe(true);
-    expect(result.graphs?.some(g => g.id === 'series_elements' || g.id === 'kvl_loop')).toBe(true);
+    expect(result.graphs?.some(g => g.id === 'component_voltages')).toBe(true);
+    expect(result.graphs?.some(g => g.id === 'voltage_signals')).toBe(true);
+    expect(result.graphs?.every(g => g.metadata?.source === 'measurements')).toBe(true);
     // Instrument rail: ohmmeter / power meter virtual readings
     expect(result.measurements?.componentMeasurements.some(m => m.type === 'ohmmeter')).toBe(true);
     expect(result.measurements?.componentMeasurements.some(m => m.type === 'power_meter')).toBe(true);
@@ -148,10 +149,10 @@ describe('Block 5 simulation pipeline', () => {
     const r2 = result.measurements?.componentMeasurements.find(m => m.componentId === 'R2');
     expect(r1?.current).toBeCloseTo(0.01, 5);
     expect(r2?.current).toBeCloseTo(0.005, 5);
-    expect(result.graphs?.some(g => g.id === 'parallel_branches' || g.id === 'current_divider')).toBe(true);
+    expect(result.graphs?.some(g => g.id === 'current_signals' || g.id === 'component_currents')).toBe(true);
   });
 
-  it('RC: voltage and current vs time graphs from solver', () => {
+  it('RC: DC run does not invent current-vs-time series', () => {
     const circuit: CircuitDefinition = {
       components: [
         {
@@ -195,26 +196,13 @@ describe('Block 5 simulation pipeline', () => {
     };
 
     const result = solveCircuit(circuit);
-    // RC may validate; graphs attach when solve succeeds or via generateAllGraphs on completed DC
-    if (result.status === 'completed' && result.dcResult) {
-      const graphs = result.graphs?.length
-        ? result.graphs
-        : generateAllGraphs(circuit, result.dcResult);
-      expect(graphs.some(g => g.id === 'rc_charging')).toBe(true);
-      expect(graphs.some(g => g.id === 'rc_current')).toBe(true);
-      const rc = graphs.find(g => g.id === 'rc_charging');
-      expect(rc?.series[0].points.length).toBeGreaterThan(5);
-    } else {
-      // Capacitor-only DC path may be invalid depending on validator — still require graph helpers
-      expect(() => generateAllGraphs(circuit, {
-        nodeVoltages: new Map(),
-        branchCurrents: new Map(),
-        componentResults: new Map(),
-        totalCurrent: 0,
-        totalPower: 0,
-        equivalentResistance: 10000,
-        success: true,
-      })).not.toThrow();
+    // Never invent RC charging / current-vs-time under a DC SimulationRun
+    expect(result.graphs?.some(g => g.id === 'rc_charging')).toBeFalsy();
+    expect(result.graphs?.some(g => g.id === 'rc_current')).toBeFalsy();
+    if (result.status === 'completed' && result.measurements) {
+      const built = buildGraphFromSignals(result.measurements, 'time', ['ΣI']);
+      expect(built.graph).toBeNull();
+      expect(built.unavailableReason).toMatch(/No current-vs-time data is available|time-series/i);
     }
   });
 
@@ -266,7 +254,7 @@ describe('Block 5 simulation pipeline', () => {
     const d = result.measurements?.componentMeasurements.find(m => m.componentId === 'D1');
     expect(d?.voltage).toBeCloseTo(0.7, 2);
     expect(d?.current).toBeCloseTo((5 - 0.7) / 1000, 5);
-    expect(result.graphs?.some(g => g.id.startsWith('iv_'))).toBe(true);
+    expect(result.graphs?.some(g => g.id === 'measured_vi')).toBe(true);
   });
 
   it('LED invalid: structured LED_NO_CURRENT_LIMIT', () => {
@@ -363,6 +351,6 @@ describe('Block 5 simulation pipeline', () => {
     expect(a.measurements?.totalCurrent).toBeCloseTo(0.004, 6); // 4.00 mA
     const b = solveCircuit(ohmsLawCircuit(10, 1000));
     expect(b.measurements?.totalCurrent).toBeCloseTo(0.01, 6);
-    expect(a.graphs?.some(g => g.id === 'ohms_law')).toBe(true);
+    expect(a.graphs?.some(g => g.id === 'measured_vi' || g.id === 'component_voltages')).toBe(true);
   });
 });

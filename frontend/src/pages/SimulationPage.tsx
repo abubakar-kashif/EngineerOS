@@ -299,6 +299,95 @@ function SimulationPage() {
     [applyWorkspaceProject],
   );
 
+  /** Circuit edits invalidate prior measurements/graphs until the next Run. */
+  const invalidateSimOnEdit = useCallback(() => {
+    setSimResult((prev) => (prev === null ? prev : null));
+    setSimulationRunId(null);
+    setSimulationId(null);
+  }, []);
+
+  const onAddComponent = useCallback(
+    (type: Parameters<typeof addComponent>[0], x: number, y: number) => {
+      invalidateSimOnEdit();
+      addComponent(type, x, y);
+    },
+    [addComponent, invalidateSimOnEdit],
+  );
+
+  const onBeginMoveComponent = useCallback(
+    (id: string) => {
+      invalidateSimOnEdit();
+      beginMoveComponent(id);
+    },
+    [beginMoveComponent, invalidateSimOnEdit],
+  );
+
+  const onDeleteComponent = useCallback(
+    (id: string) => {
+      invalidateSimOnEdit();
+      deleteComponent(id);
+    },
+    [deleteComponent, invalidateSimOnEdit],
+  );
+
+  const onDeleteWire = useCallback(
+    (id: string) => {
+      invalidateSimOnEdit();
+      deleteWire(id);
+    },
+    [deleteWire, invalidateSimOnEdit],
+  );
+
+  const onUpdateProperty = useCallback(
+    (id: string, property: string, value: number | string | boolean) => {
+      invalidateSimOnEdit();
+      updateProperty(id, property, value);
+    },
+    [updateProperty, invalidateSimOnEdit],
+  );
+
+  const onRotateComponent = useCallback(
+    (id: string) => {
+      invalidateSimOnEdit();
+      rotateComponent(id);
+    },
+    [rotateComponent, invalidateSimOnEdit],
+  );
+
+  const onDuplicateComponent = useCallback(
+    (id: string) => {
+      invalidateSimOnEdit();
+      duplicateComponent(id);
+    },
+    [duplicateComponent, invalidateSimOnEdit],
+  );
+
+  const onCompleteWire = useCallback(
+    (compId: string, termId: string) => {
+      invalidateSimOnEdit();
+      completeWire(compId, termId);
+    },
+    [completeWire, invalidateSimOnEdit],
+  );
+
+  const onCompleteWireToWire = useCallback(
+    (wireId: string, x: number, y: number) => {
+      invalidateSimOnEdit();
+      completeWireToWire(wireId, x, y);
+    },
+    [completeWireToWire, invalidateSimOnEdit],
+  );
+
+  const onUndo = useCallback(() => {
+    invalidateSimOnEdit();
+    undo();
+  }, [undo, invalidateSimOnEdit]);
+
+  const onRedo = useCallback(() => {
+    invalidateSimOnEdit();
+    redo();
+  }, [redo, invalidateSimOnEdit]);
+
   const toggleFullscreen = useCallback(async () => {
     const el = labRef.current;
     if (!el) return;
@@ -329,8 +418,8 @@ function SimulationPage() {
         onRun={runSimulation}
         onStop={stopSimulation}
         onReset={resetSimulation}
-        onUndo={undo}
-        onRedo={redo}
+        onUndo={onUndo}
+        onRedo={onRedo}
         onClear={handleClearAll}
         onSave={handleSave}
         onOpen={handleOpenClick}
@@ -368,10 +457,10 @@ function SimulationPage() {
           />
           <ComponentInspector
             component={selectedComponent}
-            onUpdateProperty={updateProperty}
-            onDeleteComponent={deleteComponent}
-            onDuplicateComponent={duplicateComponent}
-            onRotateComponent={rotateComponent}
+            onUpdateProperty={onUpdateProperty}
+            onDeleteComponent={onDeleteComponent}
+            onDuplicateComponent={onDuplicateComponent}
+            onRotateComponent={onRotateComponent}
           />
           <InstrumentsPanel
             result={simResult}
@@ -386,21 +475,21 @@ function SimulationPage() {
               className="sim2-canvas-host"
               editor={state}
               simResult={simResult}
-              onAddComponent={addComponent}
+              onAddComponent={onAddComponent}
               onSelectComponent={selectComponent}
               onSelectWire={selectWire}
               onMoveComponent={moveComponent}
-              onBeginMoveComponent={beginMoveComponent}
+              onBeginMoveComponent={onBeginMoveComponent}
               onStartWire={startWire}
               onStartWireFromWire={startWireFromWire}
-              onCompleteWire={completeWire}
-              onCompleteWireToWire={completeWireToWire}
+              onCompleteWire={onCompleteWire}
+              onCompleteWireToWire={onCompleteWireToWire}
               onUpdateWirePreview={updateWirePreview}
               onPinWireWaypoint={pinWireWaypoint}
               onCancelWire={cancelWire}
               onCancelPlacement={cancelPlacement}
-              onDeleteWire={deleteWire}
-              onDeleteComponent={deleteComponent}
+              onDeleteWire={onDeleteWire}
+              onDeleteComponent={onDeleteComponent}
               onReshapeWire={reshapeWire}
               onPrepareWireReshape={prepareWireReshape}
               onBeginReshapeWire={beginReshapeWire}
@@ -437,11 +526,15 @@ function SimulationPage() {
                   <p className="sim2-analysis-empty" role="status">
                     Waiting for solver graphs…
                   </p>
-                ) : simResult?.graphs && simResult.graphs.length > 0 ? (
-                  <GraphViewer graphs={simResult.graphs} />
+                ) : simResult?.measurements ? (
+                  <GraphViewer
+                    key={simulationRunId ?? `${simResult.status}-${simResult.measurements?.totalCurrent ?? 0}`}
+                    result={simResult}
+                    graphs={simResult.graphs}
+                  />
                 ) : (
                   <p className="sim2-analysis-empty">
-                    Run a valid simulation to see graphs from the solver.
+                    Run a valid simulation to plot measurement signals (V, I, P).
                   </p>
                 )}
               </div>

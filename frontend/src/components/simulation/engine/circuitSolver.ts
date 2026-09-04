@@ -23,7 +23,7 @@ import type {
   ComponentMeasurement,
 } from './types';
 
-import { generateAllGraphs, type GraphData } from './graphData';
+import { generateGraphsFromMeasurements, type GraphData } from './graphData';
 
 /**
  * Main circuit solver
@@ -57,13 +57,8 @@ export function solveCircuit(circuit: CircuitDefinition): SimulationResult {
     // Step 3: Authoritative measurements from DC result (including instruments)
     const measurements = generateMeasurementsFromDCResult(circuit, dcResult);
 
-    // Step 4: Graphs from the same SimulationResult path (no competing pipeline)
-    let graphs: GraphData[] = [];
-    try {
-      graphs = generateAllGraphs(circuit, dcResult);
-    } catch {
-      graphs = [];
-    }
+    // Step 4: Graphs from measurements only (no synthetic sweeps / fake time series)
+    const graphs: GraphData[] = generateGraphsFromMeasurements(measurements, circuit);
 
     return {
       status: 'completed',
