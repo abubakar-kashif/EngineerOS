@@ -10,13 +10,24 @@ from app.models.quiz import QuizAttempt
 from app.models.user import User
 
 
-def register_user(client, email, name="Ada Lovelace", password="supersecret1"):
+def register_user(client, email, name="Ada Lovelace", password="supersecret1", *, verify=True):
+    """Register a user. Verifies email by default so login/session tests work."""
     response = client.post(
         "/api/auth/register",
         json={"name": name, "email": email, "password": password},
     )
     assert response.status_code == 201
-    return response.json()
+    data = response.json()
+    if verify:
+        code = data.get("dev_code")
+        assert isinstance(code, str)
+        verified = client.post(
+            "/api/auth/verify",
+            json={"email": email, "code": code},
+        )
+        assert verified.status_code == 200
+        data["user"]["email_verified"] = True
+    return data
 
 
 def bearer(token):

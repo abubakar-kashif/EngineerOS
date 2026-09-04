@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Eye, EyeOff, Check, X } from "lucide-react";
+import { ApiError } from "../../services/api";
 import { resetPassword } from "../../services/authService";
 import EngineerOSMark from "../../components/branding/EngineerOSMark";
 
 function ResetPasswordPage() {
-  const { token } = useParams<{ token: string }>();
+  const { token: tokenParam } = useParams<{ token: string }>();
+  const navigate = useNavigate();
+  const [code, setCode] = useState(tokenParam && /^\d{6}$/.test(tokenParam) ? tokenParam : "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -13,6 +16,7 @@ function ResetPasswordPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [expired, setExpired] = useState(false);
 
   const checks = [
     { label: "Minimum 8 characters", met: password.length >= 8 },
@@ -25,7 +29,11 @@ function ResetPasswordPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    setExpired(false);
     const errors: Record<string, string> = {};
+    if (!/^\d{6}$/.test(code.trim())) {
+      errors.code = "Enter the 6-digit reset code from your email.";
+    }
     if (!password) errors.password = "Password is required.";
     else if (checks.filter((c) => c.met).length < 3) errors.password = "Password does not meet requirements.";
     if (password !== confirmPassword) errors.confirm = "Passwords do not match.";
@@ -34,10 +42,15 @@ function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      await resetPassword(token || "", password);
+      await resetPassword(code.trim(), password);
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset password.");
+      const message = err instanceof Error ? err.message : "Failed to reset password.";
+      const isExpired =
+        /invalid or expired/i.test(message) ||
+        (err instanceof ApiError && err.status === 400);
+      setExpired(isExpired);
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -49,7 +62,7 @@ function ResetPasswordPage() {
         <div className="auth-card animate-fade">
           <div className="auth-brand"><EngineerOSMark size="lg" /><span className="auth-brand-name">EngineerOS</span></div>
           <h1 className="auth-title">Password Reset</h1>
-          <p className="auth-subtitle">Your password has been reset successfully.</p>
+          <p className="auth-subtitle">Your password has been reset successfully. Sign in with your new password.</p>
           <Link to="/login" className="auth-submit auth-submit-link">Sign In</Link>
         </div>
       </div>
@@ -61,11 +74,41 @@ function ResetPasswordPage() {
       <div className="auth-card animate-fade">
         <div className="auth-brand"><EngineerOSMark size="lg" /><span className="auth-brand-name">EngineerOS</span></div>
         <h1 className="auth-title">Reset Password</h1>
-        <p className="auth-subtitle">Enter your new password below.</p>
+        <p className="auth-subtitle">
+          Enter the reset code from your email and choose a new password.
+          The code alone in the URL does not reset your password — it must be validated by the server.
+        </p>
 
         {error && <div className="auth-error" role="alert">{error}</div>}
+        {expired && (
+          <p className="auth-footer-text" style={{ marginTop: 8 }}>
+            Code expired or already used?{" "}
+            <Link to="/forgot-password" className="auth-link">Request a new reset code</Link>
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} noValidate>
+          <div className="auth-field">
+            <label htmlFor="reset-code" className="auth-label">Reset code</label>
+            <input
+              id="reset-code"
+              type="text"
+              inputMode="numeric"
+              className={`auth-input${fieldErrors.code ? " auth-input-error" : ""}`}
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                setFieldErrors((p) => ({ ...p, code: "" }));
+                setExpired(false);
+              }}
+              placeholder="6-digit code"
+              autoComplete="one-time-code"
+              disabled={loading}
+              maxLength={6}
+            />
+            {fieldErrors.code && <p className="auth-field-error">{fieldErrors.code}</p>}
+          </div>
+
           <div className="auth-field">
             <label htmlFor="reset-password" className="auth-label">New Password</label>
             <div className="auth-input-wrapper">
@@ -117,6 +160,10 @@ function ResetPasswordPage() {
 
         <div className="auth-divider"><span>or</span></div>
         <p className="auth-footer-text">
+          <button type="button" className="auth-link auth-link-button" onClick={() => navigate("/forgot-password")}>
+            Request a new code
+          </button>
+          {" · "}
           <Link to="/login" className="auth-link">Back to Sign In</Link>
         </p>
       </div>

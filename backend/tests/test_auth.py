@@ -15,13 +15,24 @@ from app.services.email_service import (
 )
 
 
-def register_user(client, email, name="Ada Lovelace", password="supersecret1"):
+def register_user(client, email, name="Ada Lovelace", password="supersecret1", *, verify=False):
+    """Register a user. Pass verify=True to mark email verified (needed for login)."""
     response = client.post(
         "/api/auth/register",
         json={"name": name, "email": email, "password": password},
     )
     assert response.status_code == 201
-    return response.json()
+    data = response.json()
+    if verify:
+        code = data.get("dev_code")
+        assert isinstance(code, str)
+        verified = client.post(
+            "/api/auth/verify",
+            json={"email": email, "code": code},
+        )
+        assert verified.status_code == 200
+        data["user"]["email_verified"] = True
+    return data
 
 
 def bearer(token):
@@ -103,7 +114,7 @@ def test_register_invalid_email_rejected(phase9_client):
 
 def test_login_returns_new_session(phase9_client):
     client, _ = phase9_client
-    registered = register_user(client, "login@example.com")
+    registered = register_user(client, "login@example.com", verify=True)
 
     response = client.post(
         "/api/auth/login",
@@ -119,7 +130,7 @@ def test_login_returns_new_session(phase9_client):
 
 def test_login_email_is_case_insensitive(phase9_client):
     client, _ = phase9_client
-    register_user(client, "case@example.com")
+    register_user(client, "case@example.com", verify=True)
 
     response = client.post(
         "/api/auth/login",
@@ -131,7 +142,7 @@ def test_login_email_is_case_insensitive(phase9_client):
 
 def test_login_wrong_password_rejected(phase9_client):
     client, _ = phase9_client
-    register_user(client, "wrongpw@example.com")
+    register_user(client, "wrongpw@example.com", verify=True)
 
     response = client.post(
         "/api/auth/login",
@@ -144,7 +155,7 @@ def test_login_wrong_password_rejected(phase9_client):
 
 def test_login_unknown_email_gives_same_error_as_wrong_password(phase9_client):
     client, _ = phase9_client
-    register_user(client, "known@example.com")
+    register_user(client, "known@example.com", verify=True)
 
     wrong_password = client.post(
         "/api/auth/login",
@@ -157,6 +168,19 @@ def test_login_unknown_email_gives_same_error_as_wrong_password(phase9_client):
 
     assert wrong_password.status_code == unknown_email.status_code == 401
     assert wrong_password.json()["detail"] == unknown_email.json()["detail"]
+
+
+def test_login_rejects_unverified_email(phase9_client):
+    client, _ = phase9_client
+    register_user(client, "unverified@example.com", verify=False)
+
+    response = client.post(
+        "/api/auth/login",
+        json={"email": "unverified@example.com", "password": "supersecret1"},
+    )
+
+    assert response.status_code == 403
+    assert "verify your email" in response.json()["detail"].lower()
 
 
 # --- /auth/me and sessions ----------------------------------------------------
@@ -380,7 +404,7 @@ def test_forgot_password_does_not_reveal_account_existence(phase9_client):
 
 def test_reset_password_rotates_password_and_revokes_sessions(phase9_client):
     client, _ = phase9_client
-    registered = register_user(client, "reset@example.com")
+    registered = register_user(client, "reset@example.com", verify=True)
 
     # A second session that must also be revoked by the reset.
     second = client.post(
@@ -443,6 +467,70 @@ def test_reset_rejects_invalid_code(phase9_client):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid or expired reset code."
+
+
+def test_reset_rejects_expired_code(phase9_client):
+    client, session_factory = phase9_client
+    register_user(client, "expired-reset@example.com", verify=True)
+    reset_code = client.post(
+        "/api/auth/forgot", json={"email": "expired-reset@example.com"}
+    ).json()["dev_code"]
+
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "expired-reset@example.com").one()
+        user.reset_code_expires_at = datetime.utcnow() - timedelta(seconds=1)
+        db.commit()
+
+    response = client.post(
+        "/api/auth/reset",
+        json={
+            "token": reset_code,
+            "password": "brand-new-password",
+            "email": "expired-reset@example.com",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired reset code."
+
+
+def test_reset_rejects_reused_code(phase9_client):
+    client, _ = phase9_client
+    register_user(client, "reuse-reset@example.com", verify=True)
+    reset_code = client.post(
+        "/api/auth/forgot", json={"email": "reuse-reset@example.com"}
+    ).json()["dev_code"]
+
+    first = client.post(
+        "/api/auth/reset",
+        json={
+            "token": reset_code,
+            "password": "brand-new-password",
+            "email": "reuse-reset@example.com",
+        },
+    )
+    assert first.status_code == 200
+
+    reuse = client.post(
+        "/api/auth/reset",
+        json={
+            "token": reset_code,
+            "password": "another-new-password",
+            "email": "reuse-reset@example.com",
+        },
+    )
+    assert reuse.status_code == 400
+    assert reuse.json()["detail"] == "Invalid or expired reset code."
+
+
+def test_smtp_sender_requires_configuration():
+    from app.services.email_service import EmailDeliveryError, SmtpSender
+
+    sender = SmtpSender()
+    try:
+        sender.send("to@example.com", "Subject", "Body")
+        raise AssertionError("expected EmailDeliveryError")
+    except EmailDeliveryError as exc:
+        assert "SMTP" in str(exc)
 
 
 # --- Unauthenticated access to protected endpoints -----------------------------

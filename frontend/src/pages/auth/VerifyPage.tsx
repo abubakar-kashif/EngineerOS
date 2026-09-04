@@ -133,7 +133,10 @@ function VerifyPage() {
         <div className="auth-brand"><EngineerOSMark size="lg" /><span className="auth-brand-name">EngineerOS</span></div>
         <h1 className="auth-title">Verify your email</h1>
         <p className="auth-subtitle">
-          We sent a verification code to<br />
+          {devCode
+            ? "Enter the verification code shown below (development delivery)."
+            : "Enter the 6-digit verification code sent to your email."}
+          <br />
           <strong>{email || "your email"}</strong>
         </p>
         <p className="auth-code-timer" aria-live="polite">

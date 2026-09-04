@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { ApiError } from "../../services/api";
 import EngineerOSMark from "../../components/branding/EngineerOSMark";
 
 function LoginPage() {
@@ -36,6 +37,10 @@ function LoginPage() {
       await login({ email, password });
       navigate(from, { replace: true });
     } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        navigate("/verify", { replace: true, state: { email: email.trim().toLowerCase() } });
+        return;
+      }
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setLoading(false);

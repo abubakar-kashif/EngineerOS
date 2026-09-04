@@ -24,8 +24,16 @@ class Settings(BaseSettings):
     AI_MAX_OUTPUT_TOKENS: int = 1000
     AI_TEMPERATURE: float = 0.7
 
-    # Email delivery (required for auth)
+    # Email delivery (backend-only — never expose SMTP credentials to frontend)
+    # EMAIL_DELIVERY: "console" (dev) | "smtp" (configured environments)
     EMAIL_DELIVERY: str = "console"
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM: Optional[str] = None
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
 
     CORS_ORIGINS: list = [
         "http://localhost:5173",

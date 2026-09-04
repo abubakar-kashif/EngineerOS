@@ -1,13 +1,20 @@
-"""Email delivery abstraction (Phase 2 §4.2).
+"""Email delivery abstraction.
 
 The auth service depends on these helpers instead of a hard-coded mail
-provider. The backend is selected via the EMAIL_DELIVERY setting, so
-development (console logging) and production (a real provider) stay
-separably configurable — register a new EmailSender subclass in _SENDERS
-to wire a provider up.
+provider. The backend is selected via EMAIL_DELIVERY:
+
+* console — development (writes to the server log)
+* smtp    — production SMTP (requires SMTP_* settings)
+
+Credentials stay backend-only. Register a new EmailSender subclass in
+_SENDERS to wire another provider.
 """
 
+from __future__ import annotations
+
 import logging
+import smtplib
+from email.message import EmailMessage
 
 from app.core.config import settings
 
@@ -24,6 +31,10 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
+class EmailDeliveryError(Exception):
+    """Raised when an email cannot be delivered."""
+
+
 class EmailSender:
     """Delivery backend contract — one subclass per provider."""
 
@@ -38,13 +49,61 @@ class ConsoleSender(EmailSender):
         logger.info("EMAIL to=%s subject=%s\n%s", to, subject, body)
 
 
+class SmtpSender(EmailSender):
+    """Production sender: delivers through a configured SMTP server."""
+
+    def send(self, to: str, subject: str, body: str) -> None:
+        host = (settings.SMTP_HOST or "").strip()
+        from_addr = (settings.SMTP_FROM or settings.SMTP_USERNAME or "").strip()
+        if not host or not from_addr:
+            raise EmailDeliveryError(
+                "SMTP is selected but SMTP_HOST / SMTP_FROM are not configured."
+            )
+
+        message = EmailMessage()
+        message["Subject"] = subject
+        message["From"] = from_addr
+        message["To"] = to
+        message.set_content(body)
+
+        try:
+            if settings.SMTP_USE_SSL:
+                with smtplib.SMTP_SSL(host, settings.SMTP_PORT, timeout=30) as smtp:
+                    self._authenticate(smtp)
+                    smtp.send_message(message)
+            else:
+                with smtplib.SMTP(host, settings.SMTP_PORT, timeout=30) as smtp:
+                    smtp.ehlo()
+                    if settings.SMTP_USE_TLS:
+                        smtp.starttls()
+                        smtp.ehlo()
+                    self._authenticate(smtp)
+                    smtp.send_message(message)
+        except EmailDeliveryError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — surface any SMTP failure uniformly
+            logger.exception("SMTP delivery failed for %s", to)
+            raise EmailDeliveryError("Unable to deliver email via SMTP.") from exc
+
+        logger.info("EMAIL delivered via SMTP to=%s subject=%s", to, subject)
+
+    @staticmethod
+    def _authenticate(smtp: smtplib.SMTP) -> None:
+        username = (settings.SMTP_USERNAME or "").strip()
+        password = settings.SMTP_PASSWORD or ""
+        if username:
+            smtp.login(username, password)
+
+
 _SENDERS: dict[str, type[EmailSender]] = {
     "console": ConsoleSender,
+    "smtp": SmtpSender,
 }
 
 
 def _sender() -> EmailSender:
-    sender_cls = _SENDERS.get(settings.EMAIL_DELIVERY)
+    key = (settings.EMAIL_DELIVERY or "console").strip().lower()
+    sender_cls = _SENDERS.get(key)
     if sender_cls is None:
         # Unknown provider falls back to console so mail is never silently lost.
         logger.warning(

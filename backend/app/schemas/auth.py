@@ -74,9 +74,9 @@ class MessageResponse(BaseModel):
 class AuthResponse(BaseModel):
     """Register/login response.
 
-    `dev_code` carries the email-verification code in development (DEBUG)
-    mode only, because no mail server is wired up yet. It is never included
-    in production responses.
+    `dev_code` carries the email-verification or reset code in development
+    (DEBUG) builds when console delivery is used. It is never included when
+    DEBUG is false.
     """
 
     user: UserResponse
