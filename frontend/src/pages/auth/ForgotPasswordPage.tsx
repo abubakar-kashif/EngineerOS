@@ -57,7 +57,7 @@ function ForgotPasswordPage() {
       <div className="auth-card animate-fade">
         <div className="auth-brand"><EngineerOSMark size="lg" /><span className="auth-brand-name">EngineerOS</span></div>
         <h1 className="auth-title">Forgot password?</h1>
-        <p className="auth-subtitle">Enter your email and we'll send you a reset link.</p>
+        <p className="auth-subtitle">Enter your email and we'll send you a reset code.</p>
 
         {error && <div className="auth-error" role="alert">{error}</div>}
 
