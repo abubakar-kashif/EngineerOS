@@ -102,15 +102,34 @@ _SENDERS: dict[str, type[EmailSender]] = {
 
 
 def _sender() -> EmailSender:
-    key = (settings.EMAIL_DELIVERY or "console").strip().lower()
+    """Resolve the configured delivery backend.
+
+    Console delivery is explicit-only. Unknown values raise in production
+    (DEBUG=false) so codes are never silently logged; in DEBUG they fall
+    back to console with a warning for local development convenience.
+    """
+    key = (settings.EMAIL_DELIVERY or "").strip().lower()
+    if not key:
+        key = "console" if settings.DEBUG else "smtp"
+
     sender_cls = _SENDERS.get(key)
     if sender_cls is None:
-        # Unknown provider falls back to console so mail is never silently lost.
+        if settings.DEBUG:
+            logger.warning(
+                "Unknown EMAIL_DELIVERY %r — using the console sender (DEBUG only).",
+                settings.EMAIL_DELIVERY,
+            )
+            sender_cls = ConsoleSender
+        else:
+            raise EmailDeliveryError(
+                f"Unknown EMAIL_DELIVERY {settings.EMAIL_DELIVERY!r}. "
+                "Set EMAIL_DELIVERY=smtp for production."
+            )
+    if key == "console" and not settings.DEBUG:
         logger.warning(
-            "Unknown EMAIL_DELIVERY %r — using the console sender.",
-            settings.EMAIL_DELIVERY,
+            "EMAIL_DELIVERY=console while DEBUG=false — codes will appear in "
+            "server logs. Prefer EMAIL_DELIVERY=smtp in production."
         )
-        sender_cls = ConsoleSender
     return sender_cls()
 
 

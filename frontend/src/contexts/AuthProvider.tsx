@@ -89,6 +89,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const markEmailVerified = useCallback(() => {
+    setUser((current) => {
+      if (!current) return current;
+      const next = { ...current, email_verified: true };
+      authService.cacheSessionUser(next);
+      return next;
+    });
+  }, []);
+
   const value: AuthContextValue = {
     user,
     isAuthenticated: !!user,
@@ -97,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     refreshUser,
+    markEmailVerified,
   };
 
   return (

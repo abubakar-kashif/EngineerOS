@@ -14,6 +14,8 @@ export type AuthContextValue = {
   register: (credentials: RegisterCredentials) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  /** Optimistically mark the current session as email-verified (after /auth/verify). */
+  markEmailVerified: () => void;
 };
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);

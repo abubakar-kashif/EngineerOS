@@ -101,12 +101,18 @@ def test_register_short_password_rejected(phase9_client):
 def test_register_invalid_email_rejected(phase9_client):
     client, _ = phase9_client
 
-    response = client.post(
-        "/api/auth/register",
-        json={"name": "Bad", "email": "not-an-email", "password": "supersecret1"},
-    )
+    for bad in ("abc", "abc@", "abc@gmail", "@gmail.com", "not-an-email"):
+        response = client.post(
+            "/api/auth/register",
+            json={"name": "Bad", "email": bad, "password": "supersecret1"},
+        )
+        assert response.status_code == 422, f"expected rejection for {bad!r}"
 
-    assert response.status_code == 422
+    ok = client.post(
+        "/api/auth/register",
+        json={"name": "Good", "email": "abc@gmail.com", "password": "supersecret1"},
+    )
+    assert ok.status_code == 201
 
 
 # --- Login -------------------------------------------------------------------
@@ -531,6 +537,96 @@ def test_smtp_sender_requires_configuration():
         raise AssertionError("expected EmailDeliveryError")
     except EmailDeliveryError as exc:
         assert "SMTP" in str(exc)
+
+
+def test_dev_code_hidden_when_debug_false(phase9_client):
+    from app.core.config import settings
+
+    client, _ = phase9_client
+    previous = settings.DEBUG
+    settings.DEBUG = False
+    try:
+        response = client.post(
+            "/api/auth/register",
+            json={
+                "name": "Prod Mode",
+                "email": "prod-mode@example.com",
+                "password": "supersecret1",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json().get("dev_code") is None
+    finally:
+        settings.DEBUG = previous
+
+
+def test_dev_code_hidden_when_smtp_delivery(phase9_client, monkeypatch):
+    from app.core.config import settings
+    from app.services import email_service
+
+    client, _ = phase9_client
+    previous_delivery = settings.EMAIL_DELIVERY
+    previous_debug = settings.DEBUG
+    settings.DEBUG = True
+    settings.EMAIL_DELIVERY = "smtp"
+    monkeypatch.setattr(
+        email_service,
+        "send_verification_email",
+        lambda to, code: None,
+    )
+    try:
+        response = client.post(
+            "/api/auth/register",
+            json={
+                "name": "Smtp User",
+                "email": "smtp-user@example.com",
+                "password": "supersecret1",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json().get("dev_code") is None
+    finally:
+        settings.EMAIL_DELIVERY = previous_delivery
+        settings.DEBUG = previous_debug
+
+
+def test_unknown_email_delivery_raises_outside_debug():
+    from app.core.config import settings
+    from app.services.email_service import EmailDeliveryError, _sender
+
+    previous_debug = settings.DEBUG
+    previous_delivery = settings.EMAIL_DELIVERY
+    settings.DEBUG = False
+    settings.EMAIL_DELIVERY = "not-a-real-provider"
+    try:
+        try:
+            _sender()
+            raise AssertionError("expected EmailDeliveryError")
+        except EmailDeliveryError as exc:
+            assert "Unknown EMAIL_DELIVERY" in str(exc)
+    finally:
+        settings.DEBUG = previous_debug
+        settings.EMAIL_DELIVERY = previous_delivery
+
+
+def test_verified_user_login_and_me_report_verified(phase9_client):
+    client, _ = phase9_client
+    registered = register_user(client, "verified-reload@example.com", verify=True)
+
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "verified-reload@example.com", "password": "supersecret1"},
+    )
+    assert login.status_code == 200
+    assert login.json()["user"]["email_verified"] is True
+
+    me = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {login.json()['token']}"},
+    )
+    assert me.status_code == 200
+    assert me.json()["user"]["email_verified"] is True
+    assert me.json()["user"]["id"] == registered["user"]["id"]
 
 
 # --- Unauthenticated access to protected endpoints -----------------------------

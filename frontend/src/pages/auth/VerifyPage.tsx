@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { verifyEmail, resendVerification } from "../../services/authService";
 import EngineerOSMark from "../../components/branding/EngineerOSMark";
@@ -16,10 +16,13 @@ function formatCountdown(totalSeconds: number): string {
 }
 
 function VerifyPage() {
-  const { refreshUser } = useAuth();
+  const { user, isLoading, refreshUser, markEmailVerified } = useAuth();
   const location = useLocation();
   const locationState = location.state as { email?: string; dev_code?: string | null } | null;
-  const email = locationState?.email || "";
+
+  // Prefer router state, then the authenticated session — survives reload for
+  // registered (token-bearing) unverified users.
+  const email = (locationState?.email || user?.email || "").trim().toLowerCase();
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
@@ -29,22 +32,24 @@ function VerifyPage() {
   const [validityLeft, setValidityLeft] = useState(CODE_VALIDITY_SECONDS);
   const [devCode, setDevCode] = useState<string | null>(locationState?.dev_code ?? null);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+  const validityActive = !success && validityLeft > 0;
+  const resendActive = resendCooldown > 0;
 
   useEffect(() => {
-    if (success || validityLeft <= 0) return;
+    if (!validityActive) return;
     const id = window.setInterval(() => {
       setValidityLeft((c) => (c <= 1 ? 0 : c - 1));
     }, 1000);
     return () => window.clearInterval(id);
-  }, [success, validityLeft > 0]);
+  }, [validityActive]);
 
   useEffect(() => {
-    if (resendCooldown <= 0) return;
+    if (!resendActive) return;
     const id = window.setInterval(() => {
       setResendCooldown((c) => (c <= 1 ? 0 : c - 1));
     }, 1000);
     return () => window.clearInterval(id);
-  }, [resendCooldown > 0]);
+  }, [resendActive]);
 
   function focusInput(index: number) {
     inputsRef.current[index]?.focus();
@@ -91,8 +96,10 @@ function VerifyPage() {
     setError("");
     try {
       await verifyEmail(email, fullCode);
-      setSuccess(true);
+      // Optimistically clear the verify gate even if /me is briefly unavailable.
+      markEmailVerified();
       await refreshUser();
+      setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid verification code.");
     } finally {
@@ -112,6 +119,11 @@ function VerifyPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to resend code. Please try again.");
     }
+  }
+
+  // Verified sessions never stay on this screen.
+  if (!isLoading && user?.email_verified === true && !success) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (!email) {
@@ -191,7 +203,7 @@ function VerifyPage() {
 
         <div className="auth-verify-actions">
           <p className="auth-footer-text">
-            Didn't receive it?{" "}
+            Didn&apos;t receive it?{" "}
             <button
               type="button"
               className="auth-link auth-link-button"
@@ -207,7 +219,7 @@ function VerifyPage() {
 
       {devCode && (
         <p className="auth-dev-notice">
-          Development mode — no email is actually sent. Your verification code is <strong>{devCode}</strong>.
+          Development mode — console email delivery. Your verification code is <strong>{devCode}</strong>.
         </p>
       )}
     </div>

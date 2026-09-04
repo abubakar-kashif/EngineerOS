@@ -26,6 +26,11 @@ function cacheUser(user: User | null): void {
   }
 }
 
+/** Persist an updated user object into the session cache (e.g. after verify). */
+export function cacheSessionUser(user: User): void {
+  cacheUser(user);
+}
+
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
   const data = await apiRequest<AuthResponse>(
     "/auth/login",

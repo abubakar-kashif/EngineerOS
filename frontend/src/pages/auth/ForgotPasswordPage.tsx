@@ -64,7 +64,7 @@ function ForgotPasswordPage() {
         <div className="auth-brand"><EngineerOSMark size="lg" /><span className="auth-brand-name">EngineerOS</span></div>
         <h1 className="auth-title">Forgot password?</h1>
         <p className="auth-subtitle">
-          Enter your email and we&apos;ll send a 6-digit reset code. Codes expire after two minutes.
+          Enter your email and we&apos;ll send a 6-digit reset code. Codes expire after 30 minutes.
         </p>
 
         {error && <div className="auth-error" role="alert">{error}</div>}

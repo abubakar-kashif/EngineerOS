@@ -65,6 +65,13 @@ class ResetPasswordRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     email: str | None = Field(default=None, max_length=320)
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str | None) -> str | None:
+        if value is None or value.strip() == "":
+            return None
+        return validate_email(value)
+
 
 class MessageResponse(BaseModel):
     message: str

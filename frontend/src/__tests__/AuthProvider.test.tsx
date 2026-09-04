@@ -200,4 +200,41 @@ describe("AuthProvider login and logout", () => {
     await waitFor(() => expect(screen.getByTestId("anonymous")).toBeInTheDocument());
     expect(localStorage.getItem("engineeros_auth_token")).toBeNull();
   });
+
+  it("markEmailVerified updates the session cache so ProtectedRoute stops bouncing", async () => {
+    const unverified = { ...testUser, email_verified: false };
+    seedSession(unverified);
+    mockApiRoutes({
+      "GET /auth/me": jsonResponse({ user: unverified, token: "token-abc" }),
+    });
+
+    function VerifyButton() {
+      const { user, markEmailVerified } = useAuth();
+      return (
+        <div>
+          <span data-testid="verified-flag">{String(user?.email_verified)}</span>
+          <button type="button" onClick={() => markEmailVerified()}>
+            Mark verified
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <VerifyButton />
+        <Harness />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("authed")).toBeInTheDocument());
+    expect(screen.getByTestId("verified-flag")).toHaveTextContent("false");
+
+    screen.getByRole("button", { name: "Mark verified" }).click();
+    await waitFor(() =>
+      expect(screen.getByTestId("verified-flag")).toHaveTextContent("true"),
+    );
+    const cached = JSON.parse(localStorage.getItem(USER_CACHE_KEY) ?? "{}") as User;
+    expect(cached.email_verified).toBe(true);
+  });
 });
