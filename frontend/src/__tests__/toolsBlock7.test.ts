@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  appendCalculatorToken,
   convertUnit,
   evaluateExpression,
 } from "../services/tools/toolsService";
@@ -59,10 +60,84 @@ describe("Scientific calculator", () => {
   it("throws on invalid / undefined expressions", () => {
     expect(() => evaluateExpression("")).toThrow(/empty/i);
     expect(() => evaluateExpression("1 / 0")).toThrow();
-    expect(() => evaluateExpression("(2 + 3")).toThrow();
     expect(() => evaluateExpression("foo(1)")).toThrow();
     expect(() => evaluateExpression("sqrt(-1)")).toThrow();
     expect(() => evaluateExpression("log(0)")).toThrow();
+    expect(() => evaluateExpression("sin(")).toThrow();
+    expect(() => evaluateExpression(")")).toThrow();
+  });
+
+  it("replaces leading zero when starting a function or constant", () => {
+    expect(appendCalculatorToken("0", "sin(")).toBe("sin(");
+    expect(appendCalculatorToken("0", "cos(")).toBe("cos(");
+    expect(appendCalculatorToken("0", "tan(")).toBe("tan(");
+    expect(appendCalculatorToken("0", "√(")).toBe("√(");
+    expect(appendCalculatorToken("0", "log(")).toBe("log(");
+    expect(appendCalculatorToken("0", "ln(")).toBe("ln(");
+    expect(appendCalculatorToken("0", "π")).toBe("π");
+    expect(appendCalculatorToken("0", "e")).toBe("e");
+    expect(appendCalculatorToken("0", "(")).toBe("(");
+    expect(appendCalculatorToken("0", "9")).toBe("9");
+    // Operators / square keep the zero as the left operand
+    expect(appendCalculatorToken("0", "+")).toBe("0+");
+    expect(appendCalculatorToken("0", "^2")).toBe("0^2");
+    // Implicit multiply between values — never between digits
+    expect(appendCalculatorToken("12", "sin(")).toBe("12×sin(");
+    expect(appendCalculatorToken("2", "π")).toBe("2×π");
+    expect(appendCalculatorToken("sin(9", "0")).toBe("sin(90");
+    expect(appendCalculatorToken("sin(90", "0")).toBe("sin(900");
+    expect(appendCalculatorToken("3", ".")).toBe("3.");
+    expect(appendCalculatorToken("3.", "1")).toBe("3.1");
+    expect(appendCalculatorToken("π", "2")).toBe("π×2");
+    expect(appendCalculatorToken(")", "sin(")).toBe(")×sin(");
+  });
+
+  it("builds multi-digit function args digit-by-digit like a real keypad", () => {
+    let display = "0";
+    for (const key of ["sin(", "9", "0"]) {
+      display = appendCalculatorToken(display, key);
+    }
+    expect(display).toBe("sin(90");
+    expect(evaluateExpression(display, "deg")).toBeCloseTo(1, 10);
+
+    display = "0";
+    for (const key of ["√(", "1", "6"]) {
+      display = appendCalculatorToken(display, key);
+    }
+    expect(display).toBe("√(16");
+    expect(evaluateExpression(display)).toBe(4);
+
+    display = "0";
+    for (const key of ["log(", "1", "0", "0"]) {
+      display = appendCalculatorToken(display, key);
+    }
+    expect(display).toBe("log(100");
+    expect(evaluateExpression(display)).toBeCloseTo(2, 10);
+  });
+
+  it("evaluates keypad-style scientific sequences (including missing ')')", () => {
+    expect(evaluateExpression("sin(90", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("cos(0", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("tan(45", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("log(100")).toBeCloseTo(2, 10);
+    expect(evaluateExpression("ln(e")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("√(16")).toBeCloseTo(4, 10);
+    expect(evaluateExpression("π")).toBeCloseTo(Math.PI, 10);
+    expect(evaluateExpression("e")).toBeCloseTo(Math.E, 10);
+    expect(evaluateExpression("2π")).toBeCloseTo(2 * Math.PI, 10);
+    expect(evaluateExpression("2×sin(30)", "deg")).toBeCloseTo(1, 10);
+
+    const sinExpr = appendCalculatorToken(
+      appendCalculatorToken(appendCalculatorToken("0", "sin("), "90"),
+      ")",
+    );
+    expect(sinExpr).toBe("sin(90)");
+    expect(evaluateExpression(sinExpr, "deg")).toBeCloseTo(1, 10);
+
+    // sin → 90 → = without pressing )
+    const openSin = appendCalculatorToken(appendCalculatorToken("0", "sin("), "90");
+    expect(openSin).toBe("sin(90");
+    expect(evaluateExpression(openSin, "deg")).toBeCloseTo(1, 10);
   });
 });
 

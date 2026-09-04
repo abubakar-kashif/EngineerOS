@@ -18,11 +18,33 @@ import { useAuth } from "../contexts/AuthContext";
 import { getExperimentById } from "../services/experimentService";
 import * as mentorService from "../services/mentor/mentorService";
 
-import type { ChatMessage as ChatMessageType, ConversationSummary, MessageFeedback } from "../types/chat";
+import type { ChatMessage as ChatMessageType, Conversation, ConversationSummary, MessageFeedback } from "../types/chat";
 import type { MentorContext } from "../types/mentor";
 import { emptyMentorContext, experimentPrompts } from "../types/mentor";
 import type { SimulationStatus } from "../types/mentor";
 import type { Experiment } from "../types/experiment";
+
+function toSummary(conv: Conversation, messageCount = conv.messages.length): ConversationSummary {
+  return {
+    id: conv.id,
+    title: conv.title,
+    experiment_id: conv.experiment_id,
+    created_at: conv.created_at,
+    updated_at: conv.updated_at,
+    message_count: messageCount,
+  };
+}
+
+/** Keep the newest conversation first in the sidebar. */
+function upsertConversation(
+  list: ConversationSummary[],
+  summary: ConversationSummary,
+): ConversationSummary[] {
+  const next = [summary, ...list.filter((c) => c.id !== summary.id)];
+  return next.sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+  );
+}
 
 function MentorPage() {
   const { user } = useAuth();
@@ -200,6 +222,8 @@ function MentorPage() {
     setMessages([]);
     setActiveId(null);
     setDrawerOpen(false);
+    // Sync sidebar immediately so the chat you just left is visible.
+    void refreshConversations();
     // Keep the experiment context param only when present.
     if (!experimentParam) setSearchParams({}, { replace: true });
   }
@@ -222,6 +246,18 @@ function MentorPage() {
       {
         onUserMessage: (message) => {
           setMessages((prev) => [...prev, message]);
+          // Bump sidebar entry as soon as the user turn lands.
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conversationId
+                ? {
+                    ...c,
+                    message_count: Math.max(c.message_count, 0) + 1,
+                    updated_at: message.created_at,
+                  }
+                : c,
+            ),
+          );
         },
         onToken: (accumulated) => {
           setStreamingText(accumulated);
@@ -255,6 +291,9 @@ function MentorPage() {
         const conv = await mentorService.createConversation(mentorContext.experimentId);
         conversationId = conv.id;
         setActiveId(conv.id);
+        // Show the new conversation in history immediately (don't wait for leave/remount).
+        setConversations((prev) => upsertConversation(prev, toSummary(conv)));
+        void refreshConversations();
       } catch {
         setBusy(false);
         setSendError("Unable to start a new conversation. Please try again.");

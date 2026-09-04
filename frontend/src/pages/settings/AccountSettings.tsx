@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Pencil } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Pencil, Plus, UserPlus } from "lucide-react";
 import Button from "../../components/ui/Button";
+import Dialog from "../../components/ui/Dialog";
 import Input from "../../components/ui/Input";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/ui/useToast";
@@ -25,20 +27,27 @@ function formatMemberSince(iso: string | undefined): string | null {
 
 /** Profile card with inline editing for name and avatar. */
 function AccountSettings() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url ?? "");
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState<string | undefined>();
+  const [addAccountOpen, setAddAccountOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   if (!user) {
     return (
       <div className="settings-section">
-        <h2 className="settings-section-title">Account</h2>
-        <p className="settings-section-description">
-          Manage your account details and profile information.
-        </p>
+        <div className="settings-section-head">
+          <div>
+            <h2 className="settings-section-title">Account</h2>
+            <p className="settings-section-description">
+              Manage your account details and profile information.
+            </p>
+          </div>
+        </div>
         <p className="settings-placeholder">
           Your profile will appear here once you sign in.
         </p>
@@ -78,12 +87,37 @@ function AccountSettings() {
     setEditing(true);
   };
 
+  async function handleAddAccount() {
+    setSwitching(true);
+    try {
+      await logout();
+      navigate("/register", { replace: true });
+    } catch {
+      toast.error("Couldn't switch accounts", "Please try again.");
+      setSwitching(false);
+      setAddAccountOpen(false);
+    }
+  }
+
   return (
     <div className="settings-section">
-      <h2 className="settings-section-title">Account</h2>
-      <p className="settings-section-description">
-        Manage your account details and profile information.
-      </p>
+      <div className="settings-section-head">
+        <div>
+          <h2 className="settings-section-title">Account</h2>
+          <p className="settings-section-description">
+            Manage your account details and profile information.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="settings-add-account"
+          onClick={() => setAddAccountOpen(true)}
+          aria-label="Add account"
+          title="Add account"
+        >
+          <Plus size={18} strokeWidth={2.25} />
+        </button>
+      </div>
 
       <div className="settings-profile">
         {user.avatar_url ? (
@@ -151,7 +185,7 @@ function AccountSettings() {
           </div>
         </div>
       ) : (
-        <div className="settings-field">
+        <div className="settings-field settings-account-actions">
           <Button
             variant="secondary"
             size="sm"
@@ -160,8 +194,29 @@ function AccountSettings() {
           >
             Edit Profile
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<UserPlus size={14} />}
+            onClick={() => setAddAccountOpen(true)}
+          >
+            Add account
+          </Button>
         </div>
       )}
+
+      <Dialog
+        open={addAccountOpen}
+        onClose={() => {
+          if (!switching) setAddAccountOpen(false);
+        }}
+        onConfirm={() => void handleAddAccount()}
+        title="Add another account?"
+        description="You'll be signed out of the current account, then you can register or sign in with a different one."
+        confirmLabel={switching ? "Switching…" : "Continue"}
+        cancelLabel="Cancel"
+        variant="default"
+      />
     </div>
   );
 }

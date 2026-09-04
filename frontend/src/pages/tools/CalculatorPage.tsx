@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import SectionHeading from "../../components/ui/SectionHeading";
 import {
+  appendCalculatorToken,
   evaluateExpression,
   formatResult,
   type AngleMode,
@@ -85,7 +86,7 @@ function CalculatorPage() {
       setJustEvaluated(false);
     }
 
-    setDisplay(base === "0" && /[0-9.]/.test(token) ? token : base + token);
+    setDisplay(appendCalculatorToken(base, token));
   }, [display, justEvaluated, lastValue]);
 
   const clearAll = useCallback(() => {
@@ -162,7 +163,7 @@ function CalculatorPage() {
       <SectionHeading
         eyebrow="TOOLBOX"
         title="Scientific Calculator"
-        description="Basic arithmetic plus trig, roots, logs and powers. The keyboard works too — Enter evaluates, Escape clears."
+        description="Basic arithmetic plus trig, roots, logs and powers. Press a function, enter the value, then = (closing ) is optional). Enter evaluates, Escape clears."
       />
 
       <div className="calc-shell">

@@ -760,6 +760,34 @@ function tokenize(input: string): Token[] {
   return tokens;
 }
 
+/** Close any unclosed "(" so keypad sequences like sin(90)= still evaluate. */
+function autoCloseParentheses(expression: string): string {
+  let depth = 0;
+  for (const char of expression) {
+    if (char === "(") depth += 1;
+    else if (char === ")") depth = Math.max(0, depth - 1);
+  }
+  return depth > 0 ? expression + ")".repeat(depth) : expression;
+}
+
+/** Insert × between adjacent values: 2π, 2sin(30), (1+2)(3+4). */
+function withImplicitMultiplication(tokens: Token[]): Token[] {
+  const output: Token[] = [];
+  for (const token of tokens) {
+    const prev = output[output.length - 1];
+    if (prev) {
+      const prevAtom = prev.kind === "number" || prev.kind === "rparen";
+      const nextAtom =
+        token.kind === "number" || token.kind === "lparen" || token.kind === "function";
+      if (prevAtom && nextAtom) {
+        output.push({ kind: "operator", value: "*" });
+      }
+    }
+    output.push(token);
+  }
+  return output;
+}
+
 function toRpn(tokens: Token[]): Token[] {
   const output: Token[] = [];
   const stack: Token[] = [];
@@ -830,6 +858,14 @@ function toRpn(tokens: Token[]): Token[] {
     if (token.kind !== "rparen") previous = token;
   }
 
+  // Auto-close leftover "(" from incomplete keypad entry (e.g. sin(90)
+  while (stack.length > 0 && stack[stack.length - 1].kind === "lparen") {
+    stack.pop();
+    if (stack.length > 0 && stack[stack.length - 1].kind === "function") {
+      output.push(stack.pop() as Token);
+    }
+  }
+
   while (stack.length > 0) {
     const top = stack.pop() as Token;
     if (top.kind === "lparen") throw new Error("Mismatched parentheses");
@@ -886,10 +922,70 @@ function evaluateRpn(rpn: Token[], mode: AngleMode): number {
 export function evaluateExpression(expression: string, mode: AngleMode = "deg"): number {
   const trimmed = expression.trim();
   if (!trimmed) throw new Error("Empty expression");
-  const result = evaluateRpn(toRpn(tokenize(trimmed)), mode);
+  const closed = autoCloseParentheses(trimmed);
+  const tokens = withImplicitMultiplication(tokenize(closed));
+  const result = evaluateRpn(toRpn(tokens), mode);
   if (Number.isNaN(result)) throw new Error("Invalid expression");
   if (!Number.isFinite(result)) throw new Error("Result is undefined");
   return result;
+}
+
+/** True when a leading display "0" should be replaced (not kept as a literal digit). */
+function replacesLeadingZero(token: string): boolean {
+  if (/^[0-9.]/.test(token)) return true;
+  if (token === "(") return true;
+  if (token === "π" || token === "e") return true;
+  if (token.startsWith("√")) return true;
+  // Function keys: sin(, cos(, tan(, log(, ln(
+  if (/^[a-zA-Z]/.test(token)) return true;
+  return false;
+}
+
+function endsWithValueAtom(expression: string): boolean {
+  if (!expression) return false;
+  const last = expression[expression.length - 1];
+  return /[0-9.)πe]/.test(last);
+}
+
+/**
+ * Implicit × only between complete values — never between digits of one number.
+ * Examples: 2π → 2×π, 2sin( → 2×sin(, )( → )×(
+ * Not: sin(9 + 0 → sin(90
+ */
+function shouldInsertImplicitMultiply(current: string, token: string): boolean {
+  if (!current || !endsWithValueAtom(current)) return false;
+
+  const last = current[current.length - 1];
+
+  // Digit / decimal keys continue the current number (or start an arg after "(").
+  if (/^[0-9.]$/.test(token)) {
+    //  π2, e2, )2  → multiply;  92, 9.2, sin(2  → append
+    return /[)πe]/.test(last);
+  }
+
+  // Function / constant / group after a value: 2sin(, 2π, 2(, )sin(
+  if (token === "(") return true;
+  if (token === "π" || token === "e") return true;
+  if (token.startsWith("√")) return true;
+  if (/^[a-zA-Z]/.test(token)) return true;
+
+  return false;
+}
+
+/**
+ * Append a calculator key token to the current display expression.
+ * Replaces the placeholder "0" for digits, constants, and functions so
+ * pressing sin does not produce "0sin(".
+ * Inserts × only between separate values (never between digits).
+ */
+export function appendCalculatorToken(current: string, token: string): string {
+  if (current === "0" && replacesLeadingZero(token)) {
+    return token;
+  }
+  if (shouldInsertImplicitMultiply(current, token)) {
+    return `${current}×${token}`;
+  }
+  return current + token;
 }
 
 /* =========================================================
