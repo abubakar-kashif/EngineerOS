@@ -208,26 +208,33 @@ function MentorPage() {
     setSendError(null);
     setStreamingText(null);
 
-    const cancel = mentorService.sendMessage(conversationId, text, mentorContext.experimentTitle, {
-      onUserMessage: (message) => {
-        setMessages((prev) => [...prev, message]);
+    const cancel = mentorService.sendMessage(
+      conversationId,
+      text,
+      {
+        experimentId: mentorContext.experimentId,
       },
-      onToken: (accumulated) => {
-        setStreamingText(accumulated);
+      {
+        onUserMessage: (message) => {
+          setMessages((prev) => [...prev, message]);
+        },
+        onToken: (accumulated) => {
+          setStreamingText(accumulated);
+        },
+        onComplete: (message) => {
+          setStreamingText(null);
+          setBusy(false);
+          setMessages((prev) => [...prev, message]);
+          void refreshConversations();
+        },
+        onError: (error) => {
+          setStreamingText(null);
+          setBusy(false);
+          setSendError(error.message || "AI Mentor could not generate a response. Please try again.");
+          lastFailedRef.current = text;
+        },
       },
-      onComplete: (message) => {
-        setStreamingText(null);
-        setBusy(false);
-        setMessages((prev) => [...prev, message]);
-        void refreshConversations();
-      },
-      onError: () => {
-        setStreamingText(null);
-        setBusy(false);
-        setSendError("Unable to send message. Your conversation is safe — please try again.");
-        lastFailedRef.current = text;
-      },
-    });
+    );
 
     cancelSendRef.current = cancel;
   }
@@ -277,23 +284,26 @@ function MentorPage() {
       return last?.role === "assistant" ? prev.slice(0, -1) : prev;
     });
 
-    const cancel = mentorService.regenerateMessage(activeId, mentorContext.experimentTitle, {
-      onUserMessage: (message) => {
-        setMessages((prev) => [...prev, message]);
+    const cancel = mentorService.regenerateMessage(
+      activeId,
+      {
+        experimentId: mentorContext.experimentId,
       },
-      onToken: (accumulated) => setStreamingText(accumulated),
-      onComplete: (message) => {
-        setStreamingText(null);
-        setBusy(false);
-        setMessages((prev) => [...prev, message]);
-        void refreshConversations();
+      {
+        onToken: (accumulated) => setStreamingText(accumulated),
+        onComplete: (message) => {
+          setStreamingText(null);
+          setBusy(false);
+          setMessages((prev) => [...prev, message]);
+          void refreshConversations();
+        },
+        onError: (error) => {
+          setStreamingText(null);
+          setBusy(false);
+          setSendError(error.message || "AI Mentor could not generate a response. Please try again.");
+        },
       },
-      onError: () => {
-        setStreamingText(null);
-        setBusy(false);
-        setSendError("Unable to regenerate the response. Please try again.");
-      },
-    });
+    );
     cancelSendRef.current = cancel;
   }
 
@@ -488,7 +498,7 @@ function MentorPage() {
                   <div className="chat-msg-body">
                     <div className="chat-msg-meta">
                       <span className="chat-msg-sender">AI Mentor</span>
-                      <span className="chat-msg-simulated">Simulated</span>
+                      <span className="chat-msg-time">Streaming</span>
                     </div>
                     <div className="chat-msg-content chat-msg-content--streaming">
                       <MarkdownLite content={streamingText} />

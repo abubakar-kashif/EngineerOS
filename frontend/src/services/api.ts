@@ -1,4 +1,4 @@
-const API_BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   "http://127.0.0.1:8000/api";
 
@@ -109,4 +109,73 @@ export async function apiRequest<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+/**
+ * Authenticated fetch for streaming endpoints (SSE).
+ * Returns the raw Response so callers can read the body incrementally.
+ * Does not JSON-parse the body. Uses a longer default timeout for AI streams.
+ */
+export async function apiStream(
+  path: string,
+  options?: RequestInit,
+  config?: RequestConfig & { signal?: AbortSignal },
+): Promise<Response> {
+  const timeoutMs = config?.timeoutMs ?? 90_000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  const external = config?.signal;
+  const onExternalAbort = () => controller.abort();
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener("abort", onExternalAbort, { once: true });
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
+        ...(options?.headers ?? {}),
+      },
+      signal: controller.signal,
+    });
+  } catch {
+    if (controller.signal.aborted) {
+      throw new ApiError(0, "The request timed out. Please try again.");
+    }
+    throw new ApiError(
+      0,
+      "Unable to reach the EngineerOS server. Check that the backend is running and try again.",
+    );
+  } finally {
+    clearTimeout(timeoutId);
+    if (external) external.removeEventListener("abort", onExternalAbort);
+  }
+
+  if (response.status === 401) {
+    clearAuthCache();
+    if (config?.redirectOn401 !== false && window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
+  }
+
+  if (!response.ok) {
+    let message = `API request failed with status ${response.status}`;
+    try {
+      const body = await response.json();
+      if (typeof body?.detail === "string") {
+        message = body.detail;
+      }
+    } catch {
+      // Keep the default error message.
+    }
+    throw new ApiError(response.status, message);
+  }
+
+  return response;
 }

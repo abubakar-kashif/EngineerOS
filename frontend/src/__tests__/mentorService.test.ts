@@ -9,13 +9,15 @@ import {
   renameConversation,
   sendMessage,
   setMessageFeedback,
+  toMentorUserError,
 } from "../services/mentor/mentorService";
-import { setAuthToken } from "../services/api";
+import { ApiError, setAuthToken } from "../services/api";
 import { deriveTitleFromMessage } from "../types/mentor";
 import { jsonResponse, mockApiRoutes } from "../test/apiMocks";
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 const iso = (daysAgo: number): string =>
@@ -46,6 +48,14 @@ const message = (
   created_at: iso(0),
 });
 
+function sseResponse(events: Record<string, unknown>[]): Response {
+  const body = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("");
+  return new Response(body, {
+    status: 200,
+    headers: { "Content-Type": "text/event-stream" },
+  });
+}
+
 describe("conversation loading", () => {
   it("lists the signed-in user's conversations with the bearer token attached", async () => {
     setAuthToken("token-123");
@@ -60,7 +70,7 @@ describe("conversation loading", () => {
     expect(calls[0].headers.Authorization).toBe("Bearer token-123");
   });
 
-  it("maps a conversation detail into chat messages (metadata → is_simulated)", async () => {
+  it("maps conversation detail messages (legacy is_simulated metadata only)", async () => {
     mockApiRoutes({
       "GET /conversations/c1": jsonResponse({
         id: "c1",
@@ -70,8 +80,8 @@ describe("conversation loading", () => {
         updated_at: iso(0),
         messages: [
           message("m1", "c1", "user", "Why is current the same?"),
-          message("m2", "c1", "assistant", "Simulated answer…", { is_simulated: true }),
-          message("m3", "c1", "assistant", "Real answer later"),
+          message("m2", "c1", "assistant", "Old placeholder…", { is_simulated: true }),
+          message("m3", "c1", "assistant", "Real answer"),
         ],
       }),
     });
@@ -120,7 +130,7 @@ describe("conversation loading", () => {
       "DELETE /conversations/c2": jsonResponse({ detail: "Conversation not found" }, 404),
       "PATCH /conversations/c1": jsonResponse(summary("c1", "Renamed", 0)),
       "PATCH /conversations/c1/messages/m1": jsonResponse({
-        ...message("m1", "c1", "assistant", "Simulated answer…", { is_simulated: true }),
+        ...message("m1", "c1", "assistant", "Answer", null),
         feedback: "helpful",
       }),
     });
@@ -133,7 +143,6 @@ describe("conversation loading", () => {
 
     const feedback = await setMessageFeedback("c1", "m1", "helpful");
     expect(feedback?.feedback).toBe("helpful");
-    expect(feedback?.is_simulated).toBe(true);
   });
 
   it("groups conversations by recency for the sidebar", () => {
@@ -155,15 +164,10 @@ describe("conversation loading", () => {
   });
 });
 
-describe("sendMessage pipeline", () => {
-  interface PersistMessageBody {
-    role: "user" | "assistant";
-    content: string;
-    metadata: Record<string, unknown> | null;
-  }
-
-  function routeLog() {
-    return mockApiRoutes({
+describe("sendMessage real Mentor stream", () => {
+  it("auto-titles, streams real SSE deltas, and completes without simulating tokens", async () => {
+    setAuthToken("token-123");
+    const calls = mockApiRoutes({
       "GET /conversations/c1": () =>
         jsonResponse({
           id: "c1",
@@ -173,111 +177,134 @@ describe("sendMessage pipeline", () => {
           updated_at: iso(0),
           messages: [],
         }),
-      // Echo the persisted payload so assertions see what was really sent.
-      "POST /conversations/c1/messages": (call) => {
-        const body = call.body as PersistMessageBody;
-        return jsonResponse(
-          message(`m-${body.role}`, "c1", body.role, body.content, body.metadata),
-        );
-      },
       "PATCH /conversations/c1": () => jsonResponse(summary("c1", "Renamed", 0)),
+      "POST /conversations/c1/ask/stream": () =>
+        sseResponse([
+          { type: "start", content: "", metadata: { model: "gpt-3.5-turbo" } },
+          { type: "delta", content: "Ohm" },
+          { type: "delta", content: "'s Law" },
+          {
+            type: "complete",
+            content: "Ohm's Law",
+            message_id: "a1",
+            conversation_id: "c1",
+          },
+        ]),
     });
-  }
-
-  it("persists the user message, auto-titles, streams a simulated reply, then persists it", async () => {
-    vi.useFakeTimers();
-    const calls = routeLog();
 
     const tokens: string[] = [];
     const userMessages: string[] = [];
-    const completions: { content: string; is_simulated?: boolean }[] = [];
+    const completions: { content: string; is_simulated?: boolean; id: string }[] = [];
 
-    const cancel = sendMessage(
-      "c1",
-      "Why is current the same everywhere in a series circuit?",
-      "Series Circuit",
-      {
-        onUserMessage: (m) => userMessages.push(m.content),
-        onToken: (accumulated) => tokens.push(accumulated),
-        onComplete: (m) =>
-          completions.push({ content: m.content, is_simulated: m.is_simulated }),
-      },
-    );
-
-    // Flush the detail fetch + user message persistence + auto-rename.
-    await vi.advanceTimersByTimeAsync(0);
-    expect(userMessages).toEqual([
-      "Why is current the same everywhere in a series circuit?",
-    ]);
-
-    // Run the simulated token stream to completion and persist the reply.
-    await vi.advanceTimersByTimeAsync(10_000);
-    cancel();
-
-    // The reply is clearly labeled as simulated, both in the stream and on disk.
-    expect(tokens.length).toBeGreaterThan(1);
-    expect(completions).toHaveLength(1);
-    expect(completions[0].is_simulated).toBe(true);
-    expect(completions[0].content).toContain("Simulated response");
-    expect(tokens[tokens.length - 1]).toBe(completions[0].content);
-
-    const assistantPersist = calls.find(
-      (call) =>
-        call.path === "/conversations/c1/messages" &&
-        (call.body as { role?: string })?.role === "assistant",
-    );
-    expect(assistantPersist?.body).toMatchObject({
-      role: "assistant",
-      metadata: { is_simulated: true },
+    await new Promise<void>((resolve, reject) => {
+      sendMessage(
+        "c1",
+        "Explain Ohm's Law in a series circuit context for beginners please",
+        { experimentId: "ohms-law" },
+        {
+          onUserMessage: (m) => userMessages.push(m.content),
+          onToken: (accumulated) => tokens.push(accumulated),
+          onComplete: (m) => {
+            completions.push({ content: m.content, is_simulated: m.is_simulated, id: m.id });
+            resolve();
+          },
+          onError: (error) => reject(error),
+        },
+      );
     });
 
-    // First message in a fresh conversation derives its title client-side
-    // (truncated by deriveTitleFromMessage for long messages).
+    expect(userMessages).toEqual([
+      "Explain Ohm's Law in a series circuit context for beginners please",
+    ]);
+    expect(tokens).toEqual(["Ohm", "Ohm's Law"]);
+    expect(completions).toHaveLength(1);
+    expect(completions[0]).toMatchObject({
+      id: "a1",
+      content: "Ohm's Law",
+      is_simulated: false,
+    });
+
+    const streamCall = calls.find((call) => call.path === "/conversations/c1/ask/stream");
+    expect(streamCall?.method).toBe("POST");
+    expect(streamCall?.headers.Authorization).toBe("Bearer token-123");
+    expect(streamCall?.body).toEqual({
+      content: "Explain Ohm's Law in a series circuit context for beginners please",
+      experiment_id: "ohms-law",
+      simulation_id: null,
+      quiz_id: null,
+      report_id: null,
+    });
+
+    // Must not POST fake assistant messages or use /messages for generation.
+    expect(calls.some((call) => call.path.endsWith("/messages") && call.method === "POST")).toBe(
+      false,
+    );
+
     const rename = calls.find((call) => call.method === "PATCH");
     expect(rename?.body).toEqual({
       title: deriveTitleFromMessage(
-        "Why is current the same everywhere in a series circuit?",
+        "Explain Ohm's Law in a series circuit context for beginners please",
       ),
     });
-    expect((rename?.body as { title: string }).title.endsWith("…")).toBe(true);
   });
 
-  it("skips the auto-rename when the conversation already has a title", async () => {
-    vi.useFakeTimers();
-    const calls = mockApiRoutes({
+  it("surfaces a friendly error when the stream reports failure (no fabricated success)", async () => {
+    mockApiRoutes({
       "GET /conversations/c1": () =>
         jsonResponse({
           id: "c1",
-          title: "Already named",
+          title: "Named",
           experiment_id: null,
           created_at: iso(0),
           updated_at: iso(0),
-          messages: [],
+          messages: [message("u1", "c1", "user", "Hello")],
         }),
-      "POST /conversations/c1/messages": () =>
-        jsonResponse(message("m-next", "c1", "user", "stored")),
-    });
-
-    const cancel = sendMessage("c1", "Hello there", null, {});
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(calls.some((call) => call.method === "PATCH")).toBe(false);
-    cancel();
-  });
-
-  it("surfaces an error and persists nothing when the conversation cannot be loaded", async () => {
-    const calls = mockApiRoutes({
-      "GET /conversations/c1": jsonResponse({ detail: "Conversation not found" }, 404),
+      "POST /conversations/c1/ask/stream": () =>
+        sseResponse([
+          { type: "start", content: "" },
+          { type: "error", error: "OpenAI authentication failed: invalid or missing API key" },
+        ]),
     });
 
     const errors: string[] = [];
-    sendMessage("c1", "Hello", null, {
-      onError: (error) => errors.push(error.message),
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const completions: string[] = [];
 
-    expect(errors).toEqual(["Unable to send message."]);
-    expect(calls.some((call) => call.method === "POST")).toBe(false);
+    await new Promise<void>((resolve) => {
+      sendMessage("c1", "Hello", {}, {
+        onComplete: (m) => {
+          completions.push(m.content);
+          resolve();
+        },
+        onError: (error) => {
+          errors.push(error.message);
+          resolve();
+        },
+      });
+    });
+
+    expect(completions).toEqual([]);
+    expect(errors.length).toBe(1);
+    expect(errors[0]).not.toMatch(/traceback|ProviderError|sk-/i);
+  });
+
+  it("surfaces an error when the conversation cannot be loaded for auto-rename path still attempts stream", async () => {
+    // maybeAutoRename swallows 404; stream then fails with 404.
+    mockApiRoutes({
+      "GET /conversations/c1": jsonResponse({ detail: "Conversation not found" }, 404),
+      "POST /conversations/c1/ask/stream": jsonResponse({ detail: "Conversation not found" }, 404),
+    });
+
+    const errors: string[] = [];
+    await new Promise<void>((resolve) => {
+      sendMessage("c1", "Hello", {}, {
+        onError: (error) => {
+          errors.push(error.message);
+          resolve();
+        },
+      });
+    });
+
+    expect(errors[0]).toMatch(/conversation not found|start a new chat/i);
   });
 });
 
@@ -295,12 +322,65 @@ describe("regenerateMessage", () => {
     });
 
     const errors: string[] = [];
-    const cancel = regenerateMessage("c1", null, {
+    const cancel = regenerateMessage("c1", {}, {
       onError: (error) => errors.push(error.message),
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     cancel();
 
     expect(errors).toEqual(["Nothing to regenerate."]);
+  });
+
+  it("re-asks the last user message through the real stream endpoint", async () => {
+    mockApiRoutes({
+      "GET /conversations/c1": () =>
+        jsonResponse({
+          id: "c1",
+          title: "Ohm",
+          experiment_id: null,
+          created_at: iso(0),
+          updated_at: iso(0),
+          messages: [
+            message("u1", "c1", "user", "Explain Ohm's Law"),
+            message("a1", "c1", "assistant", "Old answer"),
+          ],
+        }),
+      "POST /conversations/c1/ask/stream": () =>
+        sseResponse([
+          { type: "delta", content: "Fresh" },
+          { type: "complete", content: "Fresh", message_id: "a2", conversation_id: "c1" },
+        ]),
+    });
+
+    const userMessages: string[] = [];
+    const completions: string[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      regenerateMessage(
+        "c1",
+        {},
+        {
+          onUserMessage: (m) => userMessages.push(m.content),
+          onComplete: (m) => {
+            completions.push(m.content);
+            resolve();
+          },
+          onError: (error) => reject(error),
+        },
+      );
+    });
+
+    expect(userMessages).toEqual([]);
+    expect(completions).toEqual(["Fresh"]);
+  });
+});
+
+describe("toMentorUserError", () => {
+  it("never exposes tracebacks or secrets", () => {
+    const err = toMentorUserError(
+      new ApiError(500, "Traceback (most recent call last):\nProviderError: sk-secret"),
+    );
+    expect(err.message).toBe("AI Mentor could not generate a response. Please try again.");
+    expect(err.message).not.toMatch(/traceback|sk-secret|ProviderError/i);
   });
 });

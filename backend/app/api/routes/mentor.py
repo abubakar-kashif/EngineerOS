@@ -40,7 +40,8 @@ class AskStreamRequest(BaseModel):
     report_id: Optional[str] = None
 
 
-router = APIRouter(prefix="/conversations", tags=["mentor"])
+# Must live under /api so the frontend API client (VITE_API_BASE_URL …/api) can reach it.
+router = APIRouter(prefix="/api/conversations", tags=["mentor"])
 
 
 def _http_status_for_ai_error(error: AIError) -> int:

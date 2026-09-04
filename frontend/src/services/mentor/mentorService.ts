@@ -1,19 +1,18 @@
 /**
  * AI Mentor service boundary.
  *
- * Architecture notes:
- * - Conversations and messages are persisted per user through the backend
- *   Conversations API (docs/API_CONTRACT.md §7); ownership is enforced
- *   server-side via the bearer token, so no user id is passed around.
- * - `sendMessage` is streaming-ready: it accepts an `onToken` callback
- *   so a future provider can stream tokens as they arrive.
- * - No real AI model is connected. Assistant replies come from a
- *   clearly-labeled placeholder responder (`is_simulated: true` in the
- *   message metadata, surfaced as a "Simulated" badge by the UI) and are
- *   persisted like any other message, so history survives devices.
+ * Conversations are persisted through the Conversations API; ownership is
+ * enforced server-side via the bearer token (no client-supplied user_id).
+ *
+ * Generation uses the real Mentor endpoints:
+ *   POST /conversations/{id}/ask
+ *   POST /conversations/{id}/ask/stream
+ *
+ * Streaming is provider-backed SSE from the backend — never simulated with
+ * setInterval/setTimeout chunk timers.
  */
 
-import { ApiError, apiRequest } from "../api";
+import { ApiError, apiRequest, apiStream } from "../api";
 import type {
   ChatMessage,
   Conversation,
@@ -26,8 +25,10 @@ import type {
 import { deriveTitleFromMessage } from "../../types/mentor";
 
 const DEFAULT_TITLE = "New conversation";
+const MENTOR_USER_ERROR =
+  "AI Mentor could not generate a response. Please try again.";
 
-/* ── API shapes (see docs/API_CONTRACT.md §7) ────────── */
+/* ── API shapes ─────────────────────────────────────── */
 
 interface ApiMessage {
   id: string;
@@ -57,6 +58,29 @@ interface ApiConversationSummary {
   message_count: number;
 }
 
+/** Optional context IDs forwarded to the Mentor ask endpoints. */
+export interface MentorAskContext {
+  experimentId?: string | null;
+  simulationId?: string | null;
+  quizId?: string | null;
+  reportId?: string | null;
+  /**
+   * When false, skip the optimistic onUserMessage callback
+   * (used by regenerate — the user turn already exists in the UI).
+   */
+  emitUserMessage?: boolean;
+}
+
+interface StreamEventPayload {
+  type: string;
+  content?: string | null;
+  metadata?: Record<string, unknown> | null;
+  error?: string | null;
+  error_type?: string | null;
+  message_id?: string | null;
+  conversation_id?: string | null;
+}
+
 function toChatMessage(raw: ApiMessage): ChatMessage {
   return {
     id: raw.id,
@@ -66,12 +90,58 @@ function toChatMessage(raw: ApiMessage): ChatMessage {
     created_at: raw.created_at,
     status: "complete",
     feedback: raw.feedback,
+    // Historical placeholder replies only — production never sets this.
     is_simulated: raw.metadata?.is_simulated === true,
   };
 }
 
 function isNotFound(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404;
+}
+
+function looksUnsafeDetail(message: string): boolean {
+  return /traceback|sqlalchemy|providererror|exception at|api[_-]?key|sk-[a-z0-9]|stack trace/i.test(
+    message,
+  );
+}
+
+/** Map transport/API failures to short user-facing errors (no internals). */
+export function toMentorUserError(error: unknown): Error {
+  if (error instanceof ApiError) {
+    if (error.status === 401) {
+      return new Error("Please sign in again to use AI Mentor.");
+    }
+    if (error.status === 403) {
+      return new Error("You do not have access to this conversation.");
+    }
+    if (error.status === 404) {
+      return new Error("Conversation not found. Please start a new chat.");
+    }
+    if (error.status === 429) {
+      return new Error("Too many requests. Please wait a moment and try again.");
+    }
+    if (error.status === 504 || /timed?\s*out/i.test(error.message)) {
+      return new Error("AI Mentor timed out. Please try again.");
+    }
+    const detail = (error.message || "").trim();
+    if (detail && detail.length < 160 && !detail.includes("\n") && !looksUnsafeDetail(detail)) {
+      // Prefer known safe backend messages (e.g. "AI provider authentication failed").
+      if (/ai mentor|provider|timed|rate|unavailable|authentication|conversation/i.test(detail)) {
+        return new Error(detail);
+      }
+    }
+  }
+  return new Error(MENTOR_USER_ERROR);
+}
+
+function askBody(content: string, context: MentorAskContext = {}) {
+  return {
+    content,
+    experiment_id: context.experimentId ?? null,
+    simulation_id: context.simulationId ?? null,
+    quiz_id: context.quizId ?? null,
+    report_id: context.reportId ?? null,
+  };
 }
 
 /* ── conversations ───────────────────────────────────── */
@@ -181,252 +251,193 @@ export function groupConversations(summaries: ConversationSummary[]): GroupedCon
     .map((g) => ({ group: g, conversations: groups[g] }));
 }
 
-/* ── placeholder responder (NOT a real AI model) ─────── */
+/* ── SSE parsing ─────────────────────────────────────── */
 
-/**
- * Produces a simulated, clearly-labeled mentor reply.
- * Keyword-based canned content that exercises the markdown renderer.
- * Replaced entirely when the real AI engine is connected.
- */
-function buildSimulatedReply(userMessage: string, experimentTitle: string | null): string {
-  const q = userMessage.toLowerCase();
-  const contextLine = experimentTitle
-    ? `You're working on **${experimentTitle}**, so here's a focused answer.`
-    : "Here's a focused answer.";
+function parseSseChunk(
+  buffer: string,
+  onEvent: (event: StreamEventPayload) => void,
+): string {
+  const parts = buffer.split("\n\n");
+  const remainder = parts.pop() ?? "";
 
-  if (q.includes("series")) {
-    return [
-      "> **Simulated response** — the AI engine is not connected yet. This placeholder demonstrates the mentor interface.",
-      "",
-      `${contextLine}`,
-      "",
-      "### Why current stays the same",
-      "",
-      "In a **series circuit**, charge has only one path to follow. Since charge is neither created nor destroyed anywhere along that path, the flow rate must be identical at every point.",
-      "",
-      "- The same current `I` passes through every component",
-      "- Supply voltage divides across components: $V = V_1 + V_2 + ... + V_n$",
-      "- Total resistance adds up: $R = R_1 + R_2 + ... + R_n$",
-      "",
-      "### Worked example",
-      "",
-      "| Quantity | Value |",
-      "| --- | --- |",
-      "| Source voltage | 12 V |",
-      "| R1 | 4 Ω |",
-      "| R2 | 2 Ω |",
-      "| Total R | 6 Ω |",
-      "| Current (everywhere) | $I = 12/6 = 2$ A |",
-      "",
-      "Measure the current at **any** point — the ammeter reads the same 2 A.",
-    ].join("\n");
+  for (const part of parts) {
+    const dataLines = part
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart());
+    if (dataLines.length === 0) continue;
+    const raw = dataLines.join("\n");
+    if (!raw || raw === "[DONE]") continue;
+    try {
+      onEvent(JSON.parse(raw) as StreamEventPayload);
+    } catch {
+      // Ignore malformed SSE payloads — never invent a successful answer.
+    }
   }
 
-  if (q.includes("parallel")) {
-    return [
-      "> **Simulated response** — the AI engine is not connected yet. This placeholder demonstrates the mentor interface.",
-      "",
-      `${contextLine}`,
-      "",
-      "### Parallel circuits",
-      "",
-      "In a **parallel circuit**, components share the same two nodes, so each branch sees the **full source voltage**.",
-      "",
-      "1. Voltage is equal across all branches: $V = V_1 = V_2$",
-      "2. Current divides between branches: $I = I_1 + I_2$",
-      "3. Total resistance **reduces**: $1/R = 1/R_1 + 1/R_2$",
-      "",
-      "Two 6 Ω resistors in parallel behave like a single **3 Ω** resistor — less resistance means more total current drawn from the source.",
-    ].join("\n");
-  }
-
-  if (q.includes("ohm") || q.includes("v = ir") || q.includes("vir") || q.includes("equation")) {
-    return [
-      "> **Simulated response** — the AI engine is not connected yet. This placeholder demonstrates the mentor interface.",
-      "",
-      `${contextLine}`,
-      "",
-      "### Ohm's Law",
-      "",
-      "$V = I \\times R$",
-      "",
-      "| Symbol | Meaning | Unit |",
-      "| --- | --- | --- |",
-      "| V | Voltage | volts (V) |",
-      "| I | Current | amperes (A) |",
-      "| R | Resistance | ohms (Ω) |",
-      "",
-      "Rearranged for each unknown:",
-      "",
-      "- Current: $I = V / R$",
-      "- Resistance: $R = V / I$",
-      "",
-      "```text",
-      "Example: 5 V across 1 kΩ",
-      "I = V / R = 5 / 1000 = 0.005 A = 5 mA",
-      "```",
-      "",
-      "Power comes along for free: $P = V \\times I$.",
-    ].join("\n");
-  }
-
-  if (q.includes("measure")) {
-    return [
-      "> **Simulated response** — the AI engine is not connected yet. This placeholder demonstrates the mentor interface.",
-      "",
-      `${contextLine}`,
-      "",
-      "### Suggested measurement order",
-      "",
-      "1. **Set the source voltage** first and record it",
-      "2. **Measure current** with the ammeter in series",
-      "3. **Measure voltage** across each component with the voltmeter in parallel",
-      "4. **Compare** measured values against $V = I \\times R$",
-      "",
-      "Small differences (a few percent) are normal — component tolerance and meter accuracy account for them.",
-    ].join("\n");
-  }
-
-  if (q.includes("resistance") || q.includes("increase")) {
-    return [
-      "> **Simulated response** — the AI engine is not connected yet. This placeholder demonstrates the mentor interface.",
-      "",
-      `${contextLine}`,
-      "",
-      "### What happens when resistance increases",
-      "",
-      "From $I = V / R$, with voltage held constant:",
-      "",
-      "- **Current decreases** — opposition to flow grows",
-      "- **Power dissipated changes**: $P = V^2 / R$, so the resistor dissipates *less* power",
-      "",
-      "In a real lab this is why a higher-value resistor stays cooler at the same supply voltage.",
-    ].join("\n");
-  }
-
-  return [
-    "> **Simulated response** — the AI engine is not connected yet. This placeholder demonstrates the mentor interface.",
-    "",
-    `${contextLine}`,
-    "",
-    "I don't have a real model behind me yet, so here is the general approach to questions like yours:",
-    "",
-    "1. Identify the **known quantities** (voltage, current, resistance)",
-    "2. Choose the governing relationship, e.g. $V = I \\times R$",
-    "3. Rearrange for the unknown",
-    "4. Check units and sanity-check the magnitude",
-    "",
-    "When the AI engine is connected, this response will be generated from the real model with your experiment context.",
-  ].join("\n");
+  return remainder;
 }
 
-/* ── send pipeline (streaming-ready) ────────────────── */
-
-const TOKEN_CHUNK_SIZE = 3; // characters per simulated token
-const TOKEN_INTERVAL_MS = 12;
-
-async function persistMessage(
-  conversationId: string,
-  role: "user" | "assistant",
-  content: string,
-  metadata?: Record<string, unknown>,
-): Promise<ChatMessage> {
-  const raw = await apiRequest<ApiMessage>(
-    `/conversations/${encodeURIComponent(conversationId)}/messages`,
-    {
-      method: "POST",
-      body: JSON.stringify({ role, content, metadata: metadata ?? null }),
-    },
-  );
-  return toChatMessage(raw);
+async function maybeAutoRename(conversationId: string, content: string): Promise<void> {
+  try {
+    const detail = await apiRequest<ApiConversationDetail>(
+      `/conversations/${encodeURIComponent(conversationId)}`,
+    );
+    const isFirstUserMessage = !detail.messages.some((m) => m.role === "user");
+    if (isFirstUserMessage && detail.title === DEFAULT_TITLE) {
+      await renameConversation(conversationId, deriveTitleFromMessage(content));
+    }
+  } catch {
+    // Auto-rename must never block the real ask.
+  }
 }
 
 /**
- * Sends a user message and produces the assistant reply.
+ * Sends a user message through the real Mentor stream endpoint.
  *
- * The flow mirrors a streaming AI provider:
- *   user message persisted → tokens arrive → reply grows → reply persisted.
+ * Flow: optional auto-rename → POST ask/stream → SSE deltas → complete.
+ * Backend persists the user + assistant messages; the client does not
+ * fabricate replies or use timer-based fake streaming.
  *
- * Returns a cancel function so the UI can abort an in-flight send
- * (e.g. when switching conversations). Cancelling stops the simulated
- * stream before the assistant message is persisted.
+ * Returns a cancel function that aborts the in-flight request.
  */
 export function sendMessage(
   conversationId: string,
   content: string,
-  experimentTitle: string | null,
+  context: MentorAskContext = {},
   handlers: SendMessageHandlers = {},
 ): () => void {
+  const abortController = new AbortController();
   let cancelled = false;
-  let timer: ReturnType<typeof setInterval> | undefined;
 
   void (async () => {
     try {
-      // Fetch the current detail so the first user message can name the
-      // conversation (title derivation stays client-side).
-      const detail = await apiRequest<ApiConversationDetail>(
-        `/conversations/${encodeURIComponent(conversationId)}`,
+      await maybeAutoRename(conversationId, content);
+      if (cancelled) return;
+
+      // Optimistic user bubble — server persists the authoritative copy.
+      if (context.emitUserMessage !== false) {
+        handlers.onUserMessage?.({
+          id: `local-user-${Date.now()}`,
+          conversation_id: conversationId,
+          role: "user",
+          content,
+          created_at: new Date().toISOString(),
+          status: "complete",
+          feedback: null,
+        });
+      }
+
+      const response = await apiStream(
+        `/conversations/${encodeURIComponent(conversationId)}/ask/stream`,
+        {
+          method: "POST",
+          body: JSON.stringify(askBody(content, context)),
+        },
+        { signal: abortController.signal, timeoutMs: 90_000 },
       );
+
       if (cancelled) return;
 
-      const userMessage = await persistMessage(conversationId, "user", content);
-      if (cancelled) return;
-      handlers.onUserMessage?.(userMessage);
+      if (!response.body) {
+        throw new ApiError(0, MENTOR_USER_ERROR);
+      }
 
-      const isFirstUserMessage = !detail.messages.some((m) => m.role === "user");
-      if (isFirstUserMessage && detail.title === DEFAULT_TITLE) {
-        try {
-          await renameConversation(conversationId, deriveTitleFromMessage(content));
-        } catch {
-          // A failed auto-rename never blocks the reply.
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accumulated = "";
+      let completed = false;
+      let streamError: string | null = null;
+      let finalMessageId: string | null = null;
+      let finalConversationId: string | null = conversationId;
+
+      const handleEvent = (event: StreamEventPayload) => {
+        const type = (event.type || "").toLowerCase();
+
+        if (type === "delta" && event.content) {
+          accumulated += event.content;
+          handlers.onToken?.(accumulated);
+          return;
         }
-      }
-    } catch {
-      if (!cancelled) {
-        handlers.onError?.(new Error("Unable to send message."));
-      }
-      return;
-    }
 
-    // Simulated streaming reply.
-    const fullText = buildSimulatedReply(content, experimentTitle);
-    let index = 0;
+        if (type === "complete") {
+          completed = true;
+          if (event.content) accumulated = event.content;
+          finalMessageId = event.message_id ?? finalMessageId;
+          finalConversationId = event.conversation_id ?? finalConversationId;
+          return;
+        }
 
-    timer = setInterval(() => {
+        if (type === "error") {
+          streamError = event.error || MENTOR_USER_ERROR;
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (cancelled) {
+          await reader.cancel().catch(() => undefined);
+          return;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        buffer = parseSseChunk(buffer, handleEvent);
+      }
+
+      // Flush trailing decoder + any final SSE frame without blank line.
+      buffer += decoder.decode();
+      if (buffer.trim()) {
+        buffer = parseSseChunk(`${buffer}\n\n`, handleEvent);
+      }
+
       if (cancelled) return;
-      index = Math.min(index + TOKEN_CHUNK_SIZE, fullText.length);
-      handlers.onToken?.(fullText.slice(0, index));
 
-      if (index >= fullText.length) {
-        clearInterval(timer);
-        void (async () => {
-          try {
-            const assistantMessage = await persistMessage(conversationId, "assistant", fullText, {
-              is_simulated: true,
-            });
-            if (!cancelled) handlers.onComplete?.(assistantMessage);
-          } catch {
-            if (!cancelled) handlers.onError?.(new Error("Unable to save the reply."));
-          }
-        })();
+      if (streamError) {
+        handlers.onError?.(
+          toMentorUserError(new ApiError(502, streamError)),
+        );
+        return;
       }
-    }, TOKEN_INTERVAL_MS);
+
+      if (!completed || !accumulated.trim()) {
+        handlers.onError?.(new Error(MENTOR_USER_ERROR));
+        return;
+      }
+
+      handlers.onComplete?.({
+        id: finalMessageId ?? `assistant-${Date.now()}`,
+        conversation_id: finalConversationId ?? conversationId,
+        role: "assistant",
+        content: accumulated,
+        created_at: new Date().toISOString(),
+        status: "complete",
+        feedback: null,
+        is_simulated: false,
+      });
+    } catch (error) {
+      if (cancelled || (error instanceof DOMException && error.name === "AbortError")) {
+        return;
+      }
+      if (!cancelled) {
+        handlers.onError?.(toMentorUserError(error));
+      }
+    }
   })();
 
   return () => {
     cancelled = true;
-    if (timer !== undefined) clearInterval(timer);
+    abortController.abort();
   };
 }
 
 /**
- * Regenerates a reply for the last user message.
- * History is append-only server-side, so this re-asks the question and
- * appends a fresh (simulated) assistant reply.
+ * Regenerates a reply for the last user message via a real Mentor request.
+ * Append-only: does not invent local answers.
  */
 export function regenerateMessage(
   conversationId: string,
-  experimentTitle: string | null,
+  context: MentorAskContext = {},
   handlers: SendMessageHandlers = {},
 ): () => void {
   let cancelled = false;
@@ -445,9 +456,21 @@ export function regenerateMessage(
         return;
       }
 
-      cancelSend = sendMessage(conversationId, lastUser.content, experimentTitle, handlers);
-    } catch {
-      if (!cancelled) handlers.onError?.(new Error("Unable to regenerate the response."));
+      // Do not re-emit onUserMessage — the question is already in the thread.
+      cancelSend = sendMessage(
+        conversationId,
+        lastUser.content,
+        { ...context, emitUserMessage: false },
+        {
+          onToken: handlers.onToken,
+          onComplete: handlers.onComplete,
+          onError: handlers.onError,
+        },
+      );
+    } catch (error) {
+      if (!cancelled) {
+        handlers.onError?.(toMentorUserError(error));
+      }
     }
   })();
 

@@ -1,7 +1,7 @@
 /**
  * Core chat types for the AI Mentor experience.
- * These describe the conversation/message architecture that the
- * future AI engine will plug into.
+ * Conversations and messages are owned by the backend; the Mentor
+ * UI streams real provider output through the Mentor API.
  */
 
 export type MessageRole = "user" | "assistant" | "system" | "error";
@@ -19,10 +19,8 @@ export interface ChatMessage {
   status: MessageStatus;
   feedback: MessageFeedback;
   /**
-   * True when the message was produced by the built-in placeholder
-   * responder (no real AI model connected yet). The UI shows a
-   * "Simulated" badge so placeholder replies are never mistaken
-   * for real AI output.
+   * Legacy flag for historically persisted placeholder replies.
+   * Production Mentor no longer creates simulated messages.
    */
   is_simulated?: boolean;
 }
@@ -55,11 +53,11 @@ export interface GroupedConversations {
   conversations: ConversationSummary[];
 }
 
-/** Callbacks for the streaming-ready send pipeline. */
+/** Callbacks for the real Mentor send / stream pipeline. */
 export interface SendMessageHandlers {
-  /** Called once the user message has been persisted by the backend. */
+  /** Called once the user turn is shown / acknowledged. */
   onUserMessage?: (message: ChatMessage) => void;
-  /** Called repeatedly as response tokens arrive (streaming). */
+  /** Called repeatedly as real provider SSE deltas arrive. */
   onToken?: (accumulated: string) => void;
   /** Called once the assistant message is complete. */
   onComplete?: (message: ChatMessage) => void;
