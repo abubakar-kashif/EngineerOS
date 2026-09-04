@@ -553,6 +553,29 @@ export const UNIT_CATEGORIES: UnitCategory[] = [
     ],
   },
   {
+    id: "capacitance",
+    label: "Capacitance",
+    base_unit: "F",
+    units: [
+      { id: "pf", label: "Picofarad", symbol: "pF", factor: 1e-12 },
+      { id: "nf", label: "Nanofarad", symbol: "nF", factor: 1e-9 },
+      { id: "uf", label: "Microfarad", symbol: "µF", factor: 1e-6 },
+      { id: "mf", label: "Millifarad", symbol: "mF", factor: 0.001 },
+      { id: "f", label: "Farad", symbol: "F", factor: 1 },
+    ],
+  },
+  {
+    id: "inductance",
+    label: "Inductance",
+    base_unit: "H",
+    units: [
+      { id: "uh", label: "Microhenry", symbol: "µH", factor: 1e-6 },
+      { id: "mh", label: "Millihenry", symbol: "mH", factor: 0.001 },
+      { id: "h", label: "Henry", symbol: "H", factor: 1 },
+      { id: "kh", label: "Kilohenry", symbol: "kH", factor: 1000 },
+    ],
+  },
+  {
     id: "temperature",
     label: "Temperature",
     base_unit: "°C",
@@ -636,6 +659,22 @@ export function formatResult(value: number): string {
   return String(rounded);
 }
 
+/**
+ * Re-enter a numeric result into a new expression (after "=" + operator).
+ * Always produces tokenizer-safe scientific form when needed (1e-10), never display-only text.
+ */
+export function numberToExpression(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  if (Object.is(value, -0) || value === 0) return "0";
+  // toExponential is re-parsed as one number token after scientific-notation support.
+  const abs = Math.abs(value);
+  if (abs >= 1e16 || (abs !== 0 && abs < 1e-6)) {
+    return value.toExponential(15);
+  }
+  // Avoid binary float noise like 0.30000000000000004
+  return String(Number(value.toPrecision(15)));
+}
+
 /* ── Calculator expression evaluator ──────────────────── */
 
 export type AngleMode = "deg" | "rad";
@@ -647,9 +686,14 @@ type Token =
   | { kind: "lparen" }
   | { kind: "rparen" };
 
+/** Collapse float noise near exact zeros (e.g. cos(90°)). */
+function snapNearZero(value: number): number {
+  return Math.abs(value) < 1e-12 ? 0 : value;
+}
+
 const FUNCTIONS: Record<string, (x: number, mode: AngleMode) => number> = {
-  sin: (x, mode) => Math.sin(mode === "deg" ? (x * Math.PI) / 180 : x),
-  cos: (x, mode) => Math.cos(mode === "deg" ? (x * Math.PI) / 180 : x),
+  sin: (x, mode) => snapNearZero(Math.sin(mode === "deg" ? (x * Math.PI) / 180 : x)),
+  cos: (x, mode) => snapNearZero(Math.cos(mode === "deg" ? (x * Math.PI) / 180 : x)),
   tan: (x, mode) => {
     if (mode === "deg") {
       const mod = ((x % 180) + 180) % 180;
@@ -662,7 +706,7 @@ const FUNCTIONS: Record<string, (x: number, mode: AngleMode) => number> = {
       }
     }
     const rad = mode === "deg" ? (x * Math.PI) / 180 : x;
-    return Math.tan(rad);
+    return snapNearZero(Math.tan(rad));
   },
   sqrt: (x) => {
     if (x < 0) throw new Error("Negative sqrt");
@@ -685,8 +729,9 @@ const PRECEDENCE: Record<string, number> = {
   "-": 1,
   "*": 2,
   "/": 2,
+  // Below ^ so -2^2 → -(2^2) = -4 (Python/JS math). Use 2^(-3) for negative exponents.
+  "u-": 2.5,
   "^": 3,
-  "u-": 4,
 };
 
 function tokenize(input: string): Token[] {
@@ -706,6 +751,25 @@ function tokenize(input: string): Token[] {
       while (i < input.length && /[0-9.]/.test(input[i])) {
         number += input[i];
         i += 1;
+      }
+      // JS-style scientific notation: 1e-10, 3E+4 (must not become Euler × e)
+      if (i < input.length && (input[i] === "e" || input[i] === "E")) {
+        const next = input[i + 1];
+        if (next === "+" || next === "-" || (next !== undefined && /[0-9]/.test(next))) {
+          number += input[i];
+          i += 1;
+          if (i < input.length && (input[i] === "+" || input[i] === "-")) {
+            number += input[i];
+            i += 1;
+          }
+          if (i >= input.length || !/[0-9]/.test(input[i])) {
+            throw new Error("Invalid number");
+          }
+          while (i < input.length && /[0-9]/.test(input[i])) {
+            number += input[i];
+            i += 1;
+          }
+        }
       }
       const value = Number(number);
       if (Number.isNaN(value)) throw new Error("Invalid number");

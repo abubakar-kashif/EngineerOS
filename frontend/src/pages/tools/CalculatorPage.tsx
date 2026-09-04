@@ -6,6 +6,7 @@ import {
   appendCalculatorToken,
   evaluateExpression,
   formatResult,
+  numberToExpression,
   type AngleMode,
 } from "../../services/tools/toolsService";
 
@@ -81,7 +82,7 @@ function CalculatorPage() {
       const isOperator = OPERATORS.includes(token);
       base = isOperator
         ? lastValue !== null && Number.isFinite(lastValue)
-          ? String(lastValue)
+          ? numberToExpression(lastValue)
           : display
         : "";
       setJustEvaluated(false);

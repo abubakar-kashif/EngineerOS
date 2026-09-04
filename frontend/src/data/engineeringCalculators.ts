@@ -21,6 +21,20 @@ export interface CalculatorDef {
   compute: (known: Record<string, number>, solveFor: string) => number;
 }
 
+function div(numerator: number, denominator: number, label = "denominator"): number {
+  if (!Number.isFinite(denominator) || denominator === 0) {
+    throw new Error(`Invalid ${label}: cannot divide by zero`);
+  }
+  const value = numerator / denominator;
+  if (!Number.isFinite(value)) throw new Error("Invalid result");
+  return value;
+}
+
+function fin(value: number): number {
+  if (!Number.isFinite(value)) throw new Error("Invalid result");
+  return value;
+}
+
 export const CALCULATORS: CalculatorDef[] = [
   {
     id: "ohms-law",
@@ -34,9 +48,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["V", "I", "R"],
     compute: (k, solveFor) => {
-      if (solveFor === "V") return k.I * k.R;
-      if (solveFor === "I") return k.V / k.R;
-      return k.V / k.I;
+      if (solveFor === "V") return fin(k.I * k.R);
+      if (solveFor === "I") return div(k.V, k.R, "R");
+      return div(k.V, k.I, "I");
     },
   },
   {
@@ -51,9 +65,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["Rtotal", "R1", "R2"],
     compute: (k, solveFor) => {
-      if (solveFor === "Rtotal") return k.R1 + k.R2;
-      if (solveFor === "R1") return k.Rtotal - k.R2;
-      return k.Rtotal - k.R1;
+      if (solveFor === "Rtotal") return fin(k.R1 + k.R2);
+      if (solveFor === "R1") return fin(k.Rtotal - k.R2);
+      return fin(k.Rtotal - k.R1);
     },
   },
   {
@@ -68,9 +82,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["Rtotal", "R1", "R2"],
     compute: (k, solveFor) => {
-      if (solveFor === "Rtotal") return (k.R1 * k.R2) / (k.R1 + k.R2);
-      if (solveFor === "R1") return (k.Rtotal * k.R2) / (k.R2 - k.Rtotal);
-      return (k.Rtotal * k.R1) / (k.R1 - k.Rtotal);
+      if (solveFor === "Rtotal") return div(k.R1 * k.R2, k.R1 + k.R2, "R1+R2");
+      if (solveFor === "R1") return div(k.Rtotal * k.R2, k.R2 - k.Rtotal, "R2−Rtotal");
+      return div(k.Rtotal * k.R1, k.R1 - k.Rtotal, "R1−Rtotal");
     },
   },
   {
@@ -86,10 +100,10 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["Vout", "Vin", "R1", "R2"],
     compute: (k, solveFor) => {
-      if (solveFor === "Vout") return (k.Vin * k.R2) / (k.R1 + k.R2);
-      if (solveFor === "Vin") return (k.Vout * (k.R1 + k.R2)) / k.R2;
-      if (solveFor === "R1") return (k.R2 * (k.Vin - k.Vout)) / k.Vout;
-      return (k.Vout * k.R1) / (k.Vin - k.Vout);
+      if (solveFor === "Vout") return div(k.Vin * k.R2, k.R1 + k.R2, "R1+R2");
+      if (solveFor === "Vin") return div(k.Vout * (k.R1 + k.R2), k.R2, "R2");
+      if (solveFor === "R1") return div(k.R2 * (k.Vin - k.Vout), k.Vout, "Vout");
+      return div(k.Vout * k.R1, k.Vin - k.Vout, "Vin−Vout");
     },
   },
   {
@@ -105,10 +119,10 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["I1", "Itotal", "R1", "R2"],
     compute: (k, solveFor) => {
-      if (solveFor === "I1") return (k.Itotal * k.R2) / (k.R1 + k.R2);
-      if (solveFor === "Itotal") return (k.I1 * (k.R1 + k.R2)) / k.R2;
-      if (solveFor === "R2") return (k.I1 * k.R1) / (k.Itotal - k.I1);
-      return (k.R2 * (k.Itotal - k.I1)) / k.I1;
+      if (solveFor === "I1") return div(k.Itotal * k.R2, k.R1 + k.R2, "R1+R2");
+      if (solveFor === "Itotal") return div(k.I1 * (k.R1 + k.R2), k.R2, "R2");
+      if (solveFor === "R2") return div(k.I1 * k.R1, k.Itotal - k.I1, "Itotal−I1");
+      return div(k.R2 * (k.Itotal - k.I1), k.I1, "I1");
     },
   },
   {
@@ -123,9 +137,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["P", "V", "I"],
     compute: (k, solveFor) => {
-      if (solveFor === "P") return k.V * k.I;
-      if (solveFor === "V") return k.P / k.I;
-      return k.P / k.V;
+      if (solveFor === "P") return fin(k.V * k.I);
+      if (solveFor === "V") return div(k.P, k.I, "I");
+      return div(k.P, k.V, "V");
     },
   },
   {
@@ -140,9 +154,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["E", "P", "t"],
     compute: (k, solveFor) => {
-      if (solveFor === "E") return k.P * k.t;
-      if (solveFor === "P") return k.E / k.t;
-      return k.E / k.P;
+      if (solveFor === "E") return fin(k.P * k.t);
+      if (solveFor === "P") return div(k.E, k.t, "t");
+      return div(k.E, k.P, "P");
     },
   },
   {
@@ -157,9 +171,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["tau", "R", "C"],
     compute: (k, solveFor) => {
-      if (solveFor === "tau") return k.R * k.C;
-      if (solveFor === "R") return k.tau / k.C;
-      return k.tau / k.R;
+      if (solveFor === "tau") return fin(k.R * k.C);
+      if (solveFor === "R") return div(k.tau, k.C, "C");
+      return div(k.tau, k.R, "R");
     },
   },
   {
@@ -174,9 +188,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["tau", "L", "R"],
     compute: (k, solveFor) => {
-      if (solveFor === "tau") return k.L / k.R;
-      if (solveFor === "L") return k.tau * k.R;
-      return k.L / k.tau;
+      if (solveFor === "tau") return div(k.L, k.R, "R");
+      if (solveFor === "L") return fin(k.tau * k.R);
+      return div(k.L, k.tau, "τ");
     },
   },
   {
@@ -191,9 +205,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["XL", "f", "L"],
     compute: (k, solveFor) => {
-      if (solveFor === "XL") return 2 * Math.PI * k.f * k.L;
-      if (solveFor === "f") return k.XL / (2 * Math.PI * k.L);
-      return k.XL / (2 * Math.PI * k.f);
+      if (solveFor === "XL") return fin(2 * Math.PI * k.f * k.L);
+      if (solveFor === "f") return div(k.XL, 2 * Math.PI * k.L, "2πL");
+      return div(k.XL, 2 * Math.PI * k.f, "2πf");
     },
   },
   {
@@ -208,9 +222,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["XC", "f", "C"],
     compute: (k, solveFor) => {
-      if (solveFor === "XC") return 1 / (2 * Math.PI * k.f * k.C);
-      if (solveFor === "f") return 1 / (2 * Math.PI * k.XC * k.C);
-      return 1 / (2 * Math.PI * k.f * k.XC);
+      if (solveFor === "XC") return div(1, 2 * Math.PI * k.f * k.C, "2πfC");
+      if (solveFor === "f") return div(1, 2 * Math.PI * k.XC * k.C, "2πXC C");
+      return div(1, 2 * Math.PI * k.f * k.XC, "2πf XC");
     },
   },
   {
@@ -225,9 +239,13 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["f0", "L", "C"],
     compute: (k, solveFor) => {
-      if (solveFor === "f0") return 1 / (2 * Math.PI * Math.sqrt(k.L * k.C));
-      if (solveFor === "L") return 1 / (k.C * Math.pow(2 * Math.PI * k.f0, 2));
-      return 1 / (k.L * Math.pow(2 * Math.PI * k.f0, 2));
+      if (k.L < 0 || k.C < 0) throw new Error("L and C must be non-negative");
+      if (solveFor === "f0") {
+        if (k.L === 0 || k.C === 0) throw new Error("L and C must be positive");
+        return div(1, 2 * Math.PI * Math.sqrt(k.L * k.C), "2π√(LC)");
+      }
+      if (solveFor === "L") return div(1, k.C * Math.pow(2 * Math.PI * k.f0, 2), "C(2πf₀)²");
+      return div(1, k.L * Math.pow(2 * Math.PI * k.f0, 2), "L(2πf₀)²");
     },
   },
   {
@@ -242,9 +260,9 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["PF", "P", "S"],
     compute: (k, solveFor) => {
-      if (solveFor === "PF") return k.P / k.S;
-      if (solveFor === "P") return k.PF * k.S;
-      return k.P / k.PF;
+      if (solveFor === "PF") return div(k.P, k.S, "S");
+      if (solveFor === "P") return fin(k.PF * k.S);
+      return div(k.P, k.PF, "PF");
     },
   },
   {
@@ -261,10 +279,10 @@ export const CALCULATORS: CalculatorDef[] = [
     solvableFor: ["P", "VL", "IL", "PF"],
     compute: (k, solveFor) => {
       const root3 = Math.sqrt(3);
-      if (solveFor === "P") return root3 * k.VL * k.IL * k.PF;
-      if (solveFor === "VL") return k.P / (root3 * k.IL * k.PF);
-      if (solveFor === "IL") return k.P / (root3 * k.VL * k.PF);
-      return k.P / (root3 * k.VL * k.IL);
+      if (solveFor === "P") return fin(root3 * k.VL * k.IL * k.PF);
+      if (solveFor === "VL") return div(k.P, root3 * k.IL * k.PF, "√3·IL·PF");
+      if (solveFor === "IL") return div(k.P, root3 * k.VL * k.PF, "√3·VL·PF");
+      return div(k.P, root3 * k.VL * k.IL, "√3·VL·IL");
     },
   },
   {
@@ -280,10 +298,10 @@ export const CALCULATORS: CalculatorDef[] = [
     ],
     solvableFor: ["V1", "V2", "N1", "N2"],
     compute: (k, solveFor) => {
-      if (solveFor === "V1") return (k.V2 * k.N1) / k.N2;
-      if (solveFor === "V2") return (k.V1 * k.N2) / k.N1;
-      if (solveFor === "N1") return (k.V1 * k.N2) / k.V2;
-      return (k.V2 * k.N1) / k.V1;
+      if (solveFor === "V1") return div(k.V2 * k.N1, k.N2, "N2");
+      if (solveFor === "V2") return div(k.V1 * k.N2, k.N1, "N1");
+      if (solveFor === "N1") return div(k.V1 * k.N2, k.V2, "V2");
+      return div(k.V2 * k.N1, k.V1, "V1");
     },
   },
 ];

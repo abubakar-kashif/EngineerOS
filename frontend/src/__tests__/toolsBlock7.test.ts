@@ -6,6 +6,7 @@ import {
   appendCalculatorToken,
   convertUnit,
   evaluateExpression,
+  numberToExpression,
 } from "../services/tools/toolsService";
 import { CALCULATORS } from "../data/engineeringCalculators";
 
@@ -24,6 +25,8 @@ describe("Unit converter (both directions)", () => {
     { category: "power", from: "kw", to: "w", value: 1, expected: 1000 },
     { category: "energy", from: "kwh", to: "j", value: 1, expected: 3_600_000 },
     { category: "frequency", from: "meghz", to: "hz", value: 1, expected: 1_000_000 },
+    { category: "capacitance", from: "uf", to: "f", value: 1, expected: 1e-6 },
+    { category: "inductance", from: "mh", to: "h", value: 1, expected: 0.001 },
     { category: "temperature", from: "c", to: "f", value: 0, expected: 32 },
     { category: "temperature", from: "c", to: "k", value: 0, expected: 273.15 },
     { category: "time", from: "h", to: "s", value: 1, expected: 3600 },
@@ -37,6 +40,7 @@ describe("Unit converter (both directions)", () => {
   it("rejects mixing incompatible categories", () => {
     expect(() => convertUnit(1, "length", "m", "v")).toThrow(/incompatible/i);
     expect(() => convertUnit(1, "voltage", "v", "ohm")).toThrow(/incompatible/i);
+    expect(() => convertUnit(1, "capacitance", "f", "h")).toThrow(/incompatible/i);
   });
 
   it("handles decimals, zero, negatives, and extreme magnitudes", () => {
@@ -65,6 +69,12 @@ describe("Scientific calculator", () => {
     expect(evaluateExpression("ln(e)")).toBeCloseTo(1, 10);
     expect(evaluateExpression("log(100)")).toBeCloseTo(2, 10);
     expect(evaluateExpression("-3 + 5")).toBe(2);
+    expect(evaluateExpression("-2^2")).toBe(-4);
+    expect(evaluateExpression("(-2)^2")).toBe(4);
+    expect(evaluateExpression("1e-10")).toBeCloseTo(1e-10, 20);
+    expect(evaluateExpression("1e-10+1")).toBeCloseTo(1 + 1e-10, 12);
+    expect(evaluateExpression("3e+2")).toBe(300);
+    expect(evaluateExpression("cos(90)", "deg")).toBe(0);
     expect(evaluateExpression("pi", "rad")).toBeCloseTo(Math.PI, 10);
   });
 
@@ -245,5 +255,22 @@ describe("Engineering calculators — all solve directions", () => {
     expect(tp.compute({ P, IL: 10, PF: 0.8 }, "VL")).toBeCloseTo(400, 4);
     expect(tp.compute({ P, VL: 400, PF: 0.8 }, "IL")).toBeCloseTo(10, 4);
     expect(tp.compute({ P, VL: 400, IL: 10 }, "PF")).toBeCloseTo(0.8, 4);
+  });
+
+  it("rejects division by zero instead of returning Infinity", () => {
+    const ohms = CALCULATORS.find((c) => c.id === "ohms-law")!;
+    expect(() => ohms.compute({ V: 10, R: 0 }, "I")).toThrow(/zero/i);
+    expect(() => ohms.compute({ V: 10, I: 0 }, "R")).toThrow(/zero/i);
+    const power = CALCULATORS.find((c) => c.id === "power")!;
+    expect(() => power.compute({ P: 10, I: 0 }, "V")).toThrow(/zero/i);
+  });
+});
+
+describe("numberToExpression (post-equals continuation)", () => {
+  it("round-trips tiny and huge values through the safe evaluator", () => {
+    const tiny = numberToExpression(1e-10);
+    expect(evaluateExpression(`${tiny}+1`)).toBeCloseTo(1 + 1e-10, 12);
+    const huge = numberToExpression(1e21);
+    expect(evaluateExpression(`${huge}/1e20`)).toBeCloseTo(10, 8);
   });
 });
