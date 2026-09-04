@@ -4,7 +4,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bot, ExternalLink, TriangleAlert } from "lucide-react";
+import { Bot, ExternalLink, TriangleAlert, X } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import * as mentorService from "../../services/mentor/mentorService";
 import ChatComposer from "../chat/ChatComposer";
@@ -19,6 +19,8 @@ interface WorkspaceMentorPanelProps {
   simResult: SimulationResult | null;
   /** Fresh SimulationRun id after each solve — authoritative Mentor context. */
   simulationRunId?: string | null;
+  /** Close the mentor rail to enlarge the canvas. */
+  onClose?: () => void;
 }
 
 function formatCurrent(a: number): string {
@@ -31,6 +33,7 @@ function WorkspaceMentorPanel({
   experimentTitle,
   simResult,
   simulationRunId = null,
+  onClose,
 }: WorkspaceMentorPanelProps) {
   const { user } = useAuth();
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -207,12 +210,44 @@ function WorkspaceMentorPanel({
     );
   }
 
+  const headerActions = (
+    <div className="sim2-panel-header-actions">
+      <Link to={mentorLink} className="sim2-mentor-expand" title="Open full Mentor" aria-label="Open full Mentor">
+        <ExternalLink size={14} />
+      </Link>
+      {onClose && (
+        <button
+          type="button"
+          className="sim2-panel-close"
+          onClick={onClose}
+          title="Close AI Mentor"
+          aria-label="Close AI Mentor"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+
   if (!user) {
     return (
       <aside className="sim2-mentor" aria-label="AI Mentor">
         <div className="sim2-mentor-header">
-          <Bot size={16} />
-          <span>AI Mentor</span>
+          <div className="sim2-mentor-header-id">
+            <Bot size={16} />
+            <span>AI Mentor</span>
+          </div>
+          {onClose && (
+            <button
+              type="button"
+              className="sim2-panel-close"
+              onClick={onClose}
+              title="Close AI Mentor"
+              aria-label="Close AI Mentor"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
         <div className="sim2-mentor-offline">
           <TriangleAlert size={14} />
@@ -232,9 +267,7 @@ function WorkspaceMentorPanel({
           <Bot size={16} />
           <span>AI Mentor</span>
         </div>
-        <Link to={mentorLink} className="sim2-mentor-expand" title="Open full Mentor" aria-label="Open full Mentor">
-          <ExternalLink size={14} />
-        </Link>
+        {headerActions}
       </div>
 
       <div

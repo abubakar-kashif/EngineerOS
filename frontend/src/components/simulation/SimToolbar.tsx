@@ -16,6 +16,10 @@ import {
   RotateCcw,
   Expand,
   Crosshair,
+  PanelLeft,
+  Bot,
+  Table2,
+  LineChart,
 } from "lucide-react";
 
 export type SimToolbarStatus =
@@ -49,6 +53,17 @@ interface SimToolbarProps {
   onFit: () => void;
   onResetView: () => void;
   onToggleFullscreen: () => void;
+  /** Closed panels that can be reopened from the toolbar. */
+  closedPanels?: {
+    sidebar?: boolean;
+    mentor?: boolean;
+    results?: boolean;
+    graphs?: boolean;
+  };
+  onOpenSidebar?: () => void;
+  onOpenMentor?: () => void;
+  onOpenResults?: () => void;
+  onOpenGraphs?: () => void;
 }
 
 const statusLabels: Record<SimToolbarStatus, string> = {
@@ -91,9 +106,17 @@ function SimToolbar({
   onFit,
   onResetView,
   onToggleFullscreen,
+  closedPanels,
+  onOpenSidebar,
+  onOpenMentor,
+  onOpenResults,
+  onOpenGraphs,
 }: SimToolbarProps) {
   const saveLabel =
     saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : null;
+  const showPanelRestores =
+    closedPanels &&
+    (closedPanels.sidebar || closedPanels.mentor || closedPanels.results || closedPanels.graphs);
 
   return (
     <header className="sim2-toolbar">
@@ -118,6 +141,23 @@ function SimToolbar({
         ) : null}
       </div>
       <div className="sim2-toolbar-right" role="toolbar" aria-label="Simulation workspace controls">
+        {showPanelRestores && (
+          <>
+            {closedPanels?.sidebar && onOpenSidebar && (
+              <ToolbarBtn icon={<PanelLeft size={14} />} label="Show components" onClick={onOpenSidebar} />
+            )}
+            {closedPanels?.mentor && onOpenMentor && (
+              <ToolbarBtn icon={<Bot size={14} />} label="Show AI Mentor" onClick={onOpenMentor} />
+            )}
+            {closedPanels?.results && onOpenResults && (
+              <ToolbarBtn icon={<Table2 size={14} />} label="Show simulation result" onClick={onOpenResults} />
+            )}
+            {closedPanels?.graphs && onOpenGraphs && (
+              <ToolbarBtn icon={<LineChart size={14} />} label="Show graphs" onClick={onOpenGraphs} />
+            )}
+            <span className="sim2-toolbar-sep" aria-hidden="true" />
+          </>
+        )}
         <ToolbarBtn icon={<Undo2 size={14} />} label="Undo" disabled={!canUndo} onClick={onUndo} />
         <ToolbarBtn icon={<Redo2 size={14} />} label="Redo" disabled={!canRedo} onClick={onRedo} />
         <span className="sim2-toolbar-sep" aria-hidden="true" />

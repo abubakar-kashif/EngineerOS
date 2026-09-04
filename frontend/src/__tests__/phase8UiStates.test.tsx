@@ -14,10 +14,11 @@ const cssPath = resolve(__dirname, "../App.css");
 const css = readFileSync(cssPath, "utf8");
 
 describe("Phase 8 simulation lab layout CSS", () => {
-  it("defines full-width measurements under the three lab columns", () => {
-    expect(css).toMatch(/grid-template-areas:\s*"sidebar workspace mentor"/);
-    expect(css).toMatch(/"analysis analysis analysis"/);
-    expect(css).toMatch(/\.sim2-layout--lab > \.sim2-analysis \{ grid-area: analysis; \}/);
+  it("defines flex lab row with workspace and analysis panels", () => {
+    expect(css).toMatch(/\.sim2-layout--lab/);
+    expect(css).toMatch(/\.sim2-lab-row/);
+    expect(css).toMatch(/\.sim2-analysis/);
+    expect(css).toMatch(/sim2-panel-close|sim2-resize-handle/);
   });
 
   it("adapts without browser zoom hacks", () => {
