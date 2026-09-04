@@ -6800,6 +6800,11 @@
 }
 .sim2-status-label { font-size: 12px; color: var(--color-text-secondary); }
 .sim2-dirty { font-size: 11px; color: var(--color-warning); font-weight: 600; }
+.sim2-save-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-success);
+}
 .sim2-toolbar-sep {
   width: 1px; height: 20px; background: var(--color-border); margin: 0 4px;
 }
@@ -6841,7 +6846,7 @@
 .sim2-btn--stop { background: var(--color-danger); color: #fff; }
 .sim2-btn--stop:hover { filter: brightness(1.1); }
 
-/* Layout */
+/* Layout — desktop lab: Components | Workspace | Mentor / full-width Measurements */
 .sim2-layout {
   display: grid;
   grid-template-columns: 220px 1fr;
@@ -6849,8 +6854,16 @@
   overflow: hidden;
 }
 .sim2-layout--lab {
-  grid-template-columns: 220px minmax(0, 1fr) 300px;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(260px, 300px);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "sidebar workspace mentor"
+    "analysis analysis analysis";
 }
+.sim2-layout--lab > .sim2-sidebar { grid-area: sidebar; }
+.sim2-layout--lab > .sim2-main { grid-area: workspace; }
+.sim2-layout--lab > .sim2-mentor { grid-area: mentor; }
+.sim2-layout--lab > .sim2-analysis { grid-area: analysis; }
 .sim2-page--fullscreen {
   height: 100vh;
   width: 100vw;
@@ -7091,6 +7104,14 @@
 
 /* Palette */
 .sim-palette { padding: var(--space-md); }
+.sim-palette-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-sm);
+}
 .sim-palette-cat { border-bottom: 1px solid var(--color-border); }
 .sim-palette-cat-btn {
   width: 100%; display: flex; justify-content: space-between; align-items: center;
@@ -7400,10 +7421,21 @@
 .sim2-error-msg { font-size: 12px; color: var(--color-text); margin: 0 0 2px; }
 .sim2-error-suggestion { font-size: 11px; color: var(--color-text-secondary); margin: 0; font-style: italic; }
 
-/* Phase 10 responsive */
+/* Phase 8 responsive — layout CSS only (no browser zoom hacks) */
+@media (max-width: 1280px) and (min-width: 1101px) {
+  .sim2-layout--lab {
+    grid-template-columns: 200px minmax(0, 1fr) minmax(240px, 280px);
+  }
+}
 @media (max-width: 1100px) {
   .sim2-layout { grid-template-columns: 180px 1fr; }
-  .sim2-layout--lab { grid-template-columns: 180px 1fr; }
+  .sim2-layout--lab {
+    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "sidebar workspace"
+      "analysis analysis";
+  }
   .sim2-mentor { display: none; }
   .sim2-mentor-mobile-link {
     display: flex;
@@ -7411,13 +7443,18 @@
     justify-content: center;
     gap: 6px;
     margin: 0;
-    padding: 8px 12px;
+    padding: 10px 12px;
     border-top: 1px solid var(--color-border);
     background: var(--color-surface);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--color-primary);
     text-decoration: none;
+    min-height: 44px;
+  }
+  .sim2-mentor-mobile-link:focus-visible {
+    outline: 2px solid var(--color-focus-ring, var(--color-primary));
+    outline-offset: -2px;
   }
 }
 @media (min-width: 1101px) {
@@ -7426,24 +7463,42 @@
 @media (max-width: 850px) {
   .sim2-page { height: auto; min-height: calc(100vh - 62px); overflow: auto; }
   .sim2-layout { grid-template-columns: 1fr; }
-  .sim2-layout--lab { grid-template-columns: 1fr; }
+  .sim2-layout--lab {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(280px, 55vh) auto;
+    grid-template-areas:
+      "sidebar"
+      "workspace"
+      "analysis";
+  }
   .sim2-sidebar {
-    max-height: none;
+    max-height: 36vh;
     overflow: auto;
     border-right: none;
     border-bottom: 1px solid var(--color-border);
   }
-  .sim2-canvas-host .sim-canvas-container { min-height: 320px; }
+  .sim2-canvas-host .sim-canvas-container { min-height: 280px; }
   .sim2-toolbar { flex-direction: column; align-items: stretch; }
   .sim2-toolbar-left, .sim2-toolbar-right { flex-wrap: wrap; }
   .sim2-toolbar-right { justify-content: flex-start; }
-  .sim2-analysis { max-height: none; }
+  .sim2-analysis { max-height: none; min-height: 160px; }
   .sim2-analysis-split { grid-template-columns: 1fr; }
   .sim2-analysis-pane { max-height: none; }
+  .sim-empty-steps { flex-direction: column; gap: var(--space-sm); }
 }
 @media (max-width: 480px) {
-  .sim2-toolbar-btn { width: 36px; height: 36px; }
-  .sim2-btn { padding: 8px 12px; }
+  .sim2-toolbar-btn { width: 40px; height: 40px; }
+  .sim2-btn { padding: 10px 14px; min-height: 40px; }
+  .sim2-sidebar { max-height: 32vh; }
+  .sim2-layout--lab {
+    grid-template-rows: auto minmax(240px, 50vh) auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sim2-status-dot--pulse {
+    animation: none !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════════

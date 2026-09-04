@@ -264,7 +264,13 @@ function WorkspaceMentorPanel({
         )}
       </div>
 
-      <div className="sim2-mentor-messages" role="log" aria-live="polite">
+      <div
+        className="sim2-mentor-messages"
+        role="log"
+        aria-live="polite"
+        aria-busy={busy}
+        aria-relevant="additions text"
+      >
         {messages.length === 0 && streamingText === null && !busy && (
           <div className="sim2-mentor-empty">
             <p>
@@ -294,7 +300,10 @@ function WorkspaceMentorPanel({
         ))}
 
         {streamingText !== null && (
-          <div className="sim2-mentor-bubble sim2-mentor-bubble--assistant sim2-mentor-bubble--streaming">
+          <div
+            className="sim2-mentor-bubble sim2-mentor-bubble--assistant sim2-mentor-bubble--streaming"
+            aria-label="AI Mentor is streaming a response"
+          >
             <MarkdownLite content={streamingText} />
           </div>
         )}

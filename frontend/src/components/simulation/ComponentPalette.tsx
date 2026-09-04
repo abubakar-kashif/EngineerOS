@@ -36,6 +36,8 @@ function ComponentPalette({ onSelectType, selectedType }: ComponentPaletteProps)
             }`}
             onClick={() => onSelectType(comp.type)}
             title={comp.label}
+            aria-label={comp.label}
+            aria-pressed={selectedType === comp.type}
           >
             <span className="sim-palette-symbol">{comp.icon}</span>
             <span className="sim-palette-label">{comp.label}</span>

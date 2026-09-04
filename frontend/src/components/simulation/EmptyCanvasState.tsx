@@ -4,8 +4,8 @@
 
 function EmptyCanvasState() {
   return (
-    <div className="sim-empty-state">
-      <div className="sim-empty-icon">
+    <div className="sim-empty-state" role="status">
+      <div className="sim-empty-icon" aria-hidden="true">
         <svg viewBox="0 0 48 48" width={48} height={48} fill="none" stroke="currentColor" strokeWidth={1.5}>
           <rect x={4} y={4} width={40} height={40} rx={4} strokeDasharray="4 4" />
           <line x1={24} y1={16} x2={24} y2={32} />

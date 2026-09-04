@@ -98,6 +98,8 @@ function SimulationPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const saveStatusTimerRef = useRef<number | null>(null);
 
   /** Drop measurements and run IDs so the next Run creates a fresh SimulationRun. */
   const clearSimulationSession = useCallback(() => {
@@ -267,6 +269,11 @@ function SimulationPage() {
   }, [clearCircuit, clearSimulationSession]);
 
   const handleSave = useCallback(() => {
+    if (saveStatusTimerRef.current) {
+      window.clearTimeout(saveStatusTimerRef.current);
+      saveStatusTimerRef.current = null;
+    }
+    setSaveStatus("saving");
     const project = createWorkspaceProject(state.circuit, {
       experimentId: experiment?.id ?? experimentParam,
       viewport: canvasRef.current?.getViewport() ?? null,
@@ -278,8 +285,21 @@ function SimulationPage() {
       `${(experiment?.slug || experiment?.id || "circuit").replace(/\s+/g, "-")}.engineeros.json`,
     );
     markClean();
+    setSaveStatus("saved");
     toast.success("Circuit saved", "Browser storage and download updated.");
+    saveStatusTimerRef.current = window.setTimeout(() => {
+      setSaveStatus("idle");
+      saveStatusTimerRef.current = null;
+    }, 1800);
   }, [state.circuit, experiment, experimentParam, markClean]);
+
+  useEffect(() => {
+    return () => {
+      if (saveStatusTimerRef.current) {
+        window.clearTimeout(saveStatusTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleOpenClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -414,6 +434,7 @@ function SimulationPage() {
         canUndo={canUndo}
         canRedo={canRedo}
         dirty={state.dirty}
+        saveStatus={saveStatus}
         fullscreen={fullscreen}
         onRun={runSimulation}
         onStop={stopSimulation}
@@ -450,7 +471,7 @@ function SimulationPage() {
       />
 
       <div className="sim2-layout sim2-layout--lab">
-        <aside className="sim2-sidebar">
+        <aside className="sim2-sidebar" aria-label="Components, instruments, and tools">
           <ComponentPalette
             onSelectType={setPlacementType}
             selectedType={state.placementType}
@@ -468,7 +489,7 @@ function SimulationPage() {
           />
         </aside>
 
-        <div className="sim2-main">
+        <div className="sim2-main" role="main" aria-label="Circuit workspace">
           <div className="sim2-canvas-zone">
             <WorkspaceCircuitCanvas
               ref={canvasRef}
@@ -498,48 +519,6 @@ function SimulationPage() {
               placementType={state.placementType}
             />
           </div>
-
-          <div className="sim2-analysis">
-            <div className="sim2-analysis-split">
-              <div className="sim2-analysis-pane">
-                <h3 className="sim2-results-heading">Measurements / Results</h3>
-                {isRunning ? (
-                  <p className="sim2-analysis-empty" role="status">
-                    Simulation running…
-                  </p>
-                ) : simResult ? (
-                  <>
-                    <SimulationResults result={simResult} />
-                    <MeasurementsPanel result={simResult} />
-                  </>
-                ) : (
-                  <AnalysisPanel
-                    circuit={getEngineCircuit()}
-                    result={simResult}
-                    selectedComponentId={state.selectedComponentId}
-                  />
-                )}
-              </div>
-              <div className="sim2-analysis-pane">
-                <h3 className="sim2-results-heading">Graphs</h3>
-                {isRunning ? (
-                  <p className="sim2-analysis-empty" role="status">
-                    Waiting for solver graphs…
-                  </p>
-                ) : simResult?.measurements ? (
-                  <GraphViewer
-                    key={simulationRunId ?? `${simResult.status}-${simResult.measurements?.totalCurrent ?? 0}`}
-                    result={simResult}
-                    graphs={simResult.graphs}
-                  />
-                ) : (
-                  <p className="sim2-analysis-empty">
-                    Run a valid simulation to plot measurement signals (V, I, P).
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
         <WorkspaceMentorPanel
@@ -548,6 +527,52 @@ function SimulationPage() {
           simResult={simResult}
           simulationRunId={simulationRunId}
         />
+
+        <section
+          className="sim2-analysis"
+          aria-label="Measurements and graphs"
+          aria-busy={isRunning}
+        >
+          <div className="sim2-analysis-split">
+            <div className="sim2-analysis-pane">
+              <h3 className="sim2-results-heading">Measurements / Results</h3>
+              {isRunning ? (
+                <p className="sim2-analysis-empty" role="status">
+                  Simulation running…
+                </p>
+              ) : simResult ? (
+                <>
+                  <SimulationResults result={simResult} />
+                  <MeasurementsPanel result={simResult} />
+                </>
+              ) : (
+                <AnalysisPanel
+                  circuit={getEngineCircuit()}
+                  result={simResult}
+                  selectedComponentId={state.selectedComponentId}
+                />
+              )}
+            </div>
+            <div className="sim2-analysis-pane">
+              <h3 className="sim2-results-heading">Graphs</h3>
+              {isRunning ? (
+                <p className="sim2-analysis-empty" role="status">
+                  Waiting for solver graphs…
+                </p>
+              ) : simResult?.measurements ? (
+                <GraphViewer
+                  key={simulationRunId ?? `${simResult.status}-${simResult.measurements?.totalCurrent ?? 0}`}
+                  result={simResult}
+                  graphs={simResult.graphs}
+                />
+              ) : (
+                <p className="sim2-analysis-empty" role="status">
+                  Run a valid simulation to plot measurement signals (V, I, P).
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
 
       <Link

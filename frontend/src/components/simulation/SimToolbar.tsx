@@ -33,6 +33,8 @@ interface SimToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   dirty: boolean;
+  /** Brief save feedback: idle | saving | saved */
+  saveStatus?: "idle" | "saving" | "saved";
   fullscreen: boolean;
   onRun: () => void;
   onStop: () => void;
@@ -74,6 +76,7 @@ function SimToolbar({
   canUndo,
   canRedo,
   dirty,
+  saveStatus = "idle",
   fullscreen,
   onRun,
   onStop,
@@ -89,6 +92,9 @@ function SimToolbar({
   onResetView,
   onToggleFullscreen,
 }: SimToolbarProps) {
+  const saveLabel =
+    saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : null;
+
   return (
     <header className="sim2-toolbar">
       <div className="sim2-toolbar-left">
@@ -103,12 +109,18 @@ function SimToolbar({
         <span className="sim2-status-label" role="status" aria-live="polite">
           {statusLabels[status]}
         </span>
-        {dirty && <span className="sim2-dirty">● Unsaved</span>}
+        {saveLabel ? (
+          <span className="sim2-save-status" role="status" aria-live="polite">
+            {saveLabel}
+          </span>
+        ) : dirty ? (
+          <span className="sim2-dirty">● Unsaved</span>
+        ) : null}
       </div>
       <div className="sim2-toolbar-right" role="toolbar" aria-label="Simulation workspace controls">
         <ToolbarBtn icon={<Undo2 size={14} />} label="Undo" disabled={!canUndo} onClick={onUndo} />
         <ToolbarBtn icon={<Redo2 size={14} />} label="Redo" disabled={!canRedo} onClick={onRedo} />
-        <span className="sim2-toolbar-sep" />
+        <span className="sim2-toolbar-sep" aria-hidden="true" />
         <ToolbarBtn icon={<ZoomIn size={14} />} label="Zoom In" onClick={onZoomIn} />
         <ToolbarBtn icon={<ZoomOut size={14} />} label="Zoom Out" onClick={onZoomOut} />
         <ToolbarBtn icon={<Maximize2 size={14} />} label="Fit to Screen" onClick={onFit} />
@@ -120,7 +132,12 @@ function SimToolbar({
         />
         <span className="sim2-toolbar-sep" aria-hidden="true" />
         <ToolbarBtn icon={<FolderOpen size={14} />} label="Open" onClick={onOpen} />
-        <ToolbarBtn icon={<Save size={14} />} label="Save" onClick={onSave} />
+        <ToolbarBtn
+          icon={<Save size={14} />}
+          label={saveStatus === "saving" ? "Saving" : "Save"}
+          disabled={saveStatus === "saving"}
+          onClick={onSave}
+        />
         <ToolbarBtn icon={<RotateCcw size={14} />} label="Reset results" onClick={onReset} />
         <ToolbarBtn icon={<Trash2 size={14} />} label="Clear circuit" onClick={onClear} />
         <span className="sim2-toolbar-sep" aria-hidden="true" />

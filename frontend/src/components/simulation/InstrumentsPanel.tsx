@@ -66,7 +66,7 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
     <div className="sim-instruments-panel">
       <h4 className="sim-instruments-title">Instruments</h4>
       {!ready ? (
-        <p className="sim-measurements-empty">
+        <p className="sim-measurements-empty" role="status">
           {status === "invalid"
             ? "Circuit invalid — instruments wait for a valid solve."
             : "Run simulation for authoritative instrument readings."}
