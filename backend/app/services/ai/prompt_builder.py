@@ -359,12 +359,18 @@ Guidelines:
                         lines.append(f"    B: {opts[1]}")
                         lines.append(f"    C: {opts[2]}")
                         lines.append(f"    D: {opts[3]}")
+                # Official bank explanation only when quiz system attached it
+                # (post-submit). Never invent one here.
+                if q.get('explanation'):
+                    lines.append(f"    Official explanation: {q.get('explanation')}")
 
         if quiz.get('student_answer'):
             lines.append(f"Student Answer: {quiz.get('student_answer')}")
 
         if quiz.get('is_correct') is not None:
-            lines.append(f"Correct: {quiz.get('is_correct')}")
+            lines.append(
+                f"Official correctness (from quiz system, not Mentor): {quiz.get('is_correct')}"
+            )
 
         if quiz.get('official_result'):
             result = quiz['official_result']

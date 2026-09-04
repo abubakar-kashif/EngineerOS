@@ -2,9 +2,14 @@
 Block 3 — AI context, ownership, freshness, and prompt grounding tests.
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
+from app.schemas.quiz import QuizQuestionResponse
 from app.services.ai.context_engine import ContextEngine, ContextResult
+from app.services.ai.context.quiz_context import QuizContext
 from app.services.ai.context.simulation_context import (
     SimulationContext,
     parse_simulation_result_dict,
@@ -238,6 +243,123 @@ class TestPromptGrounding:
         assert "LED_NO_CURRENT_LIMIT" in prompt
         assert "FAILED (by simulator" in prompt
         assert "Add a series resistor" in prompt
+
+
+class TestQuizContextNoExplanationCrash:
+    """
+    QuizQuestionResponse intentionally omits explanation.
+    QuizContext must load ORM rows so ContextEngine does not AttributeError.
+    """
+
+    def test_student_schema_has_no_explanation_attribute(self):
+        response_q = QuizQuestionResponse(
+            id=1,
+            experiment_id="ohms-law",
+            question="What is Ohm's law?",
+            option_a="V=IR",
+            option_b="P=VI",
+            option_c="Q=CV",
+            option_d="F=ma",
+        )
+        with pytest.raises(AttributeError):
+            _ = response_q.explanation
+
+    def test_load_uses_orm_and_omits_answer_key(self):
+        orm_q = SimpleNamespace(
+            id=1,
+            experiment_id="ohms-law",
+            question="What is Ohm's law?",
+            option_a="V=IR",
+            option_b="P=VI",
+            option_c="Q=CV",
+            option_d="F=ma",
+            correct_answer="A",
+            explanation="Voltage equals current times resistance.",
+        )
+        db = MagicMock()
+        execute_result = MagicMock()
+        execute_result.scalars.return_value.all.return_value = [orm_q]
+        db.execute.return_value = execute_result
+
+        data = QuizContext(db).load("ohms-law")
+        assert data is not None
+        assert data["total_questions"] == 1
+        assert data["questions"][0]["question"] == "What is Ohm's law?"
+        assert "correct_answer" not in data["questions"][0]
+        assert "explanation" not in data["questions"][0]
+
+    def test_load_with_result_includes_official_explanation_in_prompt(self):
+        orm_q = SimpleNamespace(
+            id=7,
+            experiment_id="ohms-law",
+            question="What is Ohm's law?",
+            option_a="V=IR",
+            option_b="P=VI",
+            option_c="Q=CV",
+            option_d="F=ma",
+            correct_answer="A",
+            explanation="Voltage equals current times resistance.",
+        )
+        db = MagicMock()
+        execute_result = MagicMock()
+        execute_result.scalars.return_value.all.return_value = [orm_q]
+        db.execute.return_value = execute_result
+
+        data = QuizContext(db).load_with_result(
+            "ohms-law",
+            question_id=7,
+            student_answer="B",
+            is_correct=False,
+            score=0.0,
+        )
+        assert data["is_correct"] is False
+        assert data["questions"][0]["explanation"] == (
+            "Voltage equals current times resistance."
+        )
+        assert "correct_answer" not in data["questions"][0]
+
+        context = ContextResult()
+        context.quiz = data
+        prompt = PromptBuilder().build_prompt(context, "Why was I wrong?")
+        assert "Official explanation" in prompt
+        assert "Voltage equals current times resistance." in prompt
+        assert "Official correctness (from quiz system" in prompt
+
+    def test_context_engine_loads_quiz_without_crashing(self):
+        orm_q = SimpleNamespace(
+            id=1,
+            experiment_id="led-circuit",
+            question="Why limit LED current?",
+            option_a="Protect the LED",
+            option_b="Increase brightness always",
+            option_c="Store charge",
+            option_d="Raise voltage",
+            correct_answer="A",
+            explanation="Series R limits I.",
+        )
+        db = MagicMock()
+        execute_result = MagicMock()
+        execute_result.scalars.return_value.all.return_value = [orm_q]
+        db.execute.return_value = execute_result
+
+        engine = ContextEngine(db)
+        engine._experiment_context.load = MagicMock(return_value={"id": "led-circuit"})
+        engine._report_context.load = MagicMock(return_value=None)
+        engine._report_context.load_for_experiment = MagicMock(return_value=None)
+        engine._user_context.load = MagicMock(return_value=None)
+        engine._conversation_context.load_with_current_question = MagicMock(
+            return_value={"recent_messages": []}
+        )
+
+        result = engine.gather_context(
+            user_id="u1",
+            conversation_id="c1",
+            question="Help with the quiz",
+            experiment_id="led-circuit",
+        )
+        assert result.quiz is not None
+        assert result.quiz["total_questions"] == 1
+        assert "explanation" not in result.quiz["questions"][0]
 
 
 class TestContextEngineFreshnessAndOwnership:
