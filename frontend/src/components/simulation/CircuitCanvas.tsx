@@ -18,6 +18,12 @@ import type { SimulationResult } from "./engine";
 import type { EditorState } from "../../hooks/useCircuitEditor";
 import type { WorkspaceViewport } from "../../services/workspaceCircuitStorage";
 import {
+  panViewBoxByClientDelta,
+  screenToWorldFromRect,
+  zoomViewBoxAt,
+  zoomViewBoxCenter,
+} from "./viewportMath";
+import {
   VoltageSourceNode,
   CurrentSourceNode,
   ResistorNode,
@@ -94,13 +100,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
   );
 
   const zoomByFactor = useCallback((factor: number) => {
-    setViewBox((v) => {
-      const newW = Math.max(200, Math.min(4000, v.w * factor));
-      const newH = Math.max(200, Math.min(4000, v.h * factor));
-      const cx = v.x + v.w / 2;
-      const cy = v.y + v.h / 2;
-      return { x: cx - newW / 2, y: cy - newH / 2, w: newW, h: newH };
-    });
+    setViewBox((v) => zoomViewBoxCenter(v, factor));
   }, []);
 
   const fitToScreen = useCallback(() => {
@@ -146,6 +146,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
     [zoomByFactor, fitToScreen, viewBox],
   );
 
+  /** Single screen → world path for place / select / drag / wire / hit targeting. */
   const screenToCanvas = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } => {
       const svg = svgRef.current;
@@ -161,13 +162,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         return { x: sp.x, y: sp.y };
       }
 
-      const rect = svg.getBoundingClientRect();
-      const scaleX = viewBox.w / Math.max(rect.width, 1);
-      const scaleY = viewBox.h / Math.max(rect.height, 1);
-      return {
-        x: (clientX - rect.left) * scaleX + viewBox.x,
-        y: (clientY - rect.top) * scaleY + viewBox.y,
-      };
+      return screenToWorldFromRect(clientX, clientY, svg.getBoundingClientRect(), viewBox);
     },
     [viewBox],
   );
@@ -218,9 +213,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         const svg = svgRef.current;
         if (!svg) return;
         const rect = svg.getBoundingClientRect();
-        const scaleX = viewBox.w / rect.width;
-        const scaleY = viewBox.h / rect.height;
-        setViewBox((v) => ({ ...v, x: v.x - dx * scaleX, y: v.y - dy * scaleY }));
+        setViewBox((v) => panViewBoxByClientDelta(v, dx, dy, rect.width, rect.height));
         setPanStart({ x: e.clientX, y: e.clientY });
         return;
       }
@@ -242,7 +235,6 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       dragging,
       editor.wireStart,
       screenToCanvas,
-      viewBox,
       onMoveComponent,
       onUpdateWirePreview,
     ],
@@ -289,31 +281,42 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
     onDeleteComponent,
   ]);
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const factor = e.deltaY > 0 ? 1.1 : 0.9;
-    const svg = svgRef.current;
-    if (!svg) {
-      zoomByFactor(factor);
-      return;
-    }
-    const rect = svg.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) / rect.width;
-    const my = (e.clientY - rect.top) / rect.height;
-    setViewBox((v) => {
-      const newW = Math.max(200, Math.min(4000, v.w * factor));
-      const newH = Math.max(200, Math.min(4000, v.h * factor));
-      const worldX = v.x + mx * v.w;
-      const worldY = v.y + my * v.h;
-      return {
-        x: worldX - mx * newW,
-        y: worldY - my * newH,
-        w: newW,
-        h: newH,
-      };
-    });
-  }, [zoomByFactor]);
+  // React 19 registers onWheel as passive — preventDefault is a no-op there.
+  // Native { passive: false } keeps wheel zoom inside the workspace only.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const factor = e.deltaY > 0 ? 1.1 : 0.9;
+      const svg = svgRef.current;
+      if (!svg) {
+        setViewBox((v) => zoomViewBoxCenter(v, factor));
+        return;
+      }
+
+      const ctm = svg.getScreenCTM();
+      if (ctm) {
+        const pt = svg.createSVGPoint();
+        pt.x = e.clientX;
+        pt.y = e.clientY;
+        const world = pt.matrixTransform(ctm.inverse());
+        setViewBox((v) => zoomViewBoxAt(v, factor, world.x, world.y));
+        return;
+      }
+
+      const rect = svg.getBoundingClientRect();
+      setViewBox((v) => {
+        const world = screenToWorldFromRect(e.clientX, e.clientY, rect, v);
+        return zoomViewBoxAt(v, factor, world.x, world.y);
+      });
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   const handleTerminalMouseDown = useCallback(
     (e: React.MouseEvent, compId: string, termId: string) => {
@@ -477,11 +480,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      className="sim-canvas-container"
-      onWheel={handleWheel}
-    >
+    <div ref={containerRef} className="sim-canvas-container">
       <svg
         ref={svgRef}
         className="sim-canvas-svg"
