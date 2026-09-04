@@ -54,8 +54,8 @@ class PromptTemplate:
 
         # 3. Context sections (only if they have content)
         context_sections = [
-            ("EXPERIMENT CONTEXT", self.experiment_context),
-            ("SIMULATION CONTEXT", self.simulation_context),
+            ("EXPERIMENT CONTEXT (instructional catalog guidance)", self.experiment_context),
+            ("SIMULATION CONTEXT (authoritative simulator facts)", self.simulation_context),
             ("QUIZ CONTEXT", self.quiz_context),
             ("REPORT CONTEXT", self.report_context),
             ("USER CONTEXT", self.user_context),
@@ -96,14 +96,18 @@ class PromptBuilder:
     # System instructions (can be extended based on product requirements)
     SYSTEM_INSTRUCTIONS = """You are EngineerOS Mentor, an AI teaching assistant for electrical engineering.
 
-Your role is to help students understand engineering concepts, solve problems, and think critically.
+Your role is to help students understand engineering concepts, design circuits for experiments,
+interpret simulation results, and think critically.
 
 Guidelines:
 - Be clear, concise, and educational
-- Use authoritative application data provided in the context
+- Use authoritative application data provided in the context sections below
 - Explain engineering reasoning rather than only giving answers
 - Be supportive and encouraging
-- Adapt explanations to the student's level when possible"""
+- Adapt explanations to the student's level when possible
+- Before simulation: give instructional guidance (components, connections, what to measure)
+- After simulation: explain the simulator's authoritative results or structured errors
+- Never claim that you validated or solved the circuit yourself"""
 
     # EngineerOS grounding rules
     ENGINEEROS_RULES = """GROUNDING RULES - YOU MUST FOLLOW THESE:
@@ -111,13 +115,23 @@ Guidelines:
 1. Use ONLY the application data provided in the context sections below.
 2. NEVER fabricate measurements, simulation results, quiz scores, reports, or user progress.
 3. NEVER override deterministic application results.
-4. Distinguish between theoretical concepts, simulated values, and measured values.
+4. Distinguish clearly between:
+   - EXPERIMENT CATALOG / THEORY (instructional guidance)
+   - AUTHORITATIVE SIMULATION FACTS (from the simulator — do not recalculate)
+   - YOUR EXPLANATION / INFERENCE (teaching about those facts)
 5. If required data is missing, clearly say that it is missing.
 6. Do not claim to have performed a simulation unless EngineerOS actually performed it.
-7. When explaining simulation results, use the exact values provided in the simulation context.
-8. Do not calculate or infer values that are not explicitly provided.
+7. When explaining simulation results, use the exact values provided in SIMULATION CONTEXT.
+8. Do not calculate or invent electrical values that are not explicitly provided in context.
 9. Keep explanations educational and grounded in engineering principles.
-10. If a student asks for a direct answer that would bypass learning, provide a helpful hint instead."""
+10. If a student asks for a direct answer that would bypass learning, provide a helpful hint instead.
+11. Instructional guidance (what components to use, how to wire a loop) does NOT validate the circuit.
+    Only the EngineerOS simulator validates circuits and determines electrical behavior.
+12. When SIMULATION CONTEXT contains validation errors (e.g. LED_NO_CURRENT_LIMIT), explain:
+    what the simulator detected, why it matters, the engineering concept, and what to change.
+    Do NOT claim you independently validated the circuit.
+13. When SIMULATION CONTEXT includes a simulation_run_id, treat that run as the current result.
+    Do not mix facts from an older run that is not present in context."""
 
     def __init__(self):
         self.template = PromptTemplate()
@@ -145,7 +159,7 @@ Guidelines:
         if context.experiment:
             template.experiment_context = self._format_experiment(context.experiment)
 
-        # 4. Simulation context
+        # 4. Simulation context — labeled as authoritative facts
         if context.simulation:
             template.simulation_context = self._format_simulation(context.simulation)
 
@@ -185,47 +199,96 @@ Guidelines:
         return [AIMessage(role="system", content=prompt)]
 
     def _format_experiment(self, experiment: Dict[str, Any]) -> str:
-        """Format experiment context."""
+        """Format experiment context for instructional guidance."""
         lines = []
+        lines.append(f"Experiment ID: {experiment.get('id', 'Unknown')}")
         lines.append(f"Experiment: {experiment.get('title', 'Unknown')}")
         if experiment.get('difficulty'):
             lines.append(f"Difficulty: {experiment.get('difficulty')}")
         if experiment.get('category'):
             lines.append(f"Category: {experiment.get('category')}")
+        if experiment.get('current_stage'):
+            lines.append(f"Current stage: {experiment.get('current_stage')}")
         if experiment.get('objective'):
             lines.append(f"Objective: {experiment.get('objective')}")
         if experiment.get('theory'):
             lines.append(f"Theory: {experiment.get('theory')}")
         if experiment.get('short_description'):
             lines.append(f"Description: {experiment.get('short_description')}")
+        if experiment.get('components'):
+            lines.append("Suggested components (from experiment catalog — guidance only):")
+            comps = experiment['components']
+            if isinstance(comps, list):
+                for comp in comps[:20]:
+                    if isinstance(comp, dict):
+                        name = comp.get('name') or comp.get('type') or comp.get('id') or str(comp)
+                        qty = comp.get('quantity') or comp.get('qty')
+                        line = f"  - {name}"
+                        if qty is not None:
+                            line += f" (x{qty})"
+                        lines.append(line)
+                    else:
+                        lines.append(f"  - {comp}")
+            else:
+                lines.append(f"  {comps}")
+        if experiment.get('procedure'):
+            lines.append("Procedure (catalog guidance):")
+            proc = experiment['procedure']
+            if isinstance(proc, list):
+                for i, step in enumerate(proc[:12], 1):
+                    if isinstance(step, dict):
+                        lines.append(f"  {i}. {step.get('step') or step.get('instruction') or step}")
+                    else:
+                        lines.append(f"  {i}. {step}")
+        if experiment.get('observation_guidance'):
+            lines.append(f"What to measure / observe: {experiment.get('observation_guidance')}")
+        if experiment.get('guidance_boundary'):
+            lines.append(f"Boundary: {experiment.get('guidance_boundary')}")
         return "\n".join(lines)
 
     def _format_simulation(self, simulation: Dict[str, Any]) -> str:
-        """Format simulation context."""
+        """Format authoritative simulation facts (never invent values)."""
         lines = []
+        lines.append(
+            "AUTHORITATIVE SIMULATION FACTS (from EngineerOS simulator — do not recalculate or invent):"
+        )
 
-        # Status
+        if simulation.get('simulation_run_id'):
+            lines.append(f"Simulation run ID: {simulation.get('simulation_run_id')}")
+        run_identity = simulation.get('run_identity') or {}
+        if run_identity.get('created_at'):
+            lines.append(f"Run created_at: {run_identity.get('created_at')}")
+        if run_identity.get('updated_at'):
+            lines.append(f"Run updated_at: {run_identity.get('updated_at')}")
+        if simulation.get('authority'):
+            lines.append(simulation['authority'])
+
         lines.append(f"Status: {simulation.get('status', 'unknown')}")
 
-        # Validation
+        # Validation / structured errors
         if simulation.get('validation'):
             validation = simulation['validation']
             if validation.get('valid'):
-                lines.append("Validation: PASSED")
+                lines.append("Validation: PASSED (by simulator)")
             else:
-                lines.append("Validation: FAILED")
+                lines.append("Validation: FAILED (by simulator — not by the Mentor)")
                 if validation.get('errors'):
-                    lines.append("Errors:")
+                    lines.append("Structured simulator errors:")
                     for error in validation['errors']:
-                        lines.append(f"  - {error.get('code')}: {error.get('message')}")
+                        lines.append(f"  - code={error.get('code')}: {error.get('message')}")
                         if error.get('explanation'):
-                            lines.append(f"    Explanation: {error.get('explanation')}")
+                            lines.append(f"    Simulator explanation: {error.get('explanation')}")
+                        if error.get('affected_components'):
+                            lines.append(f"    Affected components: {error.get('affected_components')}")
                         if error.get('suggested_fix'):
-                            lines.append(f"    Suggested Fix: {error.get('suggested_fix')}")
+                            lines.append(f"    Suggested fix (from simulator): {error.get('suggested_fix')}")
                 if validation.get('warnings'):
                     lines.append("Warnings:")
                     for warning in validation['warnings']:
                         lines.append(f"  - {warning.get('message')}")
+
+        if simulation.get('error'):
+            lines.append(f"Simulator error string: {simulation.get('error')}")
 
         # DC results
         if simulation.get('dc_result'):
@@ -262,7 +325,6 @@ Guidelines:
                         f"P={cm.get('power', 'N/A')}W"
                     )
 
-        # Graph summaries
         if simulation.get('graphs'):
             lines.append("Graphs Available:")
             for graph in simulation['graphs']:

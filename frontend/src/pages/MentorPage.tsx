@@ -48,9 +48,10 @@ function MentorPage() {
   const [renameValue, setRenameValue] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  /* ── experiment context (from ?experiment=&stage=) ── */
+  /* ── experiment context (from ?experiment=&stage=&simulation=) ── */
   const experimentParam = searchParams.get("experiment");
   const stageParam = searchParams.get("stage");
+  const simulationParam = searchParams.get("simulation");
   const simStatusParam = searchParams.get("sim") as SimulationStatus | null;
   const quizParam = searchParams.get("quiz");
   const [contextExperiment, setContextExperiment] = useState<Experiment | null>(null);
@@ -79,6 +80,7 @@ function MentorPage() {
             experimentTitle: contextExperiment.title,
             difficulty: contextExperiment.difficulty,
             stage: stageParam ? stageParam.replace(/_/g, " ") : null,
+            simulationId: simulationParam,
             simulationStatus: simStatusParam ?? "idle",
             circuit: null, // populated from simulation workspace
             measurements: null, // populated from simulation workspace
@@ -86,10 +88,12 @@ function MentorPage() {
           }
         : {
             ...emptyMentorContext,
+            stage: stageParam ? stageParam.replace(/_/g, " ") : null,
+            simulationId: simulationParam,
             simulationStatus: simStatusParam ?? "idle",
             quizQuestion: quizParam,
           },
-    [contextExperiment, stageParam, simStatusParam, quizParam],
+    [contextExperiment, stageParam, simulationParam, simStatusParam, quizParam],
   );
 
   const activeConversation = conversations.find((c) => c.id === activeId) ?? null;
@@ -213,6 +217,8 @@ function MentorPage() {
       text,
       {
         experimentId: mentorContext.experimentId,
+        simulationId: mentorContext.simulationId,
+        stage: mentorContext.stage,
       },
       {
         onUserMessage: (message) => {
@@ -288,6 +294,8 @@ function MentorPage() {
       activeId,
       {
         experimentId: mentorContext.experimentId,
+        simulationId: mentorContext.simulationId,
+        stage: mentorContext.stage,
       },
       {
         onToken: (accumulated) => setStreamingText(accumulated),

@@ -580,7 +580,7 @@ function ExperimentDetailsPage() {
             </Card>
             <QuizCTA experimentId={experiment.id} />
             <ReportCTA experimentId={experiment.id} experimentTitle={experiment.title} />
-            <MentorCTA />
+            <MentorCTA experimentId={experiment.id} />
           </section>
 
           {/* 20. RELATED EXPERIMENTS */}

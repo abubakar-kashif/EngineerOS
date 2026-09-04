@@ -30,6 +30,7 @@ class AskRequest(BaseModel):
     simulation_id: Optional[str] = None
     quiz_id: Optional[str] = None
     report_id: Optional[str] = None
+    stage: Optional[str] = None
 
 
 class AskStreamRequest(BaseModel):
@@ -38,6 +39,7 @@ class AskStreamRequest(BaseModel):
     simulation_id: Optional[str] = None
     quiz_id: Optional[str] = None
     report_id: Optional[str] = None
+    stage: Optional[str] = None
 
 
 # Must live under /api so the frontend API client (VITE_API_BASE_URL …/api) can reach it.
@@ -87,6 +89,7 @@ def ask_mentor(
             simulation_id=request.simulation_id,
             quiz_id=request.quiz_id,
             report_id=request.report_id,
+            stage=request.stage,
         )
         return response
     except ConversationNotFoundError:
@@ -125,6 +128,7 @@ def ask_mentor_stream(
                 simulation_id=request.simulation_id,
                 quiz_id=request.quiz_id,
                 report_id=request.report_id,
+                stage=request.stage,
             ):
                 yield f"data: {json.dumps(_stream_event_payload(event), default=str)}\n\n"
         except ConversationNotFoundError:

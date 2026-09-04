@@ -77,6 +77,7 @@ class MentorService:
         simulation_id: Optional[str] = None,
         quiz_id: Optional[str] = None,
         report_id: Optional[str] = None,
+        stage: Optional[str] = None,
     ) -> ContextResult:
         """Get context for the conversation using ContextEngine."""
         engine = ContextEngine(self.db)
@@ -88,6 +89,7 @@ class MentorService:
             simulation_id=simulation_id,
             quiz_id=quiz_id,
             report_id=report_id,
+            stage=stage,
         )
 
     def ask(
@@ -99,6 +101,7 @@ class MentorService:
         simulation_id: Optional[str] = None,
         quiz_id: Optional[str] = None,
         report_id: Optional[str] = None,
+        stage: Optional[str] = None,
     ) -> AIResponse:
         """Ask the AI mentor a question (non-streaming)."""
         # 1. Rate limit check
@@ -134,6 +137,7 @@ class MentorService:
             simulation_id=simulation_id,
             quiz_id=quiz_id,
             report_id=report_id,
+            stage=stage,
         )
 
         # 6. Validate context size
@@ -219,6 +223,7 @@ class MentorService:
         simulation_id: Optional[str] = None,
         quiz_id: Optional[str] = None,
         report_id: Optional[str] = None,
+        stage: Optional[str] = None,
     ) -> Generator[StreamEvent, None, None]:
         """Stream the AI response."""
         full_content = ""
@@ -270,6 +275,7 @@ class MentorService:
                 simulation_id=simulation_id,
                 quiz_id=quiz_id,
                 report_id=report_id,
+                stage=stage,
             )
 
             # 6. Validate context

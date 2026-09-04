@@ -5,13 +5,15 @@ Uses the current main's conversation service.
 
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
+
 from app.services.conversation_service import list_messages, get_conversation
-from app.schemas.conversation import MessageResponse
 
 
 class ConversationContext:
     """
     Loads conversation history and makes it available for AI context.
+    Ownership is enforced by the conversation service.
     """
 
     def __init__(self, db: Session):
@@ -27,8 +29,10 @@ class ConversationContext:
         Load recent conversation messages.
         Returns a list of dicts with 'role' and 'content'.
         """
+        if not user_id:
+            return []
+
         messages = list_messages(self.db, user_id, conversation_id)
-        # Return only the last `limit` messages
         recent = messages[-limit:] if limit else messages
         return [
             {
@@ -38,6 +42,35 @@ class ConversationContext:
             }
             for msg in recent
         ]
+
+    def load_with_current_question(
+        self,
+        conversation_id: str,
+        question: str,
+        user_id: Optional[str],
+        limit: int = 20,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Load conversation history scoped to the authenticated owner.
+
+        Fresh conversations return an empty recent_messages list — never fabricated.
+        """
+        if not user_id or not conversation_id:
+            return {
+                "recent_messages": [],
+                "current_question": question,
+            }
+
+        try:
+            messages = self.load(conversation_id, user_id, limit=limit)
+        except HTTPException:
+            return None
+
+        return {
+            "recent_messages": messages,
+            "current_question": question,
+            "conversation_id": conversation_id,
+        }
 
     def get_conversation_info(
         self,

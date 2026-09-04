@@ -32,6 +32,8 @@ export interface MentorContext {
   difficulty: string | null;
   /** Where in the learning flow the user is (details / workspace / …). */
   stage: string | null;
+  /** Persisted simulation run id for authoritative Mentor context. */
+  simulationId: string | null;
   /** Current simulation lifecycle status. */
   simulationStatus: SimulationStatus;
   /** Compact circuit summary from the simulation canvas. */
@@ -47,6 +49,7 @@ export const emptyMentorContext: MentorContext = {
   experimentTitle: null,
   difficulty: null,
   stage: null,
+  simulationId: null,
   simulationStatus: "idle",
   circuit: null,
   measurements: null,
@@ -161,12 +164,11 @@ export const welcomePrompts: string[] = [
 export function experimentPrompts(experimentTitle: string | null): string[] {
   if (!experimentTitle) return welcomePrompts;
   return [
-    `Why does ${experimentTitle} matter in real circuits?`,
+    `I want to build the ${experimentTitle} experiment. What components should I use?`,
+    "How should I connect the circuit?",
     "What should I measure first?",
-    "Explain this circuit",
-    "Help me understand my result",
-    "Why is the LED off?",
-    "What did I do incorrectly?",
+    "Help me understand my simulation result",
+    "Why did my simulation fail?",
     "Explain the key equation step by step",
   ];
 }

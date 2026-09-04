@@ -64,6 +64,7 @@ export interface MentorAskContext {
   simulationId?: string | null;
   quizId?: string | null;
   reportId?: string | null;
+  stage?: string | null;
   /**
    * When false, skip the optimistic onUserMessage callback
    * (used by regenerate — the user turn already exists in the UI).
@@ -141,6 +142,7 @@ function askBody(content: string, context: MentorAskContext = {}) {
     simulation_id: context.simulationId ?? null,
     quiz_id: context.quizId ?? null,
     report_id: context.reportId ?? null,
+    stage: context.stage ?? null,
   };
 }
 
