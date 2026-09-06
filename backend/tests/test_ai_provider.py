@@ -159,15 +159,26 @@ class TestAIProvider:
             assert response.content == "Grounded answer"
             contents = mock_client.models.generate_content.call_args[1]["contents"]
             assert contents[0].role == "user"
+
+    def test_system_and_user_prompt_keeps_student_question_as_user_turn(self):
         provider = GeminiProvider(api_key="test-key")
-        mock_response = _gemini_response("Hello!")
-        ctx, _mock_client = _patch_generate(provider, mock_response)
+        mock_response = _gemini_response("V = I R")
+        ctx, mock_client = _patch_generate(provider, mock_response)
         with ctx:
             response = provider.generate(
-                AIRequest(messages=[AIMessage(role="user", content="Hello")])
+                AIRequest(
+                    messages=[
+                        AIMessage(role="system", content="GENERAL MENTOR MODE"),
+                        AIMessage(role="user", content="Explain Ohm's Law in simple terms."),
+                    ]
+                )
             )
-            assert response.content == "Hello!"
-            assert response.model == DEFAULT_GEMINI_MODEL
+            assert response.content == "V = I R"
+            contents = mock_client.models.generate_content.call_args[1]["contents"]
+            assert contents[0].role == "user"
+            assert contents[0].parts[0].text == "Explain Ohm's Law in simple terms."
+            config = mock_client.models.generate_content.call_args[1]["config"]
+            assert "GENERAL MENTOR MODE" in config.system_instruction
 
     def test_gemini_provider_generate_handles_no_usage(self):
         provider = GeminiProvider(api_key="test-key")

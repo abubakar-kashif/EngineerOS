@@ -201,3 +201,45 @@ def test_regenerate_skips_duplicate_user_turn(mentor_runtime_client):
     roles = [m["role"] for m in detail["messages"]]
     assert roles == ["user", "assistant", "assistant"]
     assert detail["messages"][0]["content"] == "Explain Voltage Divider."
+
+
+def test_retry_persists_user_when_first_attempt_never_saved(mentor_runtime_client):
+    """Retry with persist_user=false still stores the missing user turn."""
+    client, _session_factory = mentor_runtime_client
+    token = _login(client)
+    created = client.post("/api/conversations", headers=_auth_headers(token), json={})
+    conversation_id = created.json()["id"]
+
+    chunk = Mock()
+    chunk.text = "KCL says current into a node equals current out."
+    chunk.candidates = [
+        Mock(
+            finish_reason="STOP",
+            content=Mock(parts=[Mock(text=chunk.text)]),
+        )
+    ]
+    chunk.usage_metadata = None
+    mock_client = Mock()
+    mock_client.models.generate_content_stream.return_value = iter([chunk])
+
+    with patch.object(
+        GeminiProvider, "client", new_callable=PropertyMock
+    ) as client_prop:
+        client_prop.return_value = mock_client
+        response = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={
+                "content": "What is Kirchhoff's Current Law?",
+                "persist_user": False,
+            },
+        )
+        assert response.status_code == 200
+
+    detail = client.get(
+        f"/api/conversations/{conversation_id}",
+        headers=_auth_headers(token),
+    ).json()
+    roles = [m["role"] for m in detail["messages"]]
+    assert roles == ["user", "assistant"]
+    assert detail["messages"][0]["content"] == "What is Kirchhoff's Current Law?"

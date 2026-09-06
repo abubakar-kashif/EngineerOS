@@ -367,6 +367,26 @@ class MentorService:
                                                 role="user", content=question
                                             ),
                                         )
+                                else:
+                                    # Retry/regenerate: never duplicate the user turn,
+                                    # but persist it if the first attempt failed before save.
+                                    prior = list_messages(
+                                        self.db, user_id, conversation_id
+                                    )
+                                    has_user = any(
+                                        (m.role == "user")
+                                        and (m.content or "").strip() == question.strip()
+                                        for m in prior
+                                    )
+                                    if not has_user:
+                                        add_message(
+                                            self.db,
+                                            user_id,
+                                            conversation_id,
+                                            MessageCreateRequest(
+                                                role="user", content=question
+                                            ),
+                                        )
 
                                 msg = add_message(
                                     self.db,

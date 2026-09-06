@@ -334,7 +334,7 @@ describe("regenerateMessage", () => {
   });
 
   it("re-asks the last user message through the real stream endpoint", async () => {
-    mockApiRoutes({
+    const calls = mockApiRoutes({
       "GET /conversations/c1": () =>
         jsonResponse({
           id: "c1",
@@ -374,6 +374,8 @@ describe("regenerateMessage", () => {
 
     expect(userMessages).toEqual([]);
     expect(completions).toEqual(["Fresh"]);
+    const streamCall = calls.find((call) => call.path === "/conversations/c1/ask/stream");
+    expect(streamCall?.body).toMatchObject({ persist_user: false, content: "Explain Ohm's Law" });
   });
 });
 

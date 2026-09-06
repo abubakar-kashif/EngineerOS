@@ -82,7 +82,11 @@ class PromptTemplate:
             List[AIMessage]: List of messages for the provider
         """
         prompt = self.build()
-        return [AIMessage(role="system", content=prompt)]
+        question = (self.current_question or "").strip() or "Continue."
+        return [
+            AIMessage(role="system", content=prompt),
+            AIMessage(role="user", content=question),
+        ]
 
 
 class PromptBuilder:
@@ -101,28 +105,30 @@ interpret simulation results, and think critically.
 
 Guidelines:
 - Be clear, concise, and educational
-- Use authoritative application data provided in the context sections below
+- Answer general electrical engineering theory, study questions, and teaching calculations even when no simulation has been run
+- When SIMULATION CONTEXT is present, treat it as the only authoritative source of circuit measurements and validation
 - Explain engineering reasoning rather than only giving answers
 - Be supportive and encouraging
 - Adapt explanations to the student's level when possible
-- Before simulation: give instructional guidance (components, connections, what to measure)
+- Before simulation: give instructional guidance (components, connections, what to measure) and still answer theory
 - After simulation: explain the simulator's authoritative results or structured errors
 - Never claim that you validated or solved the circuit yourself"""
 
     # EngineerOS grounding rules
     ENGINEEROS_RULES = """GROUNDING RULES - YOU MUST FOLLOW THESE:
 
-1. Use ONLY the application data provided in the context sections below.
-2. NEVER fabricate measurements, simulation results, quiz scores, reports, or user progress.
+1. Application data in the context sections below (especially SIMULATION CONTEXT) is authoritative when present. Do not contradict it.
+2. NEVER fabricate measurements, simulation results, quiz scores, reports, or user progress for the student's lab.
 3. NEVER override deterministic application results.
 4. Distinguish clearly between:
+   - GENERAL ENGINEERING KNOWLEDGE (laws, theory, study explanations, example calculations)
    - EXPERIMENT CATALOG / THEORY (instructional guidance)
    - AUTHORITATIVE SIMULATION FACTS (from the simulator — do not recalculate)
    - YOUR EXPLANATION / INFERENCE (teaching about those facts)
-5. If required data is missing, clearly say that it is missing.
+5. If the student asks about THEIR circuit's measured values and SIMULATION CONTEXT is missing, say those measurements are missing and they should Run the simulator. Do not refuse general theory questions for that reason.
 6. Do not claim to have performed a simulation unless EngineerOS actually performed it.
 7. When explaining simulation results, use the exact values provided in SIMULATION CONTEXT.
-8. Do not calculate or invent electrical values that are not explicitly provided in context.
+8. Do not invent electrical values for the student's circuit. Clearly labeled teaching examples (e.g. "for example, 12 V and 1 kΩ") are allowed.
 9. Keep explanations educational and grounded in engineering principles.
 10. If a student asks for a direct answer that would bypass learning, provide a helpful hint instead.
 11. Instructional guidance (what components to use, how to wire a loop) does NOT validate the circuit.
@@ -134,8 +140,19 @@ Guidelines:
     Do not mix facts from an older run that is not present in context.
 14. Conversation history may mention earlier measurements or errors from previous runs.
     If those conflict with SIMULATION CONTEXT, the SIMULATION CONTEXT wins — explain the new result.
-15. Before any simulation has been run (no SIMULATION CONTEXT), give instructional guidance only.
-    Do not invent the student's circuit topology, component values, or measurements."""
+15. Before any simulation has been run (no SIMULATION CONTEXT), you are in General Mentor mode:
+    answer EE theory, laws, comparisons, study questions, and teaching calculations using standard engineering knowledge.
+    A simulation is NOT required. Do not invent the student's circuit topology, component values, or measurements."""
+
+    GENERAL_MENTOR_RULES = """GENERAL MENTOR MODE — no simulation run is attached to this request.
+
+You MUST answer general electrical engineering questions directly:
+theory, definitions, Ohm's Law, Kirchhoff's laws, series vs parallel, voltage vs current,
+voltage dividers, study questions, and worked teaching calculations.
+
+Do not say that you cannot answer because a simulation is missing.
+Do not ask the student to run a simulation first unless they asked about their own measured results.
+Do not invent that a lab or SimulationRun occurred."""
 
     def __init__(self):
         self.template = PromptTemplate()
@@ -158,6 +175,10 @@ Guidelines:
 
         # 2. EngineerOS rules
         template.engineeros_rules = self.ENGINEEROS_RULES
+        if not context.simulation:
+            template.engineeros_rules = (
+                f"{self.ENGINEEROS_RULES}\n\n{self.GENERAL_MENTOR_RULES}"
+            )
 
         # 3. Experiment context
         if context.experiment:
@@ -200,7 +221,12 @@ Guidelines:
             List[AIMessage]: Messages for the provider
         """
         prompt = self.build_prompt(context, question)
-        return [AIMessage(role="system", content=prompt)]
+        # Gemini (and other chat APIs) require a user turn. Keep the grounded
+        # prompt as system context and send the student's question as user.
+        return [
+            AIMessage(role="system", content=prompt),
+            AIMessage(role="user", content=question),
+        ]
 
     def _format_experiment(self, experiment: Dict[str, Any]) -> str:
         """Format experiment context for instructional guidance."""

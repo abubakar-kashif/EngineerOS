@@ -39,6 +39,7 @@ class TestClosedLoopPromptFreshness:
         assert "SIMULATION CONTEXT wins" in prompt or "ONLY current result" in prompt
         # Must not invent that Mentor validated
         assert "do not recalculate" in prompt.lower() or "AUTHORITATIVE" in prompt
+        assert "GENERAL MENTOR MODE" not in prompt
 
     def test_pre_simulation_guidance_has_no_fabricated_circuit(self):
         builder = PromptBuilder()
@@ -53,6 +54,7 @@ class TestClosedLoopPromptFreshness:
         prompt = builder.build_prompt(context, "I want to build KVL. What components do I need?")
         assert "kvl" in prompt.lower() or "Kirchhoff" in prompt or "KVL" in prompt
         assert "instructional guidance only" in prompt.lower() or "Do not invent the student's circuit" in prompt
+        assert "GENERAL MENTOR MODE" in prompt
         assert "AUTHORITATIVE SIMULATION FACTS" not in prompt or context.simulation is None
 
 

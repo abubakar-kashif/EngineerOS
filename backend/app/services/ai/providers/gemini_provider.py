@@ -131,9 +131,8 @@ class GeminiProvider(AIProvider):
                 turns.append(("user", content))
         if turns and turns[0][0] == "model":
             turns.insert(0, ("user", "Continue."))
-        # PromptBuilder currently emits a single system message containing the
-        # full grounded prompt (including the user question). Gemini requires
-        # at least one user turn, so lift that payload into a user message.
+        # Fallback: if a caller still sends system-only messages, Gemini needs
+        # a user turn, so lift that payload into a user message.
         if not turns and system_parts:
             combined = "\n\n".join(p for p in system_parts if p).strip()
             return (
