@@ -25,13 +25,26 @@ html,
 body,
 #root {
   min-height: 100vh;
-  min-width: 320px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+html,
+body {
+  overflow-x: clip;
 }
 
 body {
   color: var(--color-text);
   background: var(--color-bg);
   line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
 }
 
 /* ----- Background language: subtle gradient + grid ----- */
