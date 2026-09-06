@@ -33,6 +33,8 @@ function CircuitWire({
     <g
       className="canvas-wire"
       data-wire-id={wire.id}
+      data-selected={selected ? "true" : "false"}
+      aria-selected={selected ? true : undefined}
       onMouseDown={onMouseDown}
       style={{ cursor: onMouseDown ? "pointer" : undefined }}
     >

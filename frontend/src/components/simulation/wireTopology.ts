@@ -15,6 +15,7 @@ import { getTerminalWorldPosition } from "./editorUtils";
 export const TERMINAL_SNAP_DISTANCE = 16;
 export const WIRE_HIT_DISTANCE = 10;
 export const ENDPOINT_HIT_DISTANCE = 12;
+export const MIN_WIRE_LENGTH = 1;
 
 export interface Point {
   x: number;
@@ -33,6 +34,52 @@ export function dist(a: Point, b: Point): number {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
   return Math.hypot(dx, dy);
+}
+
+export function isFinitePoint(p: Point | null | undefined): p is Point {
+  return !!p && Number.isFinite(p.x) && Number.isFinite(p.y);
+}
+
+/** Drop NaN/Inf and collapse consecutive duplicates. */
+export function cleanPolyline(points: Point[]): Point[] {
+  const out: Point[] = [];
+  for (const raw of points) {
+    if (!isFinitePoint(raw)) continue;
+    const p = { x: raw.x, y: raw.y };
+    if (out.length > 0 && dist(out[out.length - 1], p) < 0.5) continue;
+    out.push(p);
+  }
+  return out;
+}
+
+export function isZeroLengthWire(points: Point[]): boolean {
+  const pts = cleanPolyline(points);
+  if (pts.length < 2) return true;
+  return dist(pts[0], pts[pts.length - 1]) < MIN_WIRE_LENGTH && pts.length === 2;
+}
+
+export function wireEndKey(end: WireEnd | undefined): string | null {
+  if (!end) return null;
+  if (end.kind === "terminal") return `t:${end.componentId}:${end.terminalId}`;
+  return `j:${end.junctionId}`;
+}
+
+export function sameElectricalEnds(a?: WireEnd, b?: WireEnd, c?: WireEnd, d?: WireEnd): boolean {
+  const left = [wireEndKey(a), wireEndKey(b)].filter(Boolean).sort().join("|");
+  const right = [wireEndKey(c), wireEndKey(d)].filter(Boolean).sort().join("|");
+  return left.length > 0 && left === right;
+}
+
+export function findDuplicateWire(
+  circuit: EditorCircuit,
+  a: WireEnd,
+  b: WireEnd,
+  excludeWireId?: string,
+): WireSegment | undefined {
+  return circuit.wires.find((w) => {
+    if (excludeWireId && w.id === excludeWireId) return false;
+    return sameElectricalEnds(w.a, w.b, a, b);
+  });
 }
 
 export function uid(prefix: string): string {
@@ -324,11 +371,14 @@ export function findNearestTerminal(
   return best;
 }
 
-/** Snap cursor for wiring preview: terminal > wire > raw. */
+/** Snap cursor for wiring.
+ * Terminals snap magnetically. Wires only snap when `snapToWires` is set so
+ * visual crossings on empty canvas do not become electrical joins.
+ */
 export function snapWiringCursor(
   circuit: EditorCircuit,
   p: Point,
-  opts?: { excludeWireId?: string },
+  opts?: { excludeWireId?: string; snapToWires?: boolean },
 ): { point: Point; kind: "terminal" | "wire" | "none"; terminal?: { componentId: string; terminalId: string }; wireHit?: WireHit } {
   const term = findNearestTerminal(circuit, p);
   if (term) {
@@ -338,14 +388,16 @@ export function snapWiringCursor(
       terminal: { componentId: term.componentId, terminalId: term.terminalId },
     };
   }
-  const wires = opts?.excludeWireId
-    ? circuit.wires.filter((w) => w.id !== opts.excludeWireId)
-    : circuit.wires;
-  const wireHit = hitTestWire(p, wires, WIRE_HIT_DISTANCE);
-  if (wireHit) {
-    return { point: wireHit.point, kind: "wire", wireHit };
+  if (opts?.snapToWires) {
+    const wires = opts.excludeWireId
+      ? circuit.wires.filter((w) => w.id !== opts.excludeWireId)
+      : circuit.wires;
+    const wireHit = hitTestWire(p, wires, WIRE_HIT_DISTANCE);
+    if (wireHit) {
+      return { point: wireHit.point, kind: "wire", wireHit };
+    }
   }
-  return { point: p, kind: "none" };
+  return { point: isFinitePoint(p) ? p : { x: 0, y: 0 }, kind: "none" };
 }
 
 /** Update wire endpoint positions attached to a moved/rotated component; keep midpoints. */

@@ -122,7 +122,7 @@ function ComponentInspector({
               type="button"
               className={`sim-inspector-toggle${component.properties.closed ? " sim-inspector-toggle--on" : ""}`}
               onClick={() =>
-                onUpdateProperty(component.id, "closed", !Boolean(component.properties.closed))
+                onUpdateProperty(component.id, "closed", !component.properties.closed)
               }
             >
               {component.properties.closed ? "Closed (ON)" : "Open (OFF)"}

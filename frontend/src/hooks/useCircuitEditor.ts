@@ -23,7 +23,11 @@ import { nextDesignator } from "../components/simulation/referenceDesignators";
 import type { CircuitDefinition } from "../components/simulation/engine";
 import { toEngineCircuit } from "../components/simulation/editorAdapters";
 import {
+  cleanPolyline,
+  findDuplicateWire,
   hitTestWire,
+  isFinitePoint,
+  isZeroLengthWire,
   mergeNetIds,
   moveJunction,
   normalizeEditorCircuit,
@@ -80,10 +84,26 @@ function snap(val: number): number {
 }
 
 function commitCircuit(circuit: EditorCircuit): EditorCircuit {
-  const pruned = pruneOrphanJunctions(circuit);
+  const wires = circuit.wires
+    .map((w) => ({
+      ...w,
+      points: cleanPolyline(w.points ?? []),
+      netId: w.netId && String(w.netId).length > 0 ? w.netId : uid("net"),
+    }))
+    .filter((w) => w.a && w.b && w.points.length >= 2 && !isZeroLengthWire(w.points));
+  const pruned = pruneOrphanJunctions({ ...circuit, wires });
   return {
     ...pruned,
     connections: rebuildConnections(pruned),
+  };
+}
+
+function abortDrawing(s: EditorState): EditorState {
+  return {
+    ...s,
+    mode: "select",
+    wireStart: null,
+    wirePreviewPoints: [],
   };
 }
 
@@ -349,6 +369,7 @@ export function useCircuitEditor(initial?: EditorCircuit) {
 
   const startWireFromTerminal = useCallback(
     (componentId: string, terminalId: string, worldX: number, worldY: number) => {
+      if (!isFinitePoint({ x: worldX, y: worldY })) return;
       setState((s) => ({
         ...s,
         mode: "wire",
@@ -370,25 +391,30 @@ export function useCircuitEditor(initial?: EditorCircuit) {
   const startWire = startWireFromTerminal;
 
   const startWireFromWire = useCallback((wireId: string, worldX: number, worldY: number) => {
-    setState((s) => ({
-      ...s,
-      mode: "wire",
-      wireStart: {
-        origin: { kind: "wire", wireId, x: worldX, y: worldY },
-        x: worldX,
-        y: worldY,
-        fixedPoints: [{ x: worldX, y: worldY }],
-      },
-      wirePreviewPoints: [{ x: worldX, y: worldY }],
-      selectedComponentId: null,
-      selectedWireId: null,
-    }));
+    if (!isFinitePoint({ x: worldX, y: worldY })) return;
+    setState((s) => {
+      if (!s.circuit.wires.some((w) => w.id === wireId)) return s;
+      return {
+        ...s,
+        mode: "wire",
+        wireStart: {
+          origin: { kind: "wire", wireId, x: worldX, y: worldY },
+          x: worldX,
+          y: worldY,
+          fixedPoints: [{ x: worldX, y: worldY }],
+        },
+        wirePreviewPoints: [{ x: worldX, y: worldY }],
+        selectedComponentId: null,
+        selectedWireId: null,
+      };
+    });
   }, []);
 
   const updateWirePreview = useCallback((worldX: number, worldY: number) => {
+    if (!isFinitePoint({ x: worldX, y: worldY })) return;
     setState((s) => {
       if (!s.wireStart) return s;
-      const snapped = snapWiringCursor(s.circuit, { x: worldX, y: worldY });
+      const snapped = snapWiringCursor(s.circuit, { x: worldX, y: worldY }, { snapToWires: false });
       const preview = pathFromFixedToEnd(s.wireStart.fixedPoints, snapped.point);
       return { ...s, wirePreviewPoints: preview };
     });
@@ -396,11 +422,11 @@ export function useCircuitEditor(initial?: EditorCircuit) {
 
   /** Pin an intermediate corner while wiring (empty-canvas click). */
   const pinWireWaypoint = useCallback((worldX: number, worldY: number) => {
+    if (!isFinitePoint({ x: worldX, y: worldY })) return;
     setState((s) => {
       if (!s.wireStart) return s;
-      const snapped = snapWiringCursor(s.circuit, { x: worldX, y: worldY });
-      // If snapped to a finish target, do not pin — caller should complete.
-      if (snapped.kind === "terminal" || snapped.kind === "wire") return s;
+      const snapped = snapWiringCursor(s.circuit, { x: worldX, y: worldY }, { snapToWires: false });
+      if (snapped.kind === "terminal") return s;
       const fixedPoints = pathFromFixedToEnd(s.wireStart.fixedPoints, snapped.point);
       return {
         ...s,
@@ -469,21 +495,29 @@ export function useCircuitEditor(initial?: EditorCircuit) {
       if (!originMat) return s;
       working = originMat.circuit;
 
-      const endEnd: WireEnd = { kind: "terminal", componentId, terminalId };
-      let netId = originMat.netId;
-
-      // If finishing onto a terminal that already belongs to a net via existing wires,
-      // create a fresh segment still on origin net — rebuildConnections unions via shared terminals.
-      // When origin was a wire, netId is that wire's net; adding terminal joins the net.
-
-      const points = pathFromFixedToEnd(s.wireStart.fixedPoints, endPoint);
-      // After materializeOrigin from wire, fixedPoints[0] may be stale vs junction — retarget start
+      const points = cleanPolyline(
+        pathFromFixedToEnd(s.wireStart.fixedPoints, endPoint).map((p, i) =>
+          i === 0 ? originMat.startPoint : p,
+        ),
+      );
       if (points.length > 0) points[0] = originMat.startPoint;
+      if (points.length < 2) points.push(endPoint);
+
+      if (!isFinitePoint(originMat.startPoint) || !isFinitePoint(endPoint) || isZeroLengthWire(points)) {
+        return abortDrawing(s);
+      }
+
+      let netId = originMat.netId || uid("net");
+      const endEnd: WireEnd = { kind: "terminal", componentId, terminalId };
+
+      if (findDuplicateWire(working, originMat.end, endEnd)) {
+        return abortDrawing(s);
+      }
 
       const wire: WireSegment = {
         id: uid("wire"),
         netId,
-        points: points.length >= 2 ? points : [originMat.startPoint, endPoint],
+        points,
         a: originMat.end,
         b: endEnd,
       };
@@ -530,8 +564,8 @@ export function useCircuitEditor(initial?: EditorCircuit) {
   const completeWireToWire = useCallback((wireId: string, x: number, y: number) => {
     setState((s) => {
       if (!s.wireStart) return s;
+      if (!isFinitePoint({ x, y })) return s;
       const at = { x, y };
-      // Don't connect a wire to itself at the same origin without geometry
       if (s.wireStart.origin.kind === "wire" && s.wireStart.origin.wireId === wireId) {
         return s;
       }
@@ -541,7 +575,6 @@ export function useCircuitEditor(initial?: EditorCircuit) {
       if (!originMat) return s;
       working = originMat.circuit;
 
-      // Target wire id may still be valid if origin wasn't that wire
       const targetId =
         working.wires.some((w) => w.id === wireId)
           ? wireId
@@ -552,7 +585,7 @@ export function useCircuitEditor(initial?: EditorCircuit) {
       if (!split) return s;
       working = split.circuit;
       working = mergeNetIds(working, originMat.netId, split.netId);
-      const netId = originMat.netId;
+      const netId = originMat.netId && String(originMat.netId).length > 0 ? originMat.netId : uid("net");
 
       const endPoint = {
         x:
@@ -562,15 +595,27 @@ export function useCircuitEditor(initial?: EditorCircuit) {
           (working.junctions ?? []).find((j) => j.id === split.junctionId)?.y ??
           at.y,
       };
-      const points = pathFromFixedToEnd(s.wireStart.fixedPoints, endPoint);
+      const points = cleanPolyline(
+        pathFromFixedToEnd(s.wireStart.fixedPoints, endPoint).map((p, i) =>
+          i === 0 ? originMat.startPoint : p,
+        ),
+      );
       if (points.length > 0) points[0] = originMat.startPoint;
+      if (points.length < 2 || isZeroLengthWire(points) || !isFinitePoint(endPoint)) {
+        return abortDrawing(s);
+      }
+
+      const endEnd: WireEnd = { kind: "junction", junctionId: split.junctionId };
+      if (findDuplicateWire(working, originMat.end, endEnd)) {
+        return abortDrawing(s);
+      }
 
       const wire: WireSegment = {
         id: uid("wire"),
         netId,
-        points: points.length >= 2 ? points : [originMat.startPoint, endPoint],
+        points,
         a: originMat.end,
-        b: { kind: "junction", junctionId: split.junctionId },
+        b: endEnd,
       };
 
       const next = commitCircuit({
@@ -673,15 +718,82 @@ export function useCircuitEditor(initial?: EditorCircuit) {
     [pushUndo],
   );
 
-  /** Move a wire endpoint; optionally reattach to a nearby terminal. */
+  /** Drag a wire endpoint visually. Electrical reattach happens on commit. */
   const moveWireEndpoint = useCallback(
     (wireId: string, which: "a" | "b", x: number, y: number) => {
+      if (!isFinitePoint({ x, y })) return;
       const cursor = { x, y };
       setState((s) => {
         const wire = s.circuit.wires.find((w) => w.id === wireId);
         if (!wire || !wire.a || !wire.b) return s;
 
-        const snapped = snapWiringCursor(s.circuit, cursor, { excludeWireId: wireId });
+        const snapped = snapWiringCursor(s.circuit, cursor, {
+          excludeWireId: wireId,
+          snapToWires: false,
+        });
+        const points = wire.points.map((p) => ({ ...p }));
+        const idx = which === "a" ? 0 : points.length - 1;
+        points[idx] = snapped.point;
+
+        let a = wire.a;
+        let b = wire.b;
+        let circuit = s.circuit;
+        const netId = wire.netId;
+
+        if (snapped.kind === "terminal" && snapped.terminal) {
+          const end: WireEnd = {
+            kind: "terminal",
+            componentId: snapped.terminal.componentId,
+            terminalId: snapped.terminal.terminalId,
+          };
+          if (which === "a") a = end;
+          else b = end;
+        } else if ((wire[which] as WireEnd).kind === "junction") {
+          const jid = (wire[which] as Extract<WireEnd, { kind: "junction" }>).junctionId;
+          circuit = moveJunction(circuit, jid, snapped.point.x, snapped.point.y);
+        } else {
+          const jid = uid("junc");
+          circuit = {
+            ...circuit,
+            junctions: [
+              ...(circuit.junctions ?? []),
+              { id: jid, x: snapped.point.x, y: snapped.point.y, netId },
+            ],
+          };
+          const juncEnd: WireEnd = { kind: "junction", junctionId: jid };
+          if (which === "a") a = juncEnd;
+          else b = juncEnd;
+        }
+
+        const updated: WireSegment = { ...wire, a, b, points: cleanPolyline(points), netId };
+        const wires = circuit.wires.map((w) => (w.id === wireId ? updated : w));
+        if (!wires.some((w) => w.id === wireId)) {
+          wires.push(updated);
+        }
+
+        return {
+          ...s,
+          circuit: commitCircuit({ ...circuit, wires }),
+          dirty: true,
+        };
+      });
+    },
+    [],
+  );
+
+  /** Drop endpoint onto a pin or wire (intentional snap). */
+  const commitWireEndpoint = useCallback(
+    (wireId: string, which: "a" | "b", x: number, y: number) => {
+      if (!isFinitePoint({ x, y })) return;
+      const cursor = { x, y };
+      setState((s) => {
+        const wire = s.circuit.wires.find((w) => w.id === wireId);
+        if (!wire || !wire.a || !wire.b) return s;
+
+        const snapped = snapWiringCursor(s.circuit, cursor, {
+          excludeWireId: wireId,
+          snapToWires: true,
+        });
         const points = wire.points.map((p) => ({ ...p }));
         const idx = which === "a" ? 0 : points.length - 1;
         points[idx] = snapped.point;
@@ -712,7 +824,6 @@ export function useCircuitEditor(initial?: EditorCircuit) {
           const jid = (wire[which] as Extract<WireEnd, { kind: "junction" }>).junctionId;
           circuit = moveJunction(circuit, jid, snapped.point.x, snapped.point.y);
         } else {
-          // Detach from terminal into a free junction so geometry can float
           const jid = uid("junc");
           circuit = {
             ...circuit,
@@ -726,10 +837,20 @@ export function useCircuitEditor(initial?: EditorCircuit) {
           else b = juncEnd;
         }
 
-        const updated: WireSegment = { ...wire, a, b, points, netId };
-        // Wire may have been replaced if we split another — find by id still
+        if (findDuplicateWire(circuit, a, b, wireId)) {
+          return s;
+        }
+
+        const updated: WireSegment = {
+          ...wire,
+          a,
+          b,
+          points: cleanPolyline(points),
+          netId,
+        };
+        if (isZeroLengthWire(updated.points)) return s;
+
         const wires = circuit.wires.map((w) => (w.id === wireId ? updated : w));
-        // If split removed and we're updating, ensure our wire exists
         if (!wires.some((w) => w.id === wireId)) {
           wires.push(updated);
         }
@@ -855,6 +976,7 @@ export function useCircuitEditor(initial?: EditorCircuit) {
     prepareWireReshape,
     beginReshapeWire,
     moveWireEndpoint,
+    commitWireEndpoint,
     beginMoveWireEndpoint,
     undo,
     redo,

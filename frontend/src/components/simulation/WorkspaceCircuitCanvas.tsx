@@ -31,6 +31,7 @@ interface WorkspaceCircuitCanvasProps {
   onPrepareWireReshape?: (wireId: string, x: number, y: number) => number;
   onBeginReshapeWire?: (wireId: string) => void;
   onMoveWireEndpoint?: (wireId: string, which: "a" | "b", x: number, y: number) => void;
+  onCommitWireEndpoint?: (wireId: string, which: "a" | "b", x: number, y: number) => void;
   onBeginMoveWireEndpoint?: (wireId: string) => void;
   placementType: ComponentType | null;
   className?: string;

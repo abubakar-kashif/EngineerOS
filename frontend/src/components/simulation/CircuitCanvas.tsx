@@ -23,7 +23,7 @@ import {
   zoomViewBoxAt,
   zoomViewBoxCenter,
 } from "./viewportMath";
-import { hitTestWire, snapWiringCursor } from "./wireTopology";
+import { findNearestTerminal, hitTestWire } from "./wireTopology";
 import {
   VoltageSourceNode,
   CurrentSourceNode,
@@ -72,12 +72,14 @@ interface CircuitCanvasProps {
   onPrepareWireReshape?: (wireId: string, x: number, y: number) => number;
   onBeginReshapeWire?: (wireId: string) => void;
   onMoveWireEndpoint?: (wireId: string, which: "a" | "b", x: number, y: number) => void;
+  onCommitWireEndpoint?: (wireId: string, which: "a" | "b", x: number, y: number) => void;
   onBeginMoveWireEndpoint?: (wireId: string) => void;
   placementType: ComponentType | null;
 }
 
 const GRID_SIZE = 20;
 const DEFAULT_VIEW: WorkspaceViewport = { x: -40, y: -40, w: 880, h: 560 };
+const WIRE_DRAG_THRESHOLD_PX = 6;
 
 const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(function CircuitCanvas(
   {
@@ -102,6 +104,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
     onPrepareWireReshape,
     onBeginReshapeWire,
     onMoveWireEndpoint,
+    onCommitWireEndpoint,
     onBeginMoveWireEndpoint,
     placementType,
   },
@@ -122,6 +125,12 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
   const [movingEndpoint, setMovingEndpoint] = useState<{
     wireId: string;
     which: "a" | "b";
+  } | null>(null);
+  const [pendingWireGesture, setPendingWireGesture] = useState<{
+    wireId: string;
+    world: { x: number; y: number };
+    clientX: number;
+    clientY: number;
   } | null>(null);
 
   const zoomByFactor = useCallback((factor: number) => {
@@ -197,6 +206,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button === 2) {
+        setPendingWireGesture(null);
         if (editor.wireStart) onCancelWire();
         else if (placementType) onCancelPlacement();
         return;
@@ -218,16 +228,10 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       if ((e.target as Element).closest(".canvas-wire")) return;
 
       if (editor.wireStart) {
-        // Pin a corner on empty canvas, or finish if snap target is under cursor.
-        const snapped = snapWiringCursor(editor.circuit, pos);
-        if (snapped.kind === "terminal" && snapped.terminal) {
-          onCompleteWire(snapped.terminal.componentId, snapped.terminal.terminalId);
-        } else if (snapped.kind === "wire" && snapped.wireHit && onCompleteWireToWire) {
-          onCompleteWireToWire(
-            snapped.wireHit.wireId,
-            snapped.wireHit.point.x,
-            snapped.wireHit.point.y,
-          );
+        // Pin-to-pin: snap to terminals only. Never auto-join a crossed wire.
+        const term = findNearestTerminal(editor.circuit, pos);
+        if (term) {
+          onCompleteWire(term.componentId, term.terminalId);
         } else {
           onPinWireWaypoint?.(pos.x, pos.y);
         }
@@ -235,6 +239,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       }
 
       onSelectComponent(null);
+      onSelectWire(null);
     },
     [
       screenToCanvas,
@@ -243,10 +248,10 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       editor.circuit,
       onAddComponent,
       onSelectComponent,
+      onSelectWire,
       onCancelWire,
       onCancelPlacement,
       onCompleteWire,
-      onCompleteWireToWire,
       onPinWireWaypoint,
     ],
   );
@@ -261,6 +266,22 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         const rect = svg.getBoundingClientRect();
         setViewBox((v) => panViewBoxByClientDelta(v, dx, dy, rect.width, rect.height));
         setPanStart({ x: e.clientX, y: e.clientY });
+        return;
+      }
+      if (pendingWireGesture && !reshaping && !movingEndpoint) {
+        const dx = e.clientX - pendingWireGesture.clientX;
+        const dy = e.clientY - pendingWireGesture.clientY;
+        if (Math.hypot(dx, dy) >= WIRE_DRAG_THRESHOLD_PX) {
+          onBeginReshapeWire?.(pendingWireGesture.wireId);
+          const vertexIndex =
+            onPrepareWireReshape?.(
+              pendingWireGesture.wireId,
+              pendingWireGesture.world.x,
+              pendingWireGesture.world.y,
+            ) ?? 1;
+          setReshaping({ wireId: pendingWireGesture.wireId, vertexIndex });
+          setPendingWireGesture(null);
+        }
         return;
       }
       if (movingEndpoint && onMoveWireEndpoint) {
@@ -289,21 +310,51 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       dragging,
       reshaping,
       movingEndpoint,
+      pendingWireGesture,
       editor.wireStart,
       screenToCanvas,
       onMoveComponent,
       onUpdateWirePreview,
       onReshapeWire,
       onMoveWireEndpoint,
+      onBeginReshapeWire,
+      onPrepareWireReshape,
     ],
   );
 
-  const handleMouseUp = useCallback(() => {
-    if (panning) setPanning(false);
-    if (dragging) setDragging(null);
-    if (reshaping) setReshaping(null);
-    if (movingEndpoint) setMovingEndpoint(null);
-  }, [panning, dragging, reshaping, movingEndpoint]);
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      const isLeave = e.type === "mouseleave";
+      if (pendingWireGesture && !reshaping) {
+        if (!isLeave) {
+          onStartWireFromWire?.(
+            pendingWireGesture.wireId,
+            pendingWireGesture.world.x,
+            pendingWireGesture.world.y,
+          );
+        }
+        setPendingWireGesture(null);
+      }
+      if (movingEndpoint) {
+        const pos = screenToCanvas(e.clientX, e.clientY);
+        onCommitWireEndpoint?.(movingEndpoint.wireId, movingEndpoint.which, pos.x, pos.y);
+        setMovingEndpoint(null);
+      }
+      if (panning) setPanning(false);
+      if (dragging) setDragging(null);
+      if (reshaping) setReshaping(null);
+    },
+    [
+      panning,
+      dragging,
+      reshaping,
+      movingEndpoint,
+      pendingWireGesture,
+      screenToCanvas,
+      onStartWireFromWire,
+      onCommitWireEndpoint,
+    ],
+  );
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -312,9 +363,13 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         return;
       }
       if (e.key === "Escape") {
+        setPendingWireGesture(null);
         if (editor.wireStart) onCancelWire();
         else if (placementType) onCancelPlacement();
-        else onSelectComponent(null);
+        else {
+          onSelectComponent(null);
+          onSelectWire(null);
+        }
         return;
       }
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -337,6 +392,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
     onCancelWire,
     onCancelPlacement,
     onSelectComponent,
+    onSelectWire,
     onDeleteWire,
     onDeleteComponent,
   ]);
@@ -397,19 +453,17 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       }
 
       onSelectWire(wireId);
-      // Ctrl/Cmd+click selects only (for delete / endpoint edit).
       if (e.ctrlKey || e.metaKey) return;
 
-      // Click again on an already-selected wire reshapes geometry.
+      // Second interaction on the selected wire: click branches, drag reshapes.
       if (editor.selectedWireId === wireId) {
-        onBeginReshapeWire?.(wireId);
-        const vertexIndex = onPrepareWireReshape?.(wireId, hit.point.x, hit.point.y) ?? 1;
-        setReshaping({ wireId, vertexIndex });
-        return;
+        setPendingWireGesture({
+          wireId,
+          world: hit.point,
+          clientX: e.clientX,
+          clientY: e.clientY,
+        });
       }
-
-      // Unselected wire: start a branch from the attach point (Proteus mid-wire start).
-      onStartWireFromWire?.(hit.wireId, hit.point.x, hit.point.y);
     },
     [
       screenToCanvas,
@@ -417,10 +471,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
       editor.wireStart,
       editor.selectedWireId,
       onCompleteWireToWire,
-      onStartWireFromWire,
       onSelectWire,
-      onBeginReshapeWire,
-      onPrepareWireReshape,
     ],
   );
 
@@ -609,6 +660,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         onMouseLeave={handleMouseUp}
         onContextMenu={(e) => {
           e.preventDefault();
+          setPendingWireGesture(null);
           if (editor.wireStart) onCancelWire();
           else if (placementType) onCancelPlacement();
         }}
@@ -653,7 +705,7 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         )}
         {!placementType && !editor.wireStart && (
           <span className="sim-mode-indicator sim-mode-hint">
-            Click wire to branch · Ctrl+click selects · drag selected wire to reshape · Scroll zooms
+            Click a pin to wire · click a wire to select · click selected wire to branch · drag to reshape · Esc cancels
           </span>
         )}
       </div>

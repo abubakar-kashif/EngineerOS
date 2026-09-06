@@ -91,6 +91,7 @@ function SimulationPage() {
     prepareWireReshape,
     beginReshapeWire,
     moveWireEndpoint,
+    commitWireEndpoint,
     beginMoveWireEndpoint,
     undo,
     redo,
@@ -622,6 +623,7 @@ function SimulationPage() {
                 onPrepareWireReshape={prepareWireReshape}
                 onBeginReshapeWire={beginReshapeWire}
                 onMoveWireEndpoint={moveWireEndpoint}
+                onCommitWireEndpoint={commitWireEndpoint}
                 onBeginMoveWireEndpoint={beginMoveWireEndpoint}
                 placementType={state.placementType}
               />
