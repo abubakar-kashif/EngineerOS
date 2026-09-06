@@ -164,6 +164,9 @@ Use CURRENT EDITOR CIRCUIT for what is on the canvas now (drawing/topology only)
 Use AUTHORITATIVE SIMULATION FACTS only for the matching SimulationRun.
 If the run is marked stale or missing, do not reuse numbers from conversation history.
 If validation failed, explain the simulator's structured errors (code, affected parts, suggested fix).
+If unconnected terminals are listed, treat those as the open/wrong-wire locations from the drawing.
+If Validation PASSED, do not invent an open, short, wrong wire, or bad component.
+Recommend a correction; do not claim you re-solved or re-validated the circuit.
 If the student asks about a voltmeter or current, use only the provided measurements for that instrument/component."""
 
     def __init__(self):
@@ -335,6 +338,7 @@ If the student asks about a voltmeter or current, use only the provided measurem
             lines.extend(self._format_circuit_summary(run_circuit))
 
         lines.append(f"Status: {simulation.get('status', 'unknown')}")
+        lines.extend(self._format_diagnosis_hints(simulation))
 
         # Validation / structured errors
         if simulation.get('validation'):
@@ -351,6 +355,8 @@ If the student asks about a voltmeter or current, use only the provided measurem
                             lines.append(f"    Simulator explanation: {error.get('explanation')}")
                         if error.get('affected_components'):
                             lines.append(f"    Affected components: {error.get('affected_components')}")
+                        if error.get('affected_terminals'):
+                            lines.append(f"    Affected terminals: {error.get('affected_terminals')}")
                         if error.get('suggested_fix'):
                             lines.append(f"    Suggested fix (from simulator): {error.get('suggested_fix')}")
                 if validation.get('warnings'):
@@ -397,12 +403,18 @@ If the student asks about a voltmeter or current, use only the provided measurem
             if meas.get('component_measurements'):
                 lines.append("Component Measurements:")
                 for cm in meas['component_measurements']:
+                    kind = cm.get("type") or "component"
                     lines.append(
-                        f"  - {cm.get('component_id')}: "
+                        f"  - {cm.get('component_id')} ({kind}): "
                         f"V={cm.get('voltage', 'N/A')}V, "
                         f"I={cm.get('current', 'N/A')}A, "
                         f"P={cm.get('power', 'N/A')}W"
                     )
+                    if kind == "voltmeter":
+                        lines.append(
+                            f"    Voltmeter {cm.get('component_id')} reading (simulator): "
+                            f"{cm.get('voltage')} V"
+                        )
 
         if simulation.get('graphs'):
             lines.append("Graphs Available (from this run only):")
@@ -438,6 +450,43 @@ If the student asks about a voltmeter or current, use only the provided measurem
             lines.append("Nets (connected terminals):")
             for i, net in enumerate(circuit["nets"], 1):
                 lines.append(f"  - net{i}: {', '.join(net)}")
+        if circuit.get("unconnected_terminals"):
+            lines.append("Unconnected terminals (from drawing):")
+            for tid in circuit["unconnected_terminals"]:
+                lines.append(f"  - {tid}")
+        if circuit.get("isolated_components"):
+            lines.append(
+                "Isolated components (no wires): "
+                + ", ".join(circuit["isolated_components"])
+            )
+        return lines
+
+    def _format_diagnosis_hints(self, simulation: Dict[str, Any]) -> List[str]:
+        """Point Mentor at validator/topology facts. Never invent extra faults."""
+        lines: List[str] = []
+        validation = simulation.get("validation") or {}
+        circuit = simulation.get("editor_circuit") or simulation.get("circuit") or {}
+        unconnected = circuit.get("unconnected_terminals") or []
+        isolated = circuit.get("isolated_components") or []
+        if validation.get("valid"):
+            lines.append(
+                "DIAGNOSIS: Validation PASSED. Do not invent a wiring, component, "
+                "or measurement problem."
+            )
+            return lines
+        lines.append(
+            "DIAGNOSIS HINTS (simulator + drawing only — recommend a fix, "
+            "do not re-solve the circuit):"
+        )
+        if unconnected:
+            lines.append(f"  Open/unconnected terminals: {unconnected}")
+        if isolated:
+            lines.append(f"  Isolated components: {isolated}")
+        for error in validation.get("errors") or []:
+            lines.append(
+                f"  Fault code={error.get('code')} terminals={error.get('affected_terminals')} "
+                f"components={error.get('affected_components')}"
+            )
         return lines
 
     def _format_quiz(self, quiz: Dict[str, Any]) -> str:

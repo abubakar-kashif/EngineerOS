@@ -111,12 +111,15 @@ def summarize_circuit_definition(circuit: Any, *, max_components: int = 40) -> O
         )
         terminal_ids.extend([str(src), str(dst)])
     nets = _nets_from_connections(connections_out, terminal_ids)
+    issues = _topology_issues(components_out, connections_out)
     summary: Dict[str, Any] = {
         "component_count": len(components_out),
         "connection_count": len(connections_out),
         "components": components_out,
         "connections": connections_out,
         "nets": nets,
+        "unconnected_terminals": issues["unconnected_terminals"],
+        "isolated_components": issues["isolated_components"],
     }
     summary["fingerprint"] = circuit_electrical_fingerprint(summary)
     return summary
@@ -176,6 +179,28 @@ def _nets_from_connections(
     nets = [sorted(members) for members in groups.values() if len(members) > 1]
     nets.sort(key=lambda members: members[0])
     return nets[:30]
+
+
+def _topology_issues(
+    components: List[Dict[str, Any]], connections: List[Dict[str, Any]]
+) -> Dict[str, List[str]]:
+    """List unconnected terminals from the drawing. Does not invent electrical values."""
+    connected: set[str] = set()
+    for conn in connections:
+        connected.add(str(conn["from"]))
+        connected.add(str(conn["to"]))
+    unconnected: List[str] = []
+    isolated: List[str] = []
+    for comp in components:
+        tids = [str(t["id"]) for t in (comp.get("terminals") or []) if t.get("id")]
+        missing = [tid for tid in tids if tid not in connected]
+        unconnected.extend(missing)
+        if tids and len(missing) == len(tids):
+            isolated.append(str(comp.get("id")))
+    return {
+        "unconnected_terminals": unconnected[:40],
+        "isolated_components": isolated[:20],
+    }
 
 
 def apply_live_editor_circuit(
@@ -625,6 +650,7 @@ class SimulationContext:
                     "message": e.message,
                     "explanation": e.explanation,
                     "affected_components": e.affected_components,
+                    "affected_terminals": e.affected_terminals,
                     "suggested_fix": e.suggested_fix,
                 }
                 for e in validation.errors
@@ -637,6 +663,8 @@ class SimulationContext:
                     "severity": w.severity,
                     "message": w.message,
                     "explanation": w.explanation,
+                    "affected_components": w.affected_components,
+                    "affected_terminals": w.affected_terminals,
                 }
                 for w in validation.warnings
             ]

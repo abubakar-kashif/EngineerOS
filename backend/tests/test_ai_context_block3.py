@@ -157,6 +157,8 @@ class TestSimulationContextOwnership:
                         "severity": "error",
                         "message": "LED connected without current-limiting resistor",
                         "suggestedFix": "Add a series resistor",
+                        "affectedComponents": ["LED1"],
+                        "affectedTerminals": ["LED1.anode"],
                     }
                 ],
                 "warnings": [],
@@ -173,6 +175,8 @@ class TestSimulationContextOwnership:
         assert context["simulation_run_id"] == "run-abc"
         assert context["status"] == "invalid"
         assert context["validation"]["errors"][0]["code"] == "LED_NO_CURRENT_LIMIT"
+        assert context["validation"]["errors"][0]["affected_components"] == ["LED1"]
+        assert context["validation"]["errors"][0]["affected_terminals"] == ["LED1.anode"]
         assert "authority" in context
         assert context["circuit"]["components"][0]["id"] == "LED1"
         assert context["circuit"]["fingerprint"]
