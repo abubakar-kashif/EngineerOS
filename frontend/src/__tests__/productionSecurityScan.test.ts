@@ -76,11 +76,13 @@ describe("Phase 9 production scan (frontend src, excluding tests)", () => {
     }
   });
 
-  it("does not embed OpenAI / SMTP secrets in frontend", () => {
+  it("does not embed Gemini / SMTP secrets in frontend", () => {
     for (const file of files) {
       const text = read(file);
       expect(text).not.toMatch(/sk-[a-zA-Z0-9]{20,}/);
+      expect(text).not.toMatch(/AIza[0-9A-Za-z\-_]{20,}/);
       expect(text).not.toMatch(/OPENAI_API_KEY\s*=\s*["'][^"']+["']/);
+      expect(text).not.toMatch(/GEMINI_API_KEY\s*=\s*["'][^"']+["']/);
       expect(text).not.toMatch(/SMTP_PASSWORD\s*=\s*["'][^"']+["']/);
       expect(text).not.toMatch(/AI_API_KEY\s*=\s*["'][^"']+["']/);
       expect(text).not.toMatch(/VITE_.*API_KEY/);
@@ -158,10 +160,12 @@ describe("Phase 9 security scan (backend app)", () => {
     expect(reportCtx).toMatch(/if not user_id/);
   });
 
-  it("loads OpenAI key only from environment / constructor (server-side)", () => {
-    const provider = read(join(BACKEND_APP, "services/ai/providers/openai_provider.py"));
-    expect(provider).toMatch(/OPENAI_API_KEY|AI_API_KEY/);
+  it("loads Gemini key only from environment / constructor (server-side)", () => {
+    const provider = read(join(BACKEND_APP, "services/ai/providers/gemini_provider.py"));
+    expect(provider).toMatch(/GEMINI_API_KEY|AI_API_KEY/);
     expect(provider).not.toMatch(/sk-[a-zA-Z0-9]{20,}/);
+    expect(provider).not.toMatch(/AIza[0-9A-Za-z\-_]{20,}/);
+    expect(provider).not.toMatch(/chat\.completions/);
   });
 
   it("production email never returns verification codes to the client", () => {
@@ -192,8 +196,10 @@ describe("Phase 9 security scan (backend app)", () => {
         continue;
       }
       expect(text).not.toMatch(/sk-[a-zA-Z0-9]{20,}/);
+      expect(text).not.toMatch(/AIza[0-9A-Za-z\-_]{20,}/);
       // Uncommented live assignment (comments like "# AI_API_KEY=" are OK)
       expect(text).not.toMatch(/^\s*AI_API_KEY\s*=\s*\S+/m);
+      expect(text).not.toMatch(/^\s*GEMINI_API_KEY\s*=\s*\S+/m);
     }
   });
 });

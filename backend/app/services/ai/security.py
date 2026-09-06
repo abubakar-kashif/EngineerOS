@@ -154,6 +154,7 @@ class DataLeakageGuard:
 
     SENSITIVE_PATTERNS = [
         (r'sk-[A-Za-z0-9]{48,}', 'OPENAI_API_KEY'),
+        (r'AIza[0-9A-Za-z\-_]{20,}', 'GEMINI_API_KEY'),
         (r'[A-Za-z0-9]{32,}', 'API_KEY'),
         (r'ey[A-Za-z0-9\-_]+\.ey[A-Za-z0-9\-_]+\.', 'JWT_TOKEN'),
     ]

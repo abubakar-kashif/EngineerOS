@@ -23,7 +23,7 @@ from app.db.database import Base, get_db
 from app.models.user import User
 from app.services.ai.context_engine import ContextResult
 from app.services.ai.prompt_builder import PromptBuilder
-from app.services.ai.providers.openai_provider import OpenAIProvider
+from app.services.ai.providers.gemini_provider import GeminiProvider
 from app.services.user_service import ensure_preferences
 
 
@@ -217,17 +217,19 @@ def test_mentor_stream_uses_fresh_simulation_context(phase10_client):
     conversation_id = created.json()["id"]
 
     chunk = MagicMock()
-    chunk.choices = [MagicMock()]
-    chunk.choices[0].delta = MagicMock(
-        content="Your LED has no current-limiting resistor, so the validator reports LED_NO_CURRENT_LIMIT."
-    )
-    chunk.choices[0].finish_reason = "stop"
-    chunk.usage = None
+    chunk.text = "Your LED has no current-limiting resistor, so the validator reports LED_NO_CURRENT_LIMIT."
+    chunk.candidates = [
+        MagicMock(
+            finish_reason="STOP",
+            content=MagicMock(parts=[MagicMock(text=chunk.text)]),
+        )
+    ]
+    chunk.usage_metadata = None
 
     mock_client = MagicMock()
-    mock_client.chat.completions.create.return_value = iter([chunk])
+    mock_client.models.generate_content_stream.return_value = iter([chunk])
 
-    with patch.object(OpenAIProvider, "client", new_callable=PropertyMock) as client_prop:
+    with patch.object(GeminiProvider, "client", new_callable=PropertyMock) as client_prop:
         client_prop.return_value = mock_client
         response = client.post(
             f"/api/conversations/{conversation_id}/ask/stream",

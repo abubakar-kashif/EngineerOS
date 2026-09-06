@@ -126,7 +126,7 @@ export function toMentorUserError(error: unknown): Error {
       return new Error("AI Mentor timed out. Please try again.");
     }
     const detail = (error.message || "").trim();
-    if (/api key|AI_API_KEY|OPENAI_API_KEY|not provided|not configured/i.test(detail)) {
+    if (/api key|AI_API_KEY|GEMINI_API_KEY|OPENAI_API_KEY|not provided|not configured/i.test(detail)) {
       return new Error(
         "AI Mentor is not configured. Add AI_API_KEY to backend/.env and restart the API server.",
       );

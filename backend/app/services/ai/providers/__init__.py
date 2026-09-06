@@ -1,3 +1,3 @@
-from .openai_provider import OpenAIProvider
+from .gemini_provider import GeminiProvider, DEFAULT_GEMINI_MODEL
 
-__all__ = ["OpenAIProvider"]
+__all__ = ["GeminiProvider", "DEFAULT_GEMINI_MODEL"]

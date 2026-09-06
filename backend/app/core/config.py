@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./engineeros.db"
 
     # AI Configuration (server-side only — never expose AI_API_KEY to frontend)
-    AI_PROVIDER: str = "openai"
-    AI_MODEL: str = "gpt-3.5-turbo"
+    AI_PROVIDER: str = "gemini"
+    AI_MODEL: str = "gemini-2.5-flash"
     AI_API_KEY: Optional[str] = None
     AI_BASE_URL: Optional[str] = None
     AI_TIMEOUT_SECONDS: int = 60

@@ -134,11 +134,15 @@ class TestDataLeakageGuard:
     def test_data_leakage_guard_import(self):
         assert DataLeakageGuard is not None
 
-    def test_check_response_for_leakage_openai_key(self):
+    def test_check_response_for_leakage_gemini_key(self):
+        response = "Here is your key: AIzaSyAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        result = DataLeakageGuard.check_response_for_leakage(response)
+        assert result["has_leak"] is True
+        assert "GEMINI_API_KEY" in result["leaks"]
+
+    def test_check_response_for_leakage_openai_key_pattern(self):
         response = "Here is your key: sk-proj-1234567890abcdefghijklmnopqrstuvwxyz"
         result = DataLeakageGuard.check_response_for_leakage(response)
-        # Should detect some kind of key
-        # Could be API_KEY or OPENAI_API_KEY
         assert result["has_leak"] is True
 
     def test_check_response_for_leakage_jwt(self):

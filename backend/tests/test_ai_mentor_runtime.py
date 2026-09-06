@@ -16,7 +16,7 @@ from app.core.security import hash_password
 from app.db.database import Base, get_db
 from app.models.conversation import ConversationMessage
 from app.models.user import User
-from app.services.ai.providers.openai_provider import OpenAIProvider
+from app.services.ai.providers.gemini_provider import GeminiProvider
 from app.services.user_service import ensure_preferences
 
 
@@ -122,22 +122,20 @@ def test_stream_success_persists_user_and_assistant(mentor_runtime_client):
     conversation_id = created.json()["id"]
 
     chunk1 = Mock()
-    chunk1.choices = [Mock()]
-    chunk1.choices[0].delta = Mock(content="Ohm")
-    chunk1.choices[0].finish_reason = None
-    chunk1.usage = None
+    chunk1.text = "Ohm"
+    chunk1.candidates = [Mock(finish_reason=None, content=Mock(parts=[Mock(text="Ohm")]))]
+    chunk1.usage_metadata = None
 
     chunk2 = Mock()
-    chunk2.choices = [Mock()]
-    chunk2.choices[0].delta = Mock(content="'s law is V = IR.")
-    chunk2.choices[0].finish_reason = "stop"
-    chunk2.usage = None
+    chunk2.text = "'s law is V = IR."
+    chunk2.candidates = [Mock(finish_reason="STOP", content=Mock(parts=[Mock(text="'s law is V = IR.")]))]
+    chunk2.usage_metadata = None
 
     mock_client = Mock()
-    mock_client.chat.completions.create.return_value = iter([chunk1, chunk2])
+    mock_client.models.generate_content_stream.return_value = iter([chunk1, chunk2])
 
     with patch.object(
-        OpenAIProvider, "client", new_callable=PropertyMock
+        GeminiProvider, "client", new_callable=PropertyMock
     ) as client_prop:
         client_prop.return_value = mock_client
         response = client.post(
@@ -168,20 +166,19 @@ def test_regenerate_skips_duplicate_user_turn(mentor_runtime_client):
 
     def _stream_chunks(text: str):
         chunk = Mock()
-        chunk.choices = [Mock()]
-        chunk.choices[0].delta = Mock(content=text)
-        chunk.choices[0].finish_reason = "stop"
-        chunk.usage = None
+        chunk.text = text
+        chunk.candidates = [Mock(finish_reason="STOP", content=Mock(parts=[Mock(text=text)]))]
+        chunk.usage_metadata = None
         return iter([chunk])
 
     mock_client = Mock()
-    mock_client.chat.completions.create.side_effect = [
+    mock_client.models.generate_content_stream.side_effect = [
         _stream_chunks("First answer"),
         _stream_chunks("Second answer"),
     ]
 
     with patch.object(
-        OpenAIProvider, "client", new_callable=PropertyMock
+        GeminiProvider, "client", new_callable=PropertyMock
     ) as client_prop:
         client_prop.return_value = mock_client
         first = client.post(

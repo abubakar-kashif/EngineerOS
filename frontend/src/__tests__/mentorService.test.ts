@@ -180,7 +180,7 @@ describe("sendMessage real Mentor stream", () => {
       "PATCH /conversations/c1": () => jsonResponse(summary("c1", "Renamed", 0)),
       "POST /conversations/c1/ask/stream": () =>
         sseResponse([
-          { type: "start", content: "", metadata: { model: "gpt-3.5-turbo" } },
+          { type: "start", content: "", metadata: { model: "gemini-2.5-flash" } },
           { type: "delta", content: "Ohm" },
           { type: "delta", content: "'s Law" },
           {
@@ -264,7 +264,7 @@ describe("sendMessage real Mentor stream", () => {
       "POST /conversations/c1/ask/stream": () =>
         sseResponse([
           { type: "start", content: "" },
-          { type: "error", error: "OpenAI authentication failed: invalid or missing API key" },
+          { type: "error", error: "Gemini authentication failed: invalid or missing API key" },
         ]),
     });
 
@@ -388,7 +388,7 @@ describe("toMentorUserError", () => {
 
   it("explains missing AI API key configuration", () => {
     const err = toMentorUserError(
-      new ApiError(502, "OpenAI API key not provided. Set AI_API_KEY in the environment."),
+      new ApiError(502, "Gemini API key not provided. Set AI_API_KEY in the environment."),
     );
     expect(err.message).toMatch(/AI_API_KEY/);
     expect(err.message).toMatch(/backend\/\.env/i);
