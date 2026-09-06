@@ -757,7 +757,7 @@ function SimulationPage() {
                     />
                   ) : (
                     <p className="sim2-analysis-empty" role="status">
-                      Run a valid simulation to plot measurement signals (V, I, P).
+                      No measurement data available
                     </p>
                   )}
                 </div>

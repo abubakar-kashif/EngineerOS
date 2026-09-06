@@ -7,6 +7,7 @@ import type { SimulationResult } from "./engine/types";
 import {
   buildGraphFromSignals,
   listAvailableSignals,
+  NO_MEASUREMENT_DATA,
   type GraphData,
   type GraphPoint,
   type MeasurementSignal,
@@ -75,12 +76,14 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
     return presets.find((g) => g.id === resolvedActiveId) ?? presets[0] ?? null;
   }, [mode, customBuild.graph, presets, resolvedActiveId]);
 
+  const graphHasPoints = Boolean(graph?.series?.some((s) => s.points.length > 0));
+
   const unavailableReason =
     mode === "custom"
       ? customBuild.unavailableReason
-      : !presets.length
-        ? "No measurement-based graphs are available for this SimulationRun."
-        : undefined;
+      : graph?.unavailableReason
+        ?? (!graphHasPoints && graph ? NO_MEASUREMENT_DATA : undefined)
+        ?? (!presets.length ? NO_MEASUREMENT_DATA : undefined);
 
   const bounds = useMemo(() => {
     if (!graph) return { minX: 0, maxX: 1, minY: 0, maxY: 1 };
@@ -126,13 +129,13 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
 
   if (!result.measurements) {
     return (
-      <p className="sim2-analysis-empty">
-        Run a simulation to plot measurement signals.
+      <p className="sim2-analysis-empty" role="status">
+        {NO_MEASUREMENT_DATA}
       </p>
     );
   }
 
-  if (unavailableReason && !graph) {
+  if (unavailableReason && !graphHasPoints) {
     return (
       <div className="sim-graph-viewer">
         <SignalToolbar
@@ -166,8 +169,8 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
 
   if (!graph) {
     return (
-      <p className="sim2-analysis-empty">
-        No measurement-based graphs are available for this SimulationRun.
+      <p className="sim2-analysis-empty" role="status">
+        {NO_MEASUREMENT_DATA}
       </p>
     );
   }
@@ -379,7 +382,7 @@ function SignalToolbar({
         >
           {presets.map((g) => (
             <option key={g.id} value={g.id}>
-              {g.title}
+              {g.unavailableReason ? `${g.title} — no data` : g.title}
             </option>
           ))}
         </select>

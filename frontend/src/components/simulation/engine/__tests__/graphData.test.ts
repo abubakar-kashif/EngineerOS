@@ -104,17 +104,15 @@ describe("measurement-based graph data", () => {
     const graphs = generateGraphsFromMeasurements(measurements, circuit);
     expect(graphs.length).toBeGreaterThan(0);
     expect(graphs.every((g) => g.metadata?.source === "measurements")).toBe(true);
-    expect(graphs.some((g) => /KVL|KCL|Ohm/i.test(g.title))).toBe(false);
 
     const voltages = getGraphById(graphs, "component_voltages");
     expect(voltages).toBeTruthy();
-    expect(voltages!.series[0].points.length).toBe(measurements.componentMeasurements.length);
+    expect(voltages!.unavailableReason).toBeUndefined();
     expect(validateGraphData(voltages!)).toBe(true);
 
     const currents = getGraphById(graphs, "current_signals");
-    expect(currents?.metadata?.labels).toEqual(
-      expect.arrayContaining(["I1", "I2", "ΣI"]),
-    );
+    expect(currents?.metadata?.labels).toEqual(expect.arrayContaining(["I1", "I2", "ΣI"]));
+    expect(currents?.title).toMatch(/KCL/);
   });
 
   it("does not invent Ohm/RC time sweeps via generateAllGraphs without measurements", () => {
@@ -134,9 +132,13 @@ describe("measurement-based graph data", () => {
     expect(built.graph?.series[0].points.length).toBeGreaterThan(0);
   });
 
-  it("solveCircuit attaches measurement graphs not synthetic ohms_law id", () => {
+  it("solveCircuit attaches a one-point Ohm's Law graph from measurements, not a synthetic sweep", () => {
     const result = solveCircuit(circuit);
-    expect(result.graphs?.some((g) => g.id === "ohms_law")).toBe(false);
+    const ohms = result.graphs?.find((g) => g.id === "ohms_law");
+    expect(ohms).toBeTruthy();
+    expect(ohms!.series[0].points).toHaveLength(1);
+    expect(ohms!.series[0].points[0].x).toBeCloseTo(result.measurements!.totalVoltage, 9);
+    expect(ohms!.series[0].points[0].y).toBeCloseTo(result.measurements!.totalCurrent, 9);
     expect(result.graphs?.some((g) => g.id === "rc_charging")).toBe(false);
     expect(result.graphs?.some((g) => g.id === "component_voltages")).toBe(true);
     expect(result.graphs?.every((g) => g.metadata?.source === "measurements")).toBe(true);

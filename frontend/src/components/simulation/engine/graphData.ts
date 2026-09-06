@@ -33,7 +33,12 @@ export interface GraphData {
   };
   series: GraphSeries[];
   metadata?: Record<string, unknown>;
+  /** Set when this catalog slot has no real points (never filled with synthetic data). */
+  unavailableReason?: string;
 }
+
+/** Empty-state copy for missing SimulationRun data. */
+export const NO_MEASUREMENT_DATA = 'No measurement data available';
 
 export type SignalQuantity =
   | 'voltage'
@@ -56,6 +61,41 @@ export interface MeasurementSignal {
 }
 
 const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#7c3aed', '#0891b2'];
+
+const METER_TYPES = new Set(['voltmeter', 'ammeter', 'ohmmeter', 'power_meter']);
+
+function hasRunTimeSeries(m: Measurements): boolean {
+  return Array.isArray(m.timeSeries) && m.timeSeries.length > 0;
+}
+
+function isPhysicalMeasurement(cm: Measurements['componentMeasurements'][number]): boolean {
+  if (cm.componentId.startsWith('__')) return false;
+  if (METER_TYPES.has(cm.type)) return false;
+  return true;
+}
+
+function isPassiveDrop(cm: Measurements['componentMeasurements'][number]): boolean {
+  return isPhysicalMeasurement(cm) && cm.type !== 'voltage_source' && cm.type !== 'current_source';
+}
+
+function emptyCatalogGraph(
+  id: string,
+  title: string,
+  xAxis: GraphData['xAxis'],
+  yAxis: GraphData['yAxis'],
+  type: GraphData['type'] = 'line',
+): GraphData {
+  return {
+    id,
+    type,
+    title,
+    xAxis,
+    yAxis,
+    series: [{ name: yAxis.label, points: [], color: COLORS[0] }],
+    metadata: { source: 'measurements', empty: true },
+    unavailableReason: NO_MEASUREMENT_DATA,
+  };
+}
 
 function labelForComponent(
   circuit: CircuitDefinition | undefined,
@@ -116,8 +156,10 @@ export function listAvailableSignals(
       unit: 's',
       quantity: 'time',
       value: null,
-      available: false,
-      unavailableReason: 'No time-series data is available on this SimulationRun (DC solve).',
+      available: hasRunTimeSeries(m),
+      unavailableReason: hasRunTimeSeries(m)
+        ? undefined
+        : 'No time-series data is available on this SimulationRun (DC solve).',
     },
     {
       id: 'index',
@@ -208,14 +250,41 @@ export function buildGraphFromSignals(
     return { graph: null, unavailableReason: 'Select at least one Y-axis signal.' };
   }
 
-  // Time domain is never invented under DC — prefer the specific current-vs-time copy.
+  // Time domain: plot only a real SimulationRun time series. Never invent a DC charging curve.
   if (x.quantity === 'time') {
+    if (!hasRunTimeSeries(measurements)) {
+      return {
+        graph: null,
+        unavailableReason: ys.some((y) => y.quantity === 'current')
+          ? 'No current-vs-time data is available.'
+          : NO_MEASUREMENT_DATA,
+      };
+    }
+    const series: GraphSeries[] = ys.map((y, si) => ({
+      name: y.label,
+      color: COLORS[si % COLORS.length],
+      points: measurements.timeSeries!
+        .map((sample) => {
+          const yVal = sample.values[y.id];
+          return Number.isFinite(sample.t) && Number.isFinite(yVal)
+            ? { x: sample.t, y: yVal as number }
+            : null;
+        })
+        .filter((p): p is GraphPoint => p !== null),
+    })).filter((s) => s.points.length > 0);
+    if (series.length === 0) {
+      return { graph: null, unavailableReason: NO_MEASUREMENT_DATA };
+    }
     return {
-      graph: null,
-      unavailableReason: ys.some((y) => y.quantity === 'current')
-        ? 'No current-vs-time data is available.'
-        : x.unavailableReason ??
-          'No time-series data is available on this SimulationRun.',
+      graph: {
+        id: `plot_time_${ySignalIds.join('_')}`,
+        type: 'line',
+        title: `${ys.map((y) => y.label).join(', ')} vs Time`,
+        xAxis: { label: 'Time', unit: 's' },
+        yAxis: { label: ys.map((y) => y.label).join(', '), unit: ys[0].unit },
+        series,
+        metadata: { source: 'measurements', timeSeries: true },
+      },
     };
   }
 
@@ -345,17 +414,215 @@ export function buildGraphFromSignals(
 
 /**
  * Default graphs attached to a SimulationResult — all derived from measurements.
- * Titles describe signals, not experiment names (KVL/KCL/Ohm's Law).
+ * Required catalog slots (Ohm's Law, divider, RC, KCL, KVL, power vs time) are
+ * always listed; missing data is an empty slot, never a synthetic series.
  */
 export function generateGraphsFromMeasurements(
   measurements: Measurements,
   circuit?: CircuitDefinition,
 ): GraphData[] {
   const graphs: GraphData[] = [];
-  const comps = measurements.componentMeasurements;
-  if (comps.length === 0) return graphs;
+  const allComps = measurements.componentMeasurements;
+  const physical = allComps.filter(isPhysicalMeasurement);
+  const drops = allComps.filter(isPassiveDrop);
+  const resistors = drops.filter((cm) => cm.type === 'resistor');
 
-  const labels = comps.map((cm) => labelForComponent(circuit, cm.componentId, cm.type));
+  const ohmsOk =
+    Number.isFinite(measurements.totalVoltage) && Number.isFinite(measurements.totalCurrent);
+  if (ohmsOk) {
+    graphs.push({
+      id: 'ohms_law',
+      type: 'scatter',
+      title: "Ohm's Law (Voltage vs Current)",
+      xAxis: { label: 'Voltage', unit: 'V' },
+      yAxis: { label: 'Current', unit: 'A' },
+      series: [
+        {
+          name: 'Measured V–I',
+          color: COLORS[0],
+          points: [{ x: measurements.totalVoltage, y: measurements.totalCurrent }],
+        },
+      ],
+      metadata: { source: 'measurements', pointCount: 1 },
+    });
+  } else {
+    graphs.push(
+      emptyCatalogGraph(
+        'ohms_law',
+        "Ohm's Law (Voltage vs Current)",
+        { label: 'Voltage', unit: 'V' },
+        { label: 'Current', unit: 'A' },
+        'scatter',
+      ),
+    );
+  }
+
+  const r2 =
+    resistors.find((cm) => {
+      const name = labelForComponent(circuit, cm.componentId, cm.type);
+      return cm.componentId === 'R2' || name === 'R2';
+    }) ?? (resistors.length >= 2 ? resistors[1] : undefined);
+  const r2Circuit = circuit?.components.find((c) => c.id === r2?.componentId);
+  const r2Ohms = r2Circuit?.properties?.resistance ?? r2?.resistance;
+  if (r2 && r2Ohms != null && Number.isFinite(r2Ohms) && Number.isFinite(r2.voltage)) {
+    graphs.push({
+      id: 'voltage_divider',
+      type: 'scatter',
+      title: 'Voltage Divider (R2 vs Vout)',
+      xAxis: { label: 'R2', unit: 'Ω' },
+      yAxis: { label: 'Vout', unit: 'V' },
+      series: [
+        {
+          name: 'Vout',
+          color: COLORS[0],
+          points: [{ x: r2Ohms, y: r2.voltage }],
+        },
+      ],
+      metadata: { source: 'measurements', r2Id: r2.componentId, pointCount: 1 },
+    });
+  } else {
+    graphs.push(
+      emptyCatalogGraph(
+        'voltage_divider',
+        'Voltage Divider (R2 vs Vout)',
+        { label: 'R2', unit: 'Ω' },
+        { label: 'Vout', unit: 'V' },
+        'scatter',
+      ),
+    );
+  }
+
+  const cap = physical.find((cm) => cm.type === 'capacitor');
+  const rcPoints =
+    cap && hasRunTimeSeries(measurements)
+      ? measurements.timeSeries!
+          .map((sample) => {
+            const vc =
+              sample.values[`V_${cap.componentId}`] ??
+              sample.values.vc ??
+              sample.values.capacitorVoltage;
+            return Number.isFinite(sample.t) && Number.isFinite(vc)
+              ? { x: sample.t, y: vc as number }
+              : null;
+          })
+          .filter((p): p is GraphPoint => p !== null)
+      : [];
+  if (rcPoints.length > 0) {
+    graphs.push({
+      id: 'rc_time',
+      type: 'line',
+      title: 'RC (Time vs Capacitor voltage)',
+      xAxis: { label: 'Time', unit: 's' },
+      yAxis: { label: 'Capacitor voltage', unit: 'V' },
+      series: [{ name: 'Vc', color: COLORS[0], points: rcPoints }],
+      metadata: { source: 'measurements', timeSeries: true },
+    });
+  } else {
+    graphs.push(
+      emptyCatalogGraph(
+        'rc_time',
+        'RC (Time vs Capacitor voltage)',
+        { label: 'Time', unit: 's' },
+        { label: 'Capacitor voltage', unit: 'V' },
+      ),
+    );
+  }
+
+  if (drops.length > 0) {
+    const kclPoints: GraphPoint[] = [
+      ...drops.map((cm, i) => ({ x: i + 1, y: cm.current })),
+      { x: drops.length + 1, y: measurements.totalCurrent },
+    ];
+    const kclLabels = [...drops.map((_, i) => `I${i + 1}`), 'ΣI'];
+    graphs.push({
+      id: 'current_signals',
+      type: 'bar',
+      title: `KCL (${kclLabels.join(', ')})`,
+      xAxis: { label: 'Signal', unit: '' },
+      yAxis: { label: 'Current', unit: 'A' },
+      series: [{ name: 'Current', color: COLORS[1], points: kclPoints }],
+      metadata: { source: 'measurements', labels: kclLabels },
+    });
+  } else {
+    graphs.push(
+      emptyCatalogGraph(
+        'current_signals',
+        'KCL (I1, I2, I3, ΣI)',
+        { label: 'Signal', unit: '' },
+        { label: 'Current', unit: 'A' },
+        'bar',
+      ),
+    );
+  }
+
+  if (Number.isFinite(measurements.totalVoltage)) {
+    const sumV = drops.reduce((s, cm) => s + cm.voltage, 0);
+    const kvlPoints: GraphPoint[] = [
+      { x: 1, y: measurements.totalVoltage },
+      ...drops.map((cm, i) => ({ x: i + 2, y: cm.voltage })),
+      { x: drops.length + 2, y: sumV },
+    ];
+    const dropLabels = drops.map((cm) => {
+      const name = labelForComponent(circuit, cm.componentId, cm.type);
+      return `V${name}`;
+    });
+    const kvlLabels = ['Vs', ...dropLabels, 'ΣV'];
+    graphs.push({
+      id: 'voltage_signals',
+      type: 'bar',
+      title: `KVL (${kvlLabels.join(', ')})`,
+      xAxis: { label: 'Signal', unit: '' },
+      yAxis: { label: 'Voltage', unit: 'V' },
+      series: [{ name: 'Voltage', color: COLORS[0], points: kvlPoints }],
+      metadata: { source: 'measurements', labels: kvlLabels },
+    });
+  } else {
+    graphs.push(
+      emptyCatalogGraph(
+        'voltage_signals',
+        'KVL (Vs, VR1, VR2, ΣV)',
+        { label: 'Signal', unit: '' },
+        { label: 'Voltage', unit: 'V' },
+        'bar',
+      ),
+    );
+  }
+
+  const powerPoints =
+    hasRunTimeSeries(measurements)
+      ? measurements.timeSeries!
+          .map((sample) => {
+            const p = sample.values.P_total ?? sample.values.power;
+            return Number.isFinite(sample.t) && Number.isFinite(p)
+              ? { x: sample.t, y: p as number }
+              : null;
+          })
+          .filter((p): p is GraphPoint => p !== null)
+      : [];
+  if (powerPoints.length > 0) {
+    graphs.push({
+      id: 'power_time',
+      type: 'line',
+      title: 'Power vs Time',
+      xAxis: { label: 'Time', unit: 's' },
+      yAxis: { label: 'Power', unit: 'W' },
+      series: [{ name: 'Power', color: COLORS[2], points: powerPoints }],
+      metadata: { source: 'measurements', timeSeries: true },
+    });
+  } else {
+    graphs.push(
+      emptyCatalogGraph(
+        'power_time',
+        'Power vs Time',
+        { label: 'Time', unit: 's' },
+        { label: 'Power', unit: 'W' },
+      ),
+    );
+  }
+
+  if (drops.length === 0) return graphs;
+
+  const labels = drops.map((cm) => labelForComponent(circuit, cm.componentId, cm.type));
 
   graphs.push({
     id: 'component_voltages',
@@ -367,10 +634,10 @@ export function generateGraphsFromMeasurements(
       {
         name: 'Voltage',
         color: COLORS[0],
-        points: comps.map((cm, i) => ({ x: i + 1, y: cm.voltage })),
+        points: drops.map((cm, i) => ({ x: i + 1, y: cm.voltage })),
       },
     ],
-    metadata: { source: 'measurements', labels, signals: comps.map((cm) => `V_${cm.componentId}`) },
+    metadata: { source: 'measurements', labels, signals: drops.map((cm) => `V_${cm.componentId}`) },
   });
 
   graphs.push({
@@ -383,13 +650,13 @@ export function generateGraphsFromMeasurements(
       {
         name: 'Current',
         color: COLORS[1],
-        points: comps.map((cm, i) => ({ x: i + 1, y: cm.current })),
+        points: drops.map((cm, i) => ({ x: i + 1, y: cm.current })),
       },
     ],
     metadata: {
       source: 'measurements',
       labels,
-      signals: comps.map((_, i) => `I${i + 1}`),
+      signals: drops.map((_, i) => `I${i + 1}`),
     },
   });
 
@@ -403,13 +670,12 @@ export function generateGraphsFromMeasurements(
       {
         name: 'Power',
         color: COLORS[2],
-        points: comps.map((cm, i) => ({ x: i + 1, y: cm.power })),
+        points: drops.map((cm, i) => ({ x: i + 1, y: cm.power })),
       },
     ],
     metadata: { source: 'measurements', labels },
   });
 
-  // Measured V–I points (one per component) — not a fabricated Ohm sweep
   graphs.push({
     id: 'measured_vi',
     type: 'scatter',
@@ -420,44 +686,10 @@ export function generateGraphsFromMeasurements(
       {
         name: 'Components',
         color: COLORS[0],
-        points: comps.map((cm) => ({ x: cm.voltage, y: cm.current })),
+        points: drops.map((cm) => ({ x: cm.voltage, y: cm.current })),
       },
     ],
     metadata: { source: 'measurements', labels },
-  });
-
-  // KVL-style voltage set: Vs + each V_comp + sum of component voltages
-  const sumV = comps.reduce((s, cm) => s + cm.voltage, 0);
-  const kvlPoints: GraphPoint[] = [
-    { x: 1, y: measurements.totalVoltage },
-    ...comps.map((cm, i) => ({ x: i + 2, y: cm.voltage })),
-    { x: comps.length + 2, y: sumV },
-  ];
-  const kvlLabels = ['Vs', ...labels.map((l) => `V_${l}`), 'ΣV'];
-  graphs.push({
-    id: 'voltage_signals',
-    type: 'bar',
-    title: 'Voltage signals (Vs, Vn, ΣV)',
-    xAxis: { label: 'Signal', unit: '' },
-    yAxis: { label: 'Voltage', unit: 'V' },
-    series: [{ name: 'Voltage', color: COLORS[0], points: kvlPoints }],
-    metadata: { source: 'measurements', labels: kvlLabels },
-  });
-
-  // KCL-style current set: each In + ΣI
-  const kclPoints: GraphPoint[] = [
-    ...comps.map((cm, i) => ({ x: i + 1, y: cm.current })),
-    { x: comps.length + 1, y: measurements.totalCurrent },
-  ];
-  const kclLabels = [...comps.map((_, i) => `I${i + 1}`), 'ΣI'];
-  graphs.push({
-    id: 'current_signals',
-    type: 'bar',
-    title: 'Current signals (In, ΣI)',
-    xAxis: { label: 'Signal', unit: '' },
-    yAxis: { label: 'Current', unit: 'A' },
-    series: [{ name: 'Current', color: COLORS[1], points: kclPoints }],
-    metadata: { source: 'measurements', labels: kclLabels },
   });
 
   return graphs;
@@ -479,12 +711,16 @@ export function generateAllGraphs(
 }
 
 export function validateGraphData(graph: GraphData): boolean {
-  if (!graph.id || !graph.series?.length) return false;
-  if (!graph.xAxis?.label || !graph.yAxis?.label) return false;
+  if (!graph.id || !graph.xAxis?.label || !graph.yAxis?.label) return false;
+  if (graph.unavailableReason) {
+    return graph.series.every((s) => Array.isArray(s.points) && s.points.length === 0);
+  }
+  if (!graph.series?.length) return false;
   return graph.series.every(
     (s) =>
       s.name &&
       Array.isArray(s.points) &&
+      s.points.length > 0 &&
       s.points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)),
   );
 }
