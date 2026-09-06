@@ -242,6 +242,10 @@ describe("sendMessage real Mentor stream", () => {
       false,
     );
 
+    await vi.waitFor(() => {
+      expect(calls.find((call) => call.method === "PATCH")).toBeTruthy();
+    });
+
     const rename = calls.find((call) => call.method === "PATCH");
     expect(rename?.body).toEqual({
       title: deriveTitleFromMessage(
@@ -307,6 +311,149 @@ describe("sendMessage real Mentor stream", () => {
     });
 
     expect(errors[0]).toMatch(/conversation not found|start a new chat/i);
+  });
+
+  it("acknowledges the user message before auto-rename or stream I/O", async () => {
+    const userMessages: string[] = [];
+    let sawUserBeforeStream = false;
+    mockApiRoutes({
+      "GET /conversations/c1": async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        return jsonResponse({
+          id: "c1",
+          title: "Named",
+          experiment_id: null,
+          created_at: iso(0),
+          updated_at: iso(0),
+          messages: [],
+        });
+      },
+      "POST /conversations/c1/ask/stream": () => {
+        sawUserBeforeStream = userMessages.length === 1;
+        return sseResponse([
+          { type: "start", content: "" },
+          { type: "delta", content: "Hi" },
+          { type: "complete", content: "Hi", message_id: "a1", conversation_id: "c1" },
+        ]);
+      },
+    });
+
+    const starts: number[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      sendMessage("c1", "Hello", {}, {
+        onUserMessage: (m) => userMessages.push(m.content),
+        onStart: () => starts.push(1),
+        onComplete: () => resolve(),
+        onError: (error) => reject(error),
+      });
+    });
+
+    expect(userMessages).toEqual(["Hello"]);
+    expect(sawUserBeforeStream).toBe(true);
+    expect(starts.length).toBeGreaterThan(0);
+  });
+
+  it("surfaces an empty Gemini response instead of a fake answer", async () => {
+    mockApiRoutes({
+      "GET /conversations/c1": jsonResponse({
+        id: "c1",
+        title: "Named",
+        experiment_id: null,
+        created_at: iso(0),
+        updated_at: iso(0),
+        messages: [],
+      }),
+      "POST /conversations/c1/ask/stream": () =>
+        sseResponse([
+          { type: "start", content: "" },
+          { type: "error", error: "Gemini returned an empty response" },
+        ]),
+    });
+
+    const errors: string[] = [];
+    const completions: string[] = [];
+
+    await new Promise<void>((resolve) => {
+      sendMessage("c1", "Hello", {}, {
+        onComplete: (m) => {
+          completions.push(m.content);
+          resolve();
+        },
+        onError: (error) => {
+          errors.push(error.message);
+          resolve();
+        },
+      });
+    });
+
+    expect(completions).toEqual([]);
+    expect(errors[0]).toMatch(/empty response/i);
+  });
+
+  it("reports an interrupted SSE stream that never completed", async () => {
+    mockApiRoutes({
+      "GET /conversations/c1": jsonResponse({
+        id: "c1",
+        title: "Named",
+        experiment_id: null,
+        created_at: iso(0),
+        updated_at: iso(0),
+        messages: [],
+      }),
+      "POST /conversations/c1/ask/stream": () =>
+        sseResponse([
+          { type: "start", content: "" },
+          { type: "delta", content: "Partial" },
+        ]),
+    });
+
+    const errors: string[] = [];
+    await new Promise<void>((resolve) => {
+      sendMessage("c1", "Hello", {}, {
+        onError: (error) => {
+          errors.push(error.message);
+          resolve();
+        },
+        onComplete: () => resolve(),
+      });
+    });
+
+    expect(errors[0]).toMatch(/interrupted/i);
+  });
+
+  it("does not emit a duplicate assistant message when COMPLETE is repeated", async () => {
+    mockApiRoutes({
+      "GET /conversations/c1": jsonResponse({
+        id: "c1",
+        title: "Named",
+        experiment_id: null,
+        created_at: iso(0),
+        updated_at: iso(0),
+        messages: [],
+      }),
+      "POST /conversations/c1/ask/stream": () =>
+        sseResponse([
+          { type: "delta", content: "Once" },
+          { type: "complete", content: "Once", message_id: "a1", conversation_id: "c1" },
+          { type: "complete", content: "Once", message_id: "a1", conversation_id: "c1" },
+        ]),
+    });
+
+    const completions: string[] = [];
+    await new Promise<void>((resolve, reject) => {
+      sendMessage("c1", "Hello", {}, {
+        onComplete: (m) => {
+          completions.push(m.id);
+          if (completions.length === 1) {
+            setTimeout(resolve, 10);
+          }
+        },
+        onError: (error) => reject(error),
+      });
+    });
+
+    expect(completions).toEqual(["a1"]);
   });
 });
 
@@ -446,5 +593,16 @@ describe("toMentorUserError", () => {
     );
     expect(err.message).toMatch(/AI_API_KEY/);
     expect(err.message).toMatch(/backend\/\.env/i);
+  });
+
+  it("surfaces empty, timeout, and network failures distinctly", () => {
+    expect(toMentorUserError(new ApiError(502, "Gemini returned an empty response")).message).toMatch(
+      /empty response/i,
+    );
+    expect(toMentorUserError(new ApiError(0, "The request timed out. Please try again.")).message).toMatch(
+      /timed out/i,
+    );
+    expect(toMentorUserError(new TypeError("Failed to fetch")).message).toMatch(/network/i);
+    expect(toMentorUserError(new ApiError(502, "AI rate limit exceeded")).message).toMatch(/rate limit/i);
   });
 });

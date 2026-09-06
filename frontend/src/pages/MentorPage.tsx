@@ -79,8 +79,13 @@ function MentorPage() {
 
   const cancelSendRef = useRef<(() => void) | null>(null);
   const openRequestRef = useRef(0);
+  const activeIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   const userId = user?.id ?? "";
   const userInitials = useMemo(() => {
@@ -250,7 +255,12 @@ function MentorPage() {
       },
       {
         onUserMessage: (message) => {
-          setMessages((prev) => [...prev, message]);
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "user" && last.content === message.content) return prev;
+            if (prev.some((m) => m.id === message.id)) return prev;
+            return [...prev, message];
+          });
           // Bump sidebar entry as soon as the user turn lands.
           setConversations((prev) =>
             prev.map((c) =>
@@ -264,13 +274,26 @@ function MentorPage() {
             ),
           );
         },
+        onStart: () => {
+          setStreamingText((prev) => prev ?? "");
+        },
         onToken: (accumulated) => {
           setStreamingText(accumulated);
         },
         onComplete: (message) => {
           setStreamingText(null);
           setBusy(false);
-          setMessages((prev) => [...prev, message]);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === message.id)) return prev;
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last.content === message.content) return prev;
+            return [...prev, message];
+          });
+          void mentorService.getConversation(conversationId).then((conv) => {
+            if (conv && activeIdRef.current === conversationId) {
+              setMessages(conv.messages);
+            }
+          }).catch(() => undefined);
           void refreshConversations();
         },
         onError: (error) => {
@@ -289,9 +312,27 @@ function MentorPage() {
     const text = draft.trim();
     if (!text || busy || !userId) return;
 
+    const pendingId = `local-user-${Date.now()}`;
+    setDraft("");
+    setBusy(true);
+    setSendError(null);
+    setStreamingText(null);
+    lastFailedRef.current = null;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: pendingId,
+        conversation_id: activeId ?? "pending",
+        role: "user",
+        content: text,
+        created_at: new Date().toISOString(),
+        status: "complete",
+        feedback: null,
+      },
+    ]);
+
     let conversationId = activeId;
     if (!conversationId) {
-      setBusy(true);
       try {
         const conv = await mentorService.createConversation(mentorContext.experimentId);
         conversationId = conv.id;
@@ -302,13 +343,13 @@ function MentorPage() {
       } catch {
         setBusy(false);
         setSendError("Unable to start a new conversation. Please try again.");
+        setDraft(text);
+        setMessages((prev) => prev.filter((m) => m.id !== pendingId));
         return;
       }
     }
 
-    setDraft("");
-    lastFailedRef.current = null;
-    performSend(text, conversationId);
+    performSend(text, conversationId, { emitUserMessage: false });
   }
 
   function handleRetry() {
@@ -343,11 +384,17 @@ function MentorPage() {
         stage: mentorContext.stage,
       },
       {
+        onStart: () => setStreamingText((prev) => prev ?? ""),
         onToken: (accumulated) => setStreamingText(accumulated),
         onComplete: (message) => {
           setStreamingText(null);
           setBusy(false);
-          setMessages((prev) => [...prev, message]);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === message.id)) return prev;
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last.content === message.content) return prev;
+            return [...prev, message];
+          });
           void refreshConversations();
         },
         onError: (error) => {

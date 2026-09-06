@@ -219,28 +219,46 @@ def normalize_provider_error(error: Exception) -> AIError:
             original_error=error,
         )
 
+    raw = str(error).strip()
+    safe_raw = raw if raw and len(raw) < 200 and "\n" not in raw else None
+
     if "rate limit" in error_str or "too many" in error_str:
-        return RateLimitedError(original_error=error)
+        return RateLimitedError(
+            message=safe_raw or "AI rate limit exceeded",
+            original_error=error,
+        )
 
     if "timeout" in error_str or "timed out" in error_str:
-        return TimeoutError(original_error=error)
+        return TimeoutError(
+            message=safe_raw or "AI request timed out",
+            original_error=error,
+        )
 
     if (
         "unavailable" in error_str
         or "connection" in error_str
         or "network" in error_str
     ):
-        return ProviderUnavailableError(original_error=error)
+        return ProviderUnavailableError(
+            message=safe_raw or "AI provider unavailable",
+            original_error=error,
+        )
 
     if "empty response" in error_str or ("malformed" in error_str and "response" in error_str):
-        return InvalidResponseError(original_error=error)
+        return InvalidResponseError(
+            message=safe_raw or "Gemini returned an empty response",
+            original_error=error,
+        )
 
     if "invalid" in error_str and "response" in error_str:
-        return InvalidResponseError(original_error=error)
+        return InvalidResponseError(
+            message=safe_raw or "AI provider returned invalid response",
+            original_error=error,
+        )
 
-    # Default to generic provider error
+    # Default to generic provider error — keep a short provider string when safe
     return ProviderUnavailableError(
-        message=f"Provider error: {str(error)}",
+        message=f"Provider error: {safe_raw or 'AI provider unavailable'}",
         original_error=error
     )
 

@@ -57,6 +57,8 @@ export interface GroupedConversations {
 export interface SendMessageHandlers {
   /** Called once the user turn is shown / acknowledged. */
   onUserMessage?: (message: ChatMessage) => void;
+  /** Called when the SSE stream starts (before the first token). */
+  onStart?: () => void;
   /** Called repeatedly as real provider SSE deltas arrive. */
   onToken?: (accumulated: string) => void;
   /** Called once the assistant message is complete. */

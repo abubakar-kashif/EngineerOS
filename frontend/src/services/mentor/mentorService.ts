@@ -27,6 +27,10 @@ import { deriveTitleFromMessage } from "../../types/mentor";
 const DEFAULT_TITLE = "New conversation";
 const MENTOR_USER_ERROR =
   "AI Mentor could not generate a response. Please try again.";
+const MENTOR_EMPTY_ERROR = "AI Mentor returned an empty response. Please try again.";
+const MENTOR_INTERRUPTED_ERROR = "The AI stream was interrupted. Please try again.";
+const MENTOR_NETWORK_ERROR =
+  "Network failure. Unable to reach the EngineerOS server. Please try again.";
 
 /* ── API shapes ─────────────────────────────────────── */
 
@@ -115,6 +119,32 @@ function looksUnsafeDetail(message: string): boolean {
   );
 }
 
+const PROVIDER_DETAIL =
+  /ai mentor|gemini|provider|timed|timeout|rate|unavailable|authentication|conversation|configuration|empty|stream|interrupt|disconnect|network|quota/i;
+
+function classifySafeDetail(detail: string): Error | null {
+  const text = detail.trim();
+  if (!text || text.length >= 200 || text.includes("\n") || looksUnsafeDetail(text)) {
+    return null;
+  }
+  if (/empty response/i.test(text)) {
+    return new Error(MENTOR_EMPTY_ERROR);
+  }
+  if (/timed?\s*out|timeout/i.test(text)) {
+    return new Error("AI Mentor timed out. Please try again.");
+  }
+  if (/interrupt|disconnect|connection reset/i.test(text)) {
+    return new Error(MENTOR_INTERRUPTED_ERROR);
+  }
+  if (/failed to fetch|networkerror|load failed|network failure/i.test(text)) {
+    return new Error(MENTOR_NETWORK_ERROR);
+  }
+  if (PROVIDER_DETAIL.test(text)) {
+    return new Error(text);
+  }
+  return null;
+}
+
 /** Map transport/API failures to short user-facing errors (no internals). */
 export function toMentorUserError(error: unknown): Error {
   if (error instanceof ApiError) {
@@ -139,13 +169,19 @@ export function toMentorUserError(error: unknown): Error {
         "AI Mentor is not configured. Add AI_API_KEY to backend/.env and restart the API server.",
       );
     }
-    if (detail && detail.length < 160 && !detail.includes("\n") && !looksUnsafeDetail(detail)) {
-      // Prefer known safe backend messages (e.g. "AI provider authentication failed").
-      if (/ai mentor|provider|timed|rate|unavailable|authentication|conversation|configuration/i.test(detail)) {
-        return new Error(detail);
-      }
-    }
+    const classified = classifySafeDetail(detail);
+    if (classified) return classified;
   }
+
+  if (error instanceof TypeError || (error instanceof Error && /failed to fetch|networkerror|load failed/i.test(error.message))) {
+    return new Error(MENTOR_NETWORK_ERROR);
+  }
+
+  if (error instanceof Error) {
+    const classified = classifySafeDetail(error.message);
+    if (classified) return classified;
+  }
+
   return new Error(MENTOR_USER_ERROR);
 }
 
@@ -316,9 +352,9 @@ async function maybeAutoRename(conversationId: string, content: string): Promise
 /**
  * Sends a user message through the real Mentor stream endpoint.
  *
- * Flow: optional auto-rename → POST ask/stream → SSE deltas → complete.
- * Backend persists the user + assistant messages; the client does not
- * fabricate replies or use timer-based fake streaming.
+ * Flow: acknowledge user immediately → POST ask/stream (rename in parallel)
+ * → SSE start/deltas → complete. Backend persists user + assistant only
+ * after a successful COMPLETE. The client does not fabricate replies.
  *
  * Returns a cancel function that aborts the in-flight request.
  */
@@ -330,13 +366,11 @@ export function sendMessage(
 ): () => void {
   const abortController = new AbortController();
   let cancelled = false;
+  let finished = false;
 
   void (async () => {
     try {
-      await maybeAutoRename(conversationId, content);
-      if (cancelled) return;
-
-      // Optimistic user bubble — server persists the authoritative copy.
+      // Optimistic user bubble first — never wait on rename or the provider.
       if (context.emitUserMessage !== false) {
         handlers.onUserMessage?.({
           id: `local-user-${Date.now()}`,
@@ -348,6 +382,9 @@ export function sendMessage(
           feedback: null,
         });
       }
+
+      void maybeAutoRename(conversationId, content);
+      if (cancelled) return;
 
       const response = await apiStream(
         `/conversations/${encodeURIComponent(conversationId)}/ask/stream`,
@@ -361,7 +398,7 @@ export function sendMessage(
       if (cancelled) return;
 
       if (!response.body) {
-        throw new ApiError(0, MENTOR_USER_ERROR);
+        throw new ApiError(0, MENTOR_INTERRUPTED_ERROR);
       }
 
       const reader = response.body.getReader();
@@ -375,6 +412,11 @@ export function sendMessage(
 
       const handleEvent = (event: StreamEventPayload) => {
         const type = (event.type || "").toLowerCase();
+
+        if (type === "start") {
+          handlers.onStart?.();
+          return;
+        }
 
         if (type === "delta" && event.content) {
           accumulated += event.content;
@@ -392,7 +434,6 @@ export function sendMessage(
         }
 
         if (type === "error") {
-          // Ignore transient "Retrying:" notices if a later complete arrives.
           streamError = event.error || MENTOR_USER_ERROR;
         }
       };
@@ -423,13 +464,27 @@ export function sendMessage(
         return;
       }
 
-      if (!completed || !accumulated.trim()) {
-        handlers.onError?.(new Error(MENTOR_USER_ERROR));
+      if (!completed) {
+        handlers.onError?.(
+          new Error(
+            accumulated.trim()
+              ? MENTOR_INTERRUPTED_ERROR
+              : "The AI stream ended before a response arrived. Please try again.",
+          ),
+        );
         return;
       }
 
+      if (!accumulated.trim()) {
+        handlers.onError?.(new Error(MENTOR_EMPTY_ERROR));
+        return;
+      }
+
+      if (finished) return;
+      finished = true;
+
       handlers.onComplete?.({
-        id: finalMessageId ?? `assistant-${Date.now()}`,
+        id: finalMessageId ?? `assistant-${conversationId}`,
         conversation_id: finalConversationId ?? conversationId,
         role: "assistant",
         content: accumulated,
@@ -440,11 +495,12 @@ export function sendMessage(
       });
     } catch (error) {
       if (cancelled || (error instanceof DOMException && error.name === "AbortError")) {
+        if (!cancelled) {
+          handlers.onError?.(new Error(MENTOR_INTERRUPTED_ERROR));
+        }
         return;
       }
-      if (!cancelled) {
-        handlers.onError?.(toMentorUserError(error));
-      }
+      handlers.onError?.(toMentorUserError(error));
     }
   })();
 

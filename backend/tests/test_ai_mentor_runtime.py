@@ -158,6 +158,77 @@ def test_stream_success_persists_user_and_assistant(mentor_runtime_client):
     assert "V = IR" in detail["messages"][1]["content"]
 
 
+def test_stream_empty_gemini_errors_without_persisting(mentor_runtime_client):
+    client, session_factory = mentor_runtime_client
+    token = _login(client)
+    created = client.post("/api/conversations", headers=_auth_headers(token), json={})
+    conversation_id = created.json()["id"]
+
+    empty = Mock()
+    empty.text = ""
+    empty.candidates = [Mock(finish_reason="STOP", content=Mock(parts=[Mock(text="")]))]
+    empty.usage_metadata = None
+    mock_client = Mock()
+    mock_client.models.generate_content_stream.return_value = iter([empty])
+
+    with patch.object(
+        GeminiProvider, "client", new_callable=PropertyMock
+    ) as client_prop:
+        client_prop.return_value = mock_client
+        response = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={"content": "Explain Ohm's Law."},
+        )
+
+    assert response.status_code == 200
+    assert "start" in response.text
+    assert "empty response" in response.text.lower()
+    assert '"type": "complete"' not in response.text and '"type":"complete"' not in response.text
+
+    with session_factory() as db:
+        count = (
+            db.query(ConversationMessage)
+            .filter(ConversationMessage.conversation_id == conversation_id)
+            .count()
+        )
+    assert count == 0
+
+
+def test_stream_emits_start_before_provider_deltas(mentor_runtime_client):
+    client, _session_factory = mentor_runtime_client
+    token = _login(client)
+    created = client.post("/api/conversations", headers=_auth_headers(token), json={})
+    conversation_id = created.json()["id"]
+
+    chunk = Mock()
+    chunk.text = "Hi"
+    chunk.candidates = [Mock(finish_reason="STOP", content=Mock(parts=[Mock(text="Hi")]))]
+    chunk.usage_metadata = None
+    mock_client = Mock()
+    mock_client.models.generate_content_stream.return_value = iter([chunk])
+
+    with patch.object(
+        GeminiProvider, "client", new_callable=PropertyMock
+    ) as client_prop:
+        client_prop.return_value = mock_client
+        response = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={"content": "Hi"},
+        )
+
+    assert response.status_code == 200
+    start_at = response.text.find('"type": "start"')
+    if start_at < 0:
+        start_at = response.text.find('"type":"start"')
+    delta_at = response.text.find('"type": "delta"')
+    if delta_at < 0:
+        delta_at = response.text.find('"type":"delta"')
+    assert start_at >= 0
+    assert delta_at > start_at
+
+
 def test_regenerate_skips_duplicate_user_turn(mentor_runtime_client):
     client, _session_factory = mentor_runtime_client
     token = _login(client)

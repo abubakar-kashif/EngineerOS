@@ -23,6 +23,7 @@ from app.services.ai.types import (
     StreamEventType, StreamErrorType
 )
 from app.services.ai.errors import (
+    AIError,
     TimeoutError,
     ConfigurationError,
     ConversationNotFoundError,
@@ -275,6 +276,14 @@ class MentorService:
                     return
                 raise
 
+            # Immediate SSE so the client leaves a blank/frozen UI before
+            # context assembly and the provider round-trip.
+            yield StreamEvent(
+                type=StreamEventType.START,
+                content="",
+                metadata={"status": "assembling_context"},
+            )
+
             context = self._get_context(
                 conversation_id=conversation_id,
                 question=question,
@@ -328,7 +337,21 @@ class MentorService:
                     final_usage = None
                     final_finish_reason = None
                     try:
+                        yield StreamEvent(
+                            type=StreamEventType.START,
+                            content="",
+                            metadata={
+                                "status": "calling_provider",
+                                "attempt": attempt,
+                                "model": settings.AI_MODEL,
+                            },
+                        )
                         for event in self.provider.stream(request):
+                            # MentorService already emitted START; skip the
+                            # provider's duplicate so the client sees one ack.
+                            if event.type == StreamEventType.START:
+                                continue
+
                             if event.type == StreamEventType.DELTA:
                                 full_content += event.content or ""
 
@@ -418,10 +441,21 @@ class MentorService:
                         break
                     except Exception as e:
                         if self.protection.should_retry(e, attempt):
+                            yield StreamEvent(
+                                type=StreamEventType.START,
+                                content="",
+                                metadata={
+                                    "status": "retrying",
+                                    "attempt": attempt,
+                                },
+                            )
                             time.sleep(self.protection.get_retry_delay(attempt))
                             continue
-                        message = str(e)
-                        if isinstance(e, TypesProviderError):
+                        if isinstance(e, AIError):
+                            message = e.message
+                        elif isinstance(e, TypesProviderError):
+                            message = normalize_provider_error(e).message
+                        else:
                             message = normalize_provider_error(e).message
                         yield StreamEvent(
                             type=StreamEventType.ERROR,
@@ -436,8 +470,12 @@ class MentorService:
                 pass
 
         except Exception as e:
+            if isinstance(e, AIError):
+                message = e.message
+            else:
+                message = safe_error_response(e).get("message") or "An unexpected error occurred"
             yield StreamEvent(
                 type=StreamEventType.ERROR,
-                error=f"Unexpected error: {str(e)}",
+                error=message,
                 error_type=StreamErrorType.UNEXPECTED_TERMINATION,
             )

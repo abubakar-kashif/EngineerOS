@@ -130,3 +130,4 @@ class TestErrorNormalization:
 
         err = normalize_provider_error(ProviderError("Gemini returned an empty response"))
         assert isinstance(err, InvalidResponseError)
+        assert "empty response" in err.message.lower()

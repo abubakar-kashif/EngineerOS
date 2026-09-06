@@ -49,11 +49,19 @@ function WorkspaceMentorPanel({
   const [error, setError] = useState<string | null>(null);
   const [contextFlash, setContextFlash] = useState(false);
   const cancelRef = useRef<(() => void) | null>(null);
+  const lastFailedRef = useRef<string | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
   // Always read latest IDs at send-time (avoid stale closures mid-stream)
   const runIdRef = useRef(simulationRunId);
   const experimentIdRef = useRef(experimentId);
   const simResultRef = useRef(simResult);
   const liveCircuitRef = useRef(liveCircuit);
+
+  const storageKey = `engineeros.sim-mentor.conversation:${experimentId ?? "lab"}`;
+
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
 
   useEffect(() => {
     runIdRef.current = simulationRunId;
@@ -67,6 +75,24 @@ function WorkspaceMentorPanel({
   useEffect(() => {
     liveCircuitRef.current = liveCircuit;
   }, [liveCircuit]);
+
+  // Reload persisted Simulation Mentor thread when the panel remounts.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const savedId = sessionStorage.getItem(storageKey);
+    if (!savedId) return undefined;
+
+    void mentorService.getConversation(savedId).then((conv) => {
+      if (cancelled || !conv) return;
+      setConversationId(conv.id);
+      setMessages(conv.messages);
+    }).catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, storageKey]);
 
   // Flash when a new authoritative run arrives (closed-loop freshness)
   const contextKey = `${simulationRunId ?? ""}|${simResult?.status ?? ""}|${simResult?.measurements?.totalCurrent ?? ""}`;
@@ -166,14 +192,37 @@ function WorkspaceMentorPanel({
     return ["Explain the latest simulation result."];
   }, [simResult, experimentTitle, experimentId]);
 
-  async function handleSend() {
-    const text = draft.trim();
+  async function handleSend(options: { emitUserMessage?: boolean; text?: string } = {}) {
+    const text = (options.text ?? draft).trim();
     if (!text || busy || !user) return;
+
+    const emitUser = options.emitUserMessage !== false;
+    const pendingId = `local-user-${Date.now()}`;
 
     setError(null);
     setBusy(true);
     setStreamingText(null);
     setDraft("");
+    lastFailedRef.current = null;
+
+    if (emitUser) {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "user" && last.content === text) return prev;
+        return [
+          ...prev,
+          {
+            id: pendingId,
+            conversation_id: conversationId ?? "pending",
+            role: "user",
+            content: text,
+            created_at: new Date().toISOString(),
+            status: "complete",
+            feedback: null,
+          },
+        ];
+      });
+    }
 
     let activeId = conversationId;
     if (!activeId) {
@@ -181,12 +230,18 @@ function WorkspaceMentorPanel({
         const conv = await mentorService.createConversation(experimentIdRef.current);
         activeId = conv.id;
         setConversationId(conv.id);
+        sessionStorage.setItem(storageKey, conv.id);
       } catch {
         setBusy(false);
         setError("Unable to start Mentor conversation.");
         setDraft(text);
+        if (emitUser) {
+          setMessages((prev) => prev.filter((m) => m.id !== pendingId));
+        }
         return;
       }
+    } else {
+      sessionStorage.setItem(storageKey, activeId);
     }
 
     const latestRunId = runIdRef.current;
@@ -206,23 +261,43 @@ function WorkspaceMentorPanel({
         stage: "simulation",
         simulationId: latestRunId,
         circuitSnapshot: live ? compactCircuitForMentor(live) : null,
+        emitUserMessage: false,
       },
       {
-        onUserMessage: (message) => setMessages((prev) => [...prev, message]),
+        onStart: () => setStreamingText((prev) => prev ?? ""),
         onToken: (accumulated) => setStreamingText(accumulated),
         onComplete: (message) => {
           setStreamingText(null);
           setBusy(false);
-          setMessages((prev) => [...prev, message]);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === message.id)) return prev;
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last.content === message.content) return prev;
+            return [...prev, message];
+          });
+          void mentorService.getConversation(activeId).then((conv) => {
+            if (conv && conversationIdRef.current === activeId) {
+              setMessages(conv.messages);
+            }
+          }).catch(() => undefined);
         },
         onError: (err) => {
           setStreamingText(null);
           setBusy(false);
+          lastFailedRef.current = text;
           setDraft(text);
           setError(err.message || "AI Mentor could not generate a response. Please try again.");
         },
       },
     );
+  }
+
+  function handleRetry() {
+    const text = lastFailedRef.current || draft.trim();
+    if (!text) return;
+    const last = messages[messages.length - 1];
+    const alreadyShown = last?.role === "user" && last.content === text;
+    void handleSend({ text, emitUserMessage: !alreadyShown });
   }
 
   const headerActions = (
@@ -364,10 +439,7 @@ function WorkspaceMentorPanel({
           <button
             type="button"
             className="sim2-mentor-retry"
-            onClick={() => {
-              setError(null);
-              if (draft.trim()) void handleSend();
-            }}
+            onClick={handleRetry}
           >
             Retry
           </button>

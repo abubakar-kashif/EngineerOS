@@ -123,7 +123,11 @@ export async function apiStream(
 ): Promise<Response> {
   const timeoutMs = config?.timeoutMs ?? 90_000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
 
   const external = config?.signal;
   const onExternalAbort = () => controller.abort();
@@ -144,8 +148,11 @@ export async function apiStream(
       },
       signal: controller.signal,
     });
-  } catch {
-    if (controller.signal.aborted) {
+  } catch (error) {
+    if (external?.aborted && !timedOut) {
+      throw error instanceof Error ? error : new DOMException("Aborted", "AbortError");
+    }
+    if (timedOut || controller.signal.aborted) {
       throw new ApiError(0, "The request timed out. Please try again.");
     }
     throw new ApiError(
