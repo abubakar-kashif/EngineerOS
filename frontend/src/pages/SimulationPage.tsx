@@ -4,7 +4,7 @@
  * Pipeline: EditorCircuit → Adapter → validate → solve → measurements →
  * graphs → SimulationResult → persistence → UI (no competing result path).
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { X } from "lucide-react";
 import { useCircuitEditor } from "../hooks/useCircuitEditor";
@@ -45,6 +45,7 @@ const ANALYSIS_COLLAPSE = 110;
 const ANALYSIS_DEFAULT = 280;
 const RESULTS_RATIO_MIN = 0.28;
 const RESULTS_RATIO_MAX = 0.72;
+const COMPACT_LAB_MQ = "(max-width: 1100px)";
 
 const TEN_EXPERIMENT_IDS = [
   "ohms-law",
@@ -117,6 +118,9 @@ function SimulationPage() {
   const [showMentor, setShowMentor] = useState(true);
   const [showResults, setShowResults] = useState(true);
   const [showGraphs, setShowGraphs] = useState(true);
+  const [compactLab, setCompactLab] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(COMPACT_LAB_MQ).matches,
+  );
   const [sidebarW, setSidebarW] = useState(220);
   const [mentorW, setMentorW] = useState(300);
   const [analysisH, setAnalysisH] = useState(280);
@@ -124,6 +128,25 @@ function SimulationPage() {
   const layoutRef = useRef<HTMLDivElement>(null);
 
   const showAnalysis = showResults || showGraphs;
+
+  useLayoutEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia(COMPACT_LAB_MQ);
+    const apply = () => {
+      const compact = mq.matches;
+      setCompactLab(compact);
+      if (compact) {
+        setShowSidebar(false);
+        setShowMentor(false);
+      } else {
+        setShowSidebar(true);
+        setShowMentor(true);
+      }
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
@@ -514,8 +537,14 @@ function SimulationPage() {
           results: !showResults,
           graphs: !showGraphs,
         }}
-        onOpenSidebar={() => setShowSidebar(true)}
-        onOpenMentor={() => setShowMentor(true)}
+        onOpenSidebar={() => {
+          setShowSidebar(true);
+          if (compactLab) setShowMentor(false);
+        }}
+        onOpenMentor={() => {
+          setShowMentor(true);
+          if (compactLab) setShowSidebar(false);
+        }}
         onOpenResults={openResults}
         onOpenGraphs={openGraphs}
       />
@@ -547,16 +576,32 @@ function SimulationPage() {
           !showSidebar ? "sim2-layout--no-sidebar" : "",
           !showMentor ? "sim2-layout--no-mentor" : "",
           !showAnalysis ? "sim2-layout--no-analysis" : "",
+          compactLab ? "sim2-layout--compact" : "",
         ]
           .filter(Boolean)
           .join(" ")}
       >
         <div className="sim2-lab-row">
+          {compactLab && (showSidebar || showMentor) && (
+            <button
+              type="button"
+              className="sim2-drawer-backdrop"
+              aria-label="Close workspace panels"
+              onClick={() => {
+                setShowSidebar(false);
+                setShowMentor(false);
+              }}
+            />
+          )}
           {showSidebar && (
             <aside
-              className="sim2-sidebar"
+              className={`sim2-sidebar${compactLab ? " sim2-sidebar--drawer" : ""}`}
               aria-label="Components, instruments, and tools"
-              style={{ width: sidebarW, flex: `0 0 ${sidebarW}px` }}
+              style={
+                compactLab
+                  ? undefined
+                  : { width: sidebarW, flex: `0 0 ${sidebarW}px` }
+              }
             >
               <div className="sim2-panel-chrome">
                 <span className="sim2-panel-chrome-title">Components</span>
@@ -644,7 +689,14 @@ function SimulationPage() {
           )}
 
           {showMentor && (
-            <div className="sim2-mentor-shell" style={{ width: mentorW, flex: `0 0 ${mentorW}px` }}>
+            <div
+              className={`sim2-mentor-shell${compactLab ? " sim2-mentor-shell--drawer" : ""}`}
+              style={
+                compactLab
+                  ? undefined
+                  : { width: mentorW, flex: `0 0 ${mentorW}px` }
+              }
+            >
               <WorkspaceMentorPanel
                 experimentId={experiment?.id ?? experimentParam}
                 experimentTitle={experiment?.title ?? null}
