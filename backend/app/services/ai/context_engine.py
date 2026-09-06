@@ -7,7 +7,10 @@ from app.services.ai.context.quiz_context import QuizContext
 from app.services.ai.context.report_context import ReportContext
 from app.services.ai.context.user_context import UserContext
 from app.services.ai.context.conversation_context import ConversationContext
-from app.services.ai.context.simulation_context import SimulationContext
+from app.services.ai.context.simulation_context import (
+    SimulationContext,
+    apply_live_editor_circuit,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +92,7 @@ class ContextEngine:
         quiz_id: Optional[str] = None,
         report_id: Optional[str] = None,
         stage: Optional[str] = None,
+        circuit_snapshot: Optional[Dict[str, Any]] = None,
     ) -> ContextResult:
         """Gather relevant context for a question."""
         result = ContextResult()
@@ -192,5 +196,10 @@ class ContextEngine:
                         result.simulation = sim_data
                 except Exception as e:
                     logger.error(f"Failed to load simulation context: {e}")
+
+        if circuit_snapshot:
+            result.simulation = apply_live_editor_circuit(
+                result.simulation, circuit_snapshot
+            )
 
         return result

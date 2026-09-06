@@ -31,6 +31,7 @@ class AskRequest(BaseModel):
     quiz_id: Optional[str] = None
     report_id: Optional[str] = None
     stage: Optional[str] = None
+    circuit_snapshot: Optional[dict] = None
 
 
 class AskStreamRequest(BaseModel):
@@ -42,6 +43,8 @@ class AskStreamRequest(BaseModel):
     stage: Optional[str] = None
     # When False (regenerate), do not insert another user turn.
     persist_user: bool = True
+    # Live editor topology only — never client-invented measurements.
+    circuit_snapshot: Optional[dict] = None
 
 
 # Must live under /api so the frontend API client (VITE_API_BASE_URL …/api) can reach it.
@@ -92,6 +95,7 @@ def ask_mentor(
             quiz_id=request.quiz_id,
             report_id=request.report_id,
             stage=request.stage,
+            circuit_snapshot=request.circuit_snapshot,
         )
         return response
     except ConversationNotFoundError:
@@ -132,6 +136,7 @@ def ask_mentor_stream(
                 report_id=request.report_id,
                 stage=request.stage,
                 persist_user=request.persist_user,
+                circuit_snapshot=request.circuit_snapshot,
             ):
                 yield f"data: {json.dumps(_stream_event_payload(event), default=str)}\n\n"
         except ConversationNotFoundError:

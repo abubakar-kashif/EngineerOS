@@ -379,6 +379,58 @@ describe("regenerateMessage", () => {
   });
 });
 
+describe("sendMessage simulation context", () => {
+  it("forwards live circuit_snapshot with the simulation run id", async () => {
+    setAuthToken("token-123");
+    const calls = mockApiRoutes({
+      "GET /conversations/c1": () =>
+        jsonResponse({
+          id: "c1",
+          title: "Sim",
+          experiment_id: "ohms-law",
+          created_at: iso(0),
+          updated_at: iso(0),
+          messages: [],
+        }),
+      "PATCH /conversations/c1": () => jsonResponse(summary("c1", "Renamed", 0)),
+      "POST /conversations/c1/ask/stream": () =>
+        sseResponse([
+          { type: "delta", content: "R2 drops 8 V" },
+          { type: "complete", content: "R2 drops 8 V", message_id: "a1", conversation_id: "c1" },
+        ]),
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      sendMessage(
+        "c1",
+        "Explain what is happening in my circuit.",
+        {
+          experimentId: "ohms-law",
+          stage: "simulation",
+          simulationId: "run-fresh",
+          circuitSnapshot: {
+            components: [{ id: "R2", type: "resistor" }],
+            connections: [{ from: "R1.B", to: "R2.A" }],
+          },
+        },
+        {
+          onComplete: () => resolve(),
+          onError: (error) => reject(error),
+        },
+      );
+    });
+
+    const streamCall = calls.find((call) => call.path === "/conversations/c1/ask/stream");
+    expect(streamCall?.body).toMatchObject({
+      simulation_id: "run-fresh",
+      stage: "simulation",
+      circuit_snapshot: {
+        components: [{ id: "R2", type: "resistor" }],
+      },
+    });
+  });
+});
+
 describe("toMentorUserError", () => {
   it("never exposes tracebacks or secrets", () => {
     const err = toMentorUserError(

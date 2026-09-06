@@ -49,6 +49,39 @@ export function electricalFingerprint(circuit: CircuitDefinition): string {
   return JSON.stringify({ components, connections });
 }
 
+export function compactCircuitForMentor(circuit: CircuitDefinition): {
+  components: Array<{
+    id: string;
+    type: string;
+    label?: string;
+    properties: Record<string, string | number | boolean>;
+    terminals: Array<{ id: string; type?: string }>;
+  }>;
+  connections: Array<{ id?: string; from: string; to: string }>;
+} {
+  const components = (circuit.components ?? []).map((c) => {
+    const raw = c.properties ?? {};
+    const properties: Record<string, string | number | boolean> = {};
+    for (const key of ELECTRICAL_KEYS) {
+      const v = raw[key];
+      if (v !== undefined) properties[key] = v as string | number | boolean;
+    }
+    return {
+      id: c.id,
+      type: c.type,
+      label: c.label,
+      properties,
+      terminals: (c.terminals ?? []).map((t) => ({ id: t.id, type: t.type })),
+    };
+  });
+  const connections = (circuit.connections ?? []).map((conn) => ({
+    id: conn.id,
+    from: conn.from,
+    to: conn.to,
+  }));
+  return { components, connections };
+}
+
 export function serializeNetlistSnapshot(netlist: Netlist): NetlistSnapshot {
   const elements: NetlistSnapshotElement[] = netlist.elements.map((el) => {
     switch (el.kind) {

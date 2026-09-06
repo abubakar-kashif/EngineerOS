@@ -3,6 +3,7 @@
  */
 import { solveCircuit } from '../circuitSolver';
 import {
+  compactCircuitForMentor,
   displayableSimulationResult,
   electricalFingerprint,
   resultIsBoundToCircuit,
@@ -105,5 +106,15 @@ describe('Phase 3 measurements from solved topology', () => {
       8,
       6,
     );
+  });
+});
+
+describe('compactCircuitForMentor', () => {
+  it('sends electrical topology without positions or invented measurements', () => {
+    const snapshot = compactCircuitForMentor(voltageDivider12V());
+    expect(snapshot.components.map((c) => c.id)).toEqual(['V1', 'R1', 'R2', 'GND1']);
+    expect(snapshot.components.find((c) => c.id === 'R2')?.properties).toEqual({ resistance: 4000 });
+    expect(snapshot.connections.length).toBeGreaterThan(0);
+    expect(JSON.stringify(snapshot)).not.toMatch(/"x":/);
   });
 });

@@ -66,6 +66,14 @@ export interface MentorAskContext {
   reportId?: string | null;
   stage?: string | null;
   /**
+   * Live editor topology (no measurements). Simulation Mentor uses this
+   * together with simulation_id so a canvas edit changes the prompt.
+   */
+  circuitSnapshot?: {
+    components: Array<Record<string, unknown>>;
+    connections: Array<Record<string, unknown>>;
+  } | null;
+  /**
    * When false, skip the optimistic onUserMessage callback
    * (used by regenerate — the user turn already exists in the UI).
    */
@@ -142,16 +150,19 @@ export function toMentorUserError(error: unknown): Error {
 }
 
 function askBody(content: string, context: MentorAskContext = {}) {
-  return {
+  const body: Record<string, unknown> = {
     content,
     experiment_id: context.experimentId ?? null,
     simulation_id: context.simulationId ?? null,
     quiz_id: context.quizId ?? null,
     report_id: context.reportId ?? null,
     stage: context.stage ?? null,
-    // Regenerate skips inserting another user turn on the server.
     persist_user: context.emitUserMessage !== false,
   };
+  if (context.circuitSnapshot) {
+    body.circuit_snapshot = context.circuitSnapshot;
+  }
+  return body;
 }
 
 /* ── conversations ───────────────────────────────────── */

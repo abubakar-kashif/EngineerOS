@@ -650,6 +650,7 @@ function SimulationPage() {
                 experimentTitle={experiment?.title ?? null}
                 simResult={displayedResult}
                 simulationRunId={displayedResult ? simulationRunId : null}
+                liveCircuit={liveEngineCircuit}
                 onClose={() => setShowMentor(false)}
               />
             </div>

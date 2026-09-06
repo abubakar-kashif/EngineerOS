@@ -154,6 +154,18 @@ Do not say that you cannot answer because a simulation is missing.
 Do not ask the student to run a simulation first unless they asked about their own measured results.
 Do not invent that a lab or SimulationRun occurred."""
 
+    SIMULATION_MENTOR_RULES = """SIMULATION MENTOR MODE — a lab circuit and/or SimulationRun is attached.
+
+You are explaining THIS student's circuit, not general textbook theory in isolation.
+The EngineerOS simulator determines WHAT HAPPENED. You explain WHAT IT MEANS.
+
+Never invent voltage, current, resistance, measurements, topology, or simulation results.
+Use CURRENT EDITOR CIRCUIT for what is on the canvas now (drawing/topology only).
+Use AUTHORITATIVE SIMULATION FACTS only for the matching SimulationRun.
+If the run is marked stale or missing, do not reuse numbers from conversation history.
+If validation failed, explain the simulator's structured errors (code, affected parts, suggested fix).
+If the student asks about a voltmeter or current, use only the provided measurements for that instrument/component."""
+
     def __init__(self):
         self.template = PromptTemplate()
 
@@ -178,6 +190,10 @@ Do not invent that a lab or SimulationRun occurred."""
         if not context.simulation:
             template.engineeros_rules = (
                 f"{self.ENGINEEROS_RULES}\n\n{self.GENERAL_MENTOR_RULES}"
+            )
+        else:
+            template.engineeros_rules = (
+                f"{self.ENGINEEROS_RULES}\n\n{self.SIMULATION_MENTOR_RULES}"
             )
 
         # 3. Experiment context
@@ -297,6 +313,27 @@ Do not invent that a lab or SimulationRun occurred."""
         if simulation.get('authority'):
             lines.append(simulation['authority'])
 
+        if simulation.get('run_is_stale') or simulation.get('stale_warning'):
+            lines.append(
+                "STALE RUN: "
+                + str(
+                    simulation.get("stale_warning")
+                    or "Live editor circuit does not match this SimulationRun."
+                )
+            )
+
+        editor = simulation.get("editor_circuit")
+        run_circuit = simulation.get("circuit")
+        if editor:
+            lines.append("\nCURRENT EDITOR CIRCUIT (student drawing — not measurements):")
+            lines.extend(self._format_circuit_summary(editor))
+        if run_circuit and (not editor or editor.get("fingerprint") != run_circuit.get("fingerprint")):
+            lines.append("\nCIRCUIT ON THIS SIMULATION RUN:")
+            lines.extend(self._format_circuit_summary(run_circuit))
+        elif run_circuit and not editor:
+            lines.append("\nCIRCUIT ON THIS SIMULATION RUN:")
+            lines.extend(self._format_circuit_summary(run_circuit))
+
         lines.append(f"Status: {simulation.get('status', 'unknown')}")
 
         # Validation / structured errors
@@ -340,6 +377,14 @@ Do not invent that a lab or SimulationRun occurred."""
                             f"I={comp.get('current', 'N/A')}A, "
                             f"P={comp.get('power', 'N/A')}W"
                         )
+                if dc.get('node_voltages'):
+                    lines.append("Node voltages (simulator):")
+                    for node_id, volts in list(dc['node_voltages'].items())[:24]:
+                        lines.append(f"  - {node_id}: {volts} V")
+                if dc.get('branch_currents'):
+                    lines.append("Branch currents (simulator):")
+                    for branch_id, amps in list(dc['branch_currents'].items())[:24]:
+                        lines.append(f"  - {branch_id}: {amps} A")
             else:
                 lines.append(f"DC Solver Failed: {dc.get('error', 'Unknown error')}")
 
@@ -360,11 +405,40 @@ Do not invent that a lab or SimulationRun occurred."""
                     )
 
         if simulation.get('graphs'):
-            lines.append("Graphs Available:")
+            lines.append("Graphs Available (from this run only):")
             for graph in simulation['graphs']:
                 lines.append(f"  - {graph.get('title')} ({graph.get('type')})")
+                for series in graph.get("series") or []:
+                    y_range = series.get("y_range") or {}
+                    lines.append(
+                        f"    series={series.get('name')} points={series.get('point_count', 0)}"
+                        + (
+                            f" y=[{y_range.get('min')}, {y_range.get('max')}] {graph.get('y_unit') or ''}"
+                            if y_range
+                            else ""
+                        )
+                    )
 
         return "\n".join(lines)
+
+    def _format_circuit_summary(self, circuit: Dict[str, Any]) -> List[str]:
+        lines: List[str] = []
+        if circuit.get("fingerprint"):
+            lines.append(f"Electrical fingerprint: {circuit.get('fingerprint')}")
+        for comp in circuit.get("components") or []:
+            props = comp.get("properties") or {}
+            prop_bits = ", ".join(f"{k}={v}" for k, v in props.items())
+            extra = f" ({prop_bits})" if prop_bits else ""
+            lines.append(f"  - {comp.get('id')} [{comp.get('type')}]{extra}")
+        if circuit.get("connections"):
+            lines.append("Connections:")
+            for conn in circuit["connections"]:
+                lines.append(f"  - {conn.get('from')} ↔ {conn.get('to')}")
+        if circuit.get("nets"):
+            lines.append("Nets (connected terminals):")
+            for i, net in enumerate(circuit["nets"], 1):
+                lines.append(f"  - net{i}: {', '.join(net)}")
+        return lines
 
     def _format_quiz(self, quiz: Dict[str, Any]) -> str:
         """Format quiz context."""

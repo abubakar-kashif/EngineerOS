@@ -126,6 +126,27 @@ class TestSimulationContextOwnership:
         run.created_at = None
         run.updated_at = None
         run.validation_errors = None
+        run.circuit_definition = {
+            "components": [
+                {
+                    "id": "LED1",
+                    "type": "led",
+                    "label": "LED1",
+                    "properties": {},
+                    "terminals": [{"id": "LED1.anode", "type": "anode"}],
+                },
+                {
+                    "id": "V1",
+                    "type": "voltage_source",
+                    "label": "V1",
+                    "properties": {"voltage": 5},
+                    "terminals": [{"id": "V1.positive", "type": "positive"}],
+                },
+            ],
+            "connections": [
+                {"id": "W1", "from": "V1.positive", "to": "LED1.anode"},
+            ],
+        }
         run.results = {
             "status": "invalid",
             "validation": {
@@ -153,6 +174,8 @@ class TestSimulationContextOwnership:
         assert context["status"] == "invalid"
         assert context["validation"]["errors"][0]["code"] == "LED_NO_CURRENT_LIMIT"
         assert "authority" in context
+        assert context["circuit"]["components"][0]["id"] == "LED1"
+        assert context["circuit"]["fingerprint"]
 
 
 class TestUserContextFreshUser:
@@ -216,6 +239,8 @@ class TestPromptGrounding:
 
         prompt = builder.build_prompt(context, "Why is Vout 8 V?")
         assert "AUTHORITATIVE SIMULATION FACTS" in prompt
+        assert "SIMULATION MENTOR MODE" in prompt
+        assert "GENERAL MENTOR MODE" not in prompt
         assert "run-1" in prompt
         assert "8.0" in prompt or "8" in prompt
         assert "KVL" in prompt

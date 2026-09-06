@@ -14,6 +14,7 @@ Key rules:
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional, Dict, Any, List, Union
 
@@ -43,6 +44,180 @@ def _pick(data: Dict[str, Any], *keys: str, default=None):
         if key in data and data[key] is not None:
             return data[key]
     return default
+
+
+# Matches frontend electricalSnapshot ELECTRICAL_KEYS (component properties only).
+_ELECTRICAL_PROPERTY_KEYS = (
+    "resistance",
+    "voltage",
+    "current",
+    "capacitance",
+    "inductance",
+    "forwardVoltage",
+    "state",
+)
+
+
+def summarize_circuit_definition(circuit: Any, *, max_components: int = 40) -> Optional[Dict[str, Any]]:
+    """Compact topology from a stored or live circuit. Never invents measurements."""
+    if not isinstance(circuit, dict):
+        return None
+    components_out: List[Dict[str, Any]] = []
+    terminal_ids: List[str] = []
+    for raw in (circuit.get("components") or [])[:max_components]:
+        if not isinstance(raw, dict) or not raw.get("id"):
+            continue
+        props_raw = raw.get("properties") if isinstance(raw.get("properties"), dict) else {}
+        props = {
+            key: props_raw[key]
+            for key in _ELECTRICAL_PROPERTY_KEYS
+            if key in props_raw and props_raw[key] is not None
+        }
+        terminals: List[Dict[str, Any]] = []
+        for term in (raw.get("terminals") or [])[:8]:
+            if isinstance(term, str) and term:
+                tid = term if ":" in term else f"{raw.get('id')}:{term}"
+                terminals.append({"id": tid, "type": term.split(":")[-1]})
+                terminal_ids.append(tid)
+                continue
+            if not isinstance(term, dict) or not term.get("id"):
+                continue
+            tid = str(term["id"])
+            terminals.append({"id": tid, "type": term.get("type")})
+            terminal_ids.append(tid)
+        components_out.append(
+            {
+                "id": str(raw.get("id")),
+                "type": raw.get("type"),
+                "label": raw.get("label") or raw.get("id"),
+                "properties": props,
+                "terminals": terminals,
+            }
+        )
+    connections_out: List[Dict[str, Any]] = []
+    for raw in (circuit.get("connections") or [])[:80]:
+        if not isinstance(raw, dict):
+            continue
+        src = raw.get("from")
+        dst = raw.get("to")
+        if not src or not dst:
+            continue
+        connections_out.append(
+            {
+                "id": raw.get("id"),
+                "from": str(src),
+                "to": str(dst),
+            }
+        )
+        terminal_ids.extend([str(src), str(dst)])
+    nets = _nets_from_connections(connections_out, terminal_ids)
+    summary: Dict[str, Any] = {
+        "component_count": len(components_out),
+        "connection_count": len(connections_out),
+        "components": components_out,
+        "connections": connections_out,
+        "nets": nets,
+    }
+    summary["fingerprint"] = circuit_electrical_fingerprint(summary)
+    return summary
+
+
+def circuit_electrical_fingerprint(summary: Dict[str, Any]) -> str:
+    """Deterministic electrical fingerprint (ids, types, electrical props, wires)."""
+    components = sorted(
+        [
+            {
+                "id": c.get("id"),
+                "type": c.get("type"),
+                "properties": c.get("properties") or {},
+            }
+            for c in (summary.get("components") or [])
+            if isinstance(c, dict)
+        ],
+        key=lambda item: str(item.get("id") or ""),
+    )
+    connections = sorted(
+        "--".join(sorted([str(c.get("from")), str(c.get("to"))]))
+        for c in (summary.get("connections") or [])
+        if isinstance(c, dict) and c.get("from") and c.get("to")
+    )
+    return json.dumps(
+        {"components": components, "connections": connections},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _nets_from_connections(
+    connections: List[Dict[str, Any]], terminal_ids: List[str]
+) -> List[List[str]]:
+    parent: Dict[str, str] = {}
+
+    def find(node: str) -> str:
+        parent.setdefault(node, node)
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+        return node
+
+    def union(a: str, b: str) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    for tid in terminal_ids:
+        if tid:
+            parent.setdefault(str(tid), str(tid))
+    for conn in connections:
+        union(str(conn["from"]), str(conn["to"]))
+    groups: Dict[str, List[str]] = {}
+    for tid in parent:
+        groups.setdefault(find(tid), []).append(tid)
+    nets = [sorted(members) for members in groups.values() if len(members) > 1]
+    nets.sort(key=lambda members: members[0])
+    return nets[:30]
+
+
+def apply_live_editor_circuit(
+    simulation_context: Optional[Dict[str, Any]],
+    circuit_snapshot: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """
+    Merge the live canvas topology into simulation context.
+
+    If the live drawing no longer matches the attached SimulationRun, drop
+    measurements so Mentor cannot reuse a stale run.
+    """
+    editor = summarize_circuit_definition(circuit_snapshot) if circuit_snapshot else None
+    if simulation_context is None:
+        if editor is None:
+            return None
+        return {
+            "status": "editor_only",
+            "editor_circuit": editor,
+            "authority": (
+                "This is the student's current drawing only. "
+                "No matching SimulationRun is attached. "
+                "Do not invent voltages, currents, or measurements."
+            ),
+        }
+
+    merged = dict(simulation_context)
+    if editor is not None:
+        merged["editor_circuit"] = editor
+        run_circuit = merged.get("circuit")
+        run_fp = run_circuit.get("fingerprint") if isinstance(run_circuit, dict) else None
+        live_fp = editor.get("fingerprint")
+        if run_fp and live_fp and run_fp != live_fp:
+            merged["run_is_stale"] = True
+            merged["stale_warning"] = (
+                "The live editor circuit no longer matches this SimulationRun. "
+                "Do not use the stored voltages/currents. Ask the student to Run again."
+            )
+            for key in ("dc_result", "measurements", "graphs"):
+                merged.pop(key, None)
+            merged["status"] = "stale_editor_mismatch"
+    return merged
 
 
 def _as_dict_map(value: Any) -> Dict[str, Any]:
@@ -300,6 +475,7 @@ class SimulationContext:
         sim_run = query.first()
 
         result_data = None
+        circuit_summary: Optional[Dict[str, Any]] = None
         run_meta: Dict[str, Any] = {
             "simulation_run_id": simulation_id,
             "owned_by_requester": True,
@@ -307,6 +483,7 @@ class SimulationContext:
 
         if sim_run:
             result_data = sim_run.results
+            circuit_summary = summarize_circuit_definition(sim_run.circuit_definition)
             run_meta.update(
                 {
                     "experiment_id": sim_run.experiment_id,
@@ -352,6 +529,7 @@ class SimulationContext:
                     "source": "simulation",
                 }
             )
+            circuit_summary = summarize_circuit_definition(legacy.circuit_definition)
             if not result_data and legacy.validation_errors:
                 result_data = {
                     "status": "invalid",
@@ -365,6 +543,17 @@ class SimulationContext:
                 }
 
         if not result_data or not isinstance(result_data, dict):
+            if circuit_summary:
+                return {
+                    "status": "unknown",
+                    "circuit": circuit_summary,
+                    "simulation_run_id": simulation_id,
+                    "run_identity": run_meta,
+                    "authority": (
+                        "Circuit topology is from the stored SimulationRun. "
+                        "No solver results are attached. Do not invent measurements."
+                    ),
+                }
             return None
 
         sim_result = parse_simulation_result_dict(result_data)
@@ -381,6 +570,8 @@ class SimulationContext:
         # treat an older run as the current one without an explicit ID change.
         context["simulation_run_id"] = simulation_id
         context["run_identity"] = run_meta
+        if circuit_summary:
+            context["circuit"] = circuit_summary
         context["authority"] = (
             "These values come from the EngineerOS simulator. "
             "They are authoritative. Do not recalculate or invent replacements."

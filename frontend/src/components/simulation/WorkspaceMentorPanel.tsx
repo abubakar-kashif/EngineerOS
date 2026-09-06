@@ -12,6 +12,8 @@ import MarkdownLite from "../chat/MarkdownLite";
 import TypingIndicator from "../chat/TypingIndicator";
 import type { ChatMessage } from "../../types/chat";
 import type { SimulationResult } from "./engine";
+import type { CircuitDefinition } from "./engine/circuitGraph";
+import { compactCircuitForMentor } from "./engine/electricalSnapshot";
 
 interface WorkspaceMentorPanelProps {
   experimentId: string | null;
@@ -19,6 +21,8 @@ interface WorkspaceMentorPanelProps {
   simResult: SimulationResult | null;
   /** Fresh SimulationRun id after each solve — authoritative Mentor context. */
   simulationRunId?: string | null;
+  /** Live canvas topology; sent with every ask so Mentor sees the current drawing. */
+  liveCircuit?: CircuitDefinition | null;
   /** Close the mentor rail to enlarge the canvas. */
   onClose?: () => void;
 }
@@ -33,6 +37,7 @@ function WorkspaceMentorPanel({
   experimentTitle,
   simResult,
   simulationRunId = null,
+  liveCircuit = null,
   onClose,
 }: WorkspaceMentorPanelProps) {
   const { user } = useAuth();
@@ -48,6 +53,7 @@ function WorkspaceMentorPanel({
   const runIdRef = useRef(simulationRunId);
   const experimentIdRef = useRef(experimentId);
   const simResultRef = useRef(simResult);
+  const liveCircuitRef = useRef(liveCircuit);
 
   useEffect(() => {
     runIdRef.current = simulationRunId;
@@ -58,6 +64,9 @@ function WorkspaceMentorPanel({
   useEffect(() => {
     simResultRef.current = simResult;
   }, [simResult]);
+  useEffect(() => {
+    liveCircuitRef.current = liveCircuit;
+  }, [liveCircuit]);
 
   // Flash when a new authoritative run arrives (closed-loop freshness)
   const contextKey = `${simulationRunId ?? ""}|${simResult?.status ?? ""}|${simResult?.measurements?.totalCurrent ?? ""}`;
@@ -135,18 +144,23 @@ function WorkspaceMentorPanel({
       }
       return [
         experimentTitle
-          ? `I want to build the ${experimentTitle} experiment. What components should I use?`
-          : "I want to build a KVL loop. What components do I need?",
+          ? `How should I build this circuit?`
+          : "How should I build this circuit?",
         "How should I wire a series loop with a source, resistor, and ground?",
       ];
     }
     if (simResult.status === "invalid") {
-      return ["What did I do wrong?", "What should I change before I run again?"];
+      return [
+        "Why isn't my circuit working?",
+        "What's wrong with my wiring?",
+        "How do I fix this circuit?",
+      ];
     }
     if (simResult.status === "completed") {
       return [
-        "Why are these measurement values what they are?",
-        "If I change a resistor and rerun, what should I expect conceptually?",
+        "Explain what is happening in my circuit.",
+        "Why is my voltmeter showing this value?",
+        "Why is my current zero?",
       ];
     }
     return ["Explain the latest simulation result."];
@@ -176,6 +190,7 @@ function WorkspaceMentorPanel({
     }
 
     const latestRunId = runIdRef.current;
+    const live = liveCircuitRef.current;
     if (simResultRef.current && !latestRunId) {
       setError(
         "Simulation finished locally, but Mentor needs a saved run. Sign in and Run again so context stays fresh.",
@@ -189,8 +204,8 @@ function WorkspaceMentorPanel({
       {
         experimentId: experimentIdRef.current,
         stage: "simulation",
-        // Prefer SimulationRun id so each rerun replaces Mentor facts
         simulationId: latestRunId,
+        circuitSnapshot: live ? compactCircuitForMentor(live) : null,
       },
       {
         onUserMessage: (message) => setMessages((prev) => [...prev, message]),
