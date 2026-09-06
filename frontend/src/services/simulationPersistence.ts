@@ -102,14 +102,14 @@ export async function persistAndRunSimulation(options: {
 
     const runId = extractRunId(remote);
     const merged: SimulationResult = {
-      ...(localResult.status === "completed" || localResult.status === "invalid"
-        ? localResult
-        : remote),
+      ...localResult,
       metadata: {
         ...(localResult.metadata || {}),
         ...(remote.metadata || {}),
         simulation_id: simId,
         simulation_run_id: runId,
+        solvedCircuitFingerprint: localResult.metadata?.solvedCircuitFingerprint,
+        netlistSnapshot: localResult.metadata?.netlistSnapshot,
       },
     };
 

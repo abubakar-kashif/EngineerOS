@@ -12,6 +12,7 @@ import { validateCircuit } from './circuitValidator';
 import { solveLinearSystem } from './linearAlgebra';
 import {
   GROUND_NET,
+  allTerminalsWired,
   buildNetlist,
   sourceLoopIsWired,
   type Netlist,
@@ -118,9 +119,11 @@ interface DiodeState {
 function collectVoltageUnknowns(
   netlist: Netlist,
   diodes: DiodeState[],
+  skipIds: Set<string>,
 ): VoltageUnknown[] {
   const list: VoltageUnknown[] = [];
   for (const el of netlist.elements) {
+    if (skipIds.has(el.id)) continue;
     if (el.kind === 'voltage_source') {
       list.push({ id: el.id, nPos: el.nPos, nNeg: el.nNeg, voltage: el.voltage });
     } else if (el.kind === 'inductor') {
@@ -139,8 +142,42 @@ function collectVoltageUnknowns(
   return list;
 }
 
-function nonGroundNets(netlist: Netlist): string[] {
-  return netlist.nets.filter((n) => n !== netlist.groundNet);
+function activeNets(netlist: Netlist, diodes: DiodeState[], skipIds: Set<string>): string[] {
+  const nets = new Set<string>();
+  const add = (...ids: string[]) => {
+    for (const id of ids) nets.add(id);
+  };
+  for (const el of netlist.elements) {
+    if (skipIds.has(el.id)) continue;
+    switch (el.kind) {
+      case 'resistor':
+      case 'inductor':
+      case 'ammeter':
+        add(el.n1, el.n2);
+        break;
+      case 'capacitor':
+        add(el.n1, el.n2);
+        break;
+      case 'switch':
+        if (el.closed) add(el.n1, el.n2);
+        break;
+      case 'voltage_source':
+      case 'current_source':
+      case 'voltmeter':
+        add(el.nPos, el.nNeg);
+        break;
+      case 'diode':
+      case 'led':
+        add(el.nAnode, el.nCathode);
+        break;
+      default:
+        break;
+    }
+  }
+  for (const d of diodes) {
+    if (d.on) add(d.nAnode, d.nCathode);
+  }
+  return [...nets].filter((n) => n !== netlist.groundNet);
 }
 
 function stampConductance(
@@ -178,9 +215,10 @@ function stampCurrent(
 function solveStamps(
   netlist: Netlist,
   diodes: DiodeState[],
+  skipIds: Set<string>,
 ): { voltages: Map<string, number>; extraCurrent: Map<string, number> } | { error: string } {
-  const voltageUnknowns = collectVoltageUnknowns(netlist, diodes);
-  const nodes = nonGroundNets(netlist);
+  const voltageUnknowns = collectVoltageUnknowns(netlist, diodes, skipIds);
+  const nodes = activeNets(netlist, diodes, skipIds);
   const n = nodes.length;
   const m = voltageUnknowns.length;
   const dim = n + m;
@@ -202,7 +240,7 @@ function solveStamps(
     if (el.kind === 'resistor') {
       stampG(el.n1, el.n2, 1 / el.resistance);
     } else if (el.kind === 'voltmeter') {
-      stampG(el.nPos, el.nNeg, VOLTMETER_CONDUCTANCE);
+      if (!skipIds.has(el.id)) stampG(el.nPos, el.nNeg, VOLTMETER_CONDUCTANCE);
     } else if (el.kind === 'current_source') {
       stampCurrent(rhs, indexOf, el.nPos, el.nNeg, el.current);
     }
@@ -244,6 +282,7 @@ function netVoltage(voltages: Map<string, number>, net: string): number {
 
 function iterateDiodes(
   netlist: Netlist,
+  skipIds: Set<string>,
 ): { voltages: Map<string, number>; extraCurrent: Map<string, number> } | { error: string } {
   const diodes: DiodeState[] = netlist.elements
     .filter((e): e is Extract<NetlistElement, { kind: 'diode' | 'led' }> =>
@@ -258,7 +297,7 @@ function iterateDiodes(
       vf: e.vf,
     }));
 
-  let last = solveStamps(netlist, diodes);
+  let last = solveStamps(netlist, diodes, skipIds);
   if ('error' in last) return last;
 
   for (let iter = 0; iter < DIODE_MAX_ITERS; iter++) {
@@ -278,7 +317,7 @@ function iterateDiodes(
         }
       }
     }
-    last = solveStamps(netlist, diodes);
+    last = solveStamps(netlist, diodes, skipIds);
     if ('error' in last) return last;
     if (!changed) break;
     if (iter === DIODE_MAX_ITERS - 1) {
@@ -289,11 +328,16 @@ function iterateDiodes(
 }
 
 function solveNetlist(
-  _circuit: CircuitDefinition,
+  circuit: CircuitDefinition,
   nodes: ElectricalNode[],
   netlist: Netlist,
 ): DCResult {
-  const solved = iterateDiodes(netlist);
+  const skipIds = new Set(
+    circuit.components
+      .filter((c) => (c.type === 'voltmeter' || c.type === 'ammeter') && !allTerminalsWired(circuit, c))
+      .map((c) => c.id),
+  );
+  const solved = iterateDiodes(netlist, skipIds);
   if ('error' in solved) {
     return fail(solved.error, 'SOLVER_FAILED');
   }
@@ -402,19 +446,21 @@ function solveNetlist(
         power: 0,
       });
     } else if (el.kind === 'voltmeter') {
+      if (skipIds.has(el.id)) continue;
       const voltage = vDrop(el.nPos, el.nNeg);
       componentResults.set(el.id, {
         componentId: el.id,
-        voltage: Math.abs(voltage),
+        voltage,
         current: 0,
         power: 0,
       });
     } else if (el.kind === 'ammeter') {
+      if (skipIds.has(el.id)) continue;
       const i = extraCurrent.get(el.id) ?? 0;
       componentResults.set(el.id, {
         componentId: el.id,
         voltage: 0,
-        current: Math.abs(i),
+        current: i,
         power: 0,
       });
     }

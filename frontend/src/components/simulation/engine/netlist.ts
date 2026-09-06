@@ -196,6 +196,16 @@ export function buildNetlist(
   };
 }
 
+export function allTerminalsWired(
+  circuit: CircuitDefinition,
+  component: Component,
+): boolean {
+  if (component.terminals.length === 0) return false;
+  return component.terminals.every((t) =>
+    circuit.connections.some((c) => c.from === t.id || c.to === t.id),
+  );
+}
+
 export function netForTerminal(
   nodes: ElectricalNode[],
   terminalId: string,

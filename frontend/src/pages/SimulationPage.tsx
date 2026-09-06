@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { X } from "lucide-react";
 import { useCircuitEditor } from "../hooks/useCircuitEditor";
-import { validateCircuit, solveCircuit } from "../components/simulation/engine";
+import { solveCircuit, displayableSimulationResult } from "../components/simulation/engine";
 import type { SimulationResult } from "../components/simulation/engine";
 import AnalysisPanel from "../components/simulation/AnalysisPanel";
 import ComponentInspector from "../components/simulation/ComponentInspector";
@@ -248,14 +248,20 @@ function SimulationPage() {
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
+  const liveEngineCircuit = useMemo(() => getEngineCircuit(), [getEngineCircuit]);
+  const displayedResult = useMemo(
+    () => displayableSimulationResult(simResult, liveEngineCircuit),
+    [simResult, liveEngineCircuit],
+  );
+
   const toolbarStatus: SimToolbarStatus = useMemo(() => {
     if (isRunning) return "running";
-    if (!simResult) return "idle";
-    if (simResult.status === "completed") return "completed";
-    if (simResult.status === "invalid") return "invalid";
-    if (simResult.status === "failed") return "failed";
+    if (!displayedResult) return "idle";
+    if (displayedResult.status === "completed") return "completed";
+    if (displayedResult.status === "invalid") return "invalid";
+    if (displayedResult.status === "failed") return "failed";
     return "error";
-  }, [isRunning, simResult]);
+  }, [isRunning, displayedResult]);
 
   const runSimulation = useCallback(async () => {
     setIsRunning(true);
@@ -263,26 +269,6 @@ function SimulationPage() {
       const engineCircuit = getEngineCircuit();
       if (experimentParam || experiment?.id) {
         engineCircuit.experimentId = experiment?.id ?? experimentParam ?? undefined;
-      }
-      const validation = validateCircuit(engineCircuit);
-      if (!validation.valid) {
-        const invalid: SimulationResult = {
-          status: "invalid",
-          validation,
-          error: "Circuit validation failed",
-        };
-        setSimResult(invalid);
-        const persist = await persistAndRunSimulation({
-          circuit: engineCircuit,
-          localResult: invalid,
-          experimentId: experiment?.id ?? experimentParam,
-          existingSimulationId: simulationId,
-          name: experiment?.title ?? "Lab simulation",
-        });
-        if (persist.simulationId) setSimulationId(persist.simulationId);
-        setSimulationRunId(persist.simulationRunId);
-        if (persist.engineResult) setSimResult(persist.engineResult);
-        return;
       }
       const result = solveCircuit(engineCircuit);
       setSimResult(result);
@@ -387,9 +373,8 @@ function SimulationPage() {
 
   /** Circuit edits invalidate prior measurements/graphs until the next Run. */
   const invalidateSimOnEdit = useCallback(() => {
-    setSimResult((prev) => (prev === null ? prev : null));
+    setSimResult(null);
     setSimulationRunId(null);
-    setSimulationId(null);
   }, []);
 
   const onAddComponent = useCallback(
@@ -462,6 +447,14 @@ function SimulationPage() {
       completeWireToWire(wireId, x, y);
     },
     [completeWireToWire, invalidateSimOnEdit],
+  );
+
+  const onCommitWireEndpoint = useCallback(
+    (wireId: string, end: "a" | "b", x: number, y: number) => {
+      invalidateSimOnEdit();
+      commitWireEndpoint(wireId, end, x, y);
+    },
+    [commitWireEndpoint, invalidateSimOnEdit],
   );
 
   const onUndo = useCallback(() => {
@@ -582,7 +575,7 @@ function SimulationPage() {
                 selectedType={state.placementType}
               />
               <InstrumentsPanel
-                result={simResult}
+                result={displayedResult}
                 selectedComponentId={state.selectedComponentId}
               />
             </aside>
@@ -603,7 +596,7 @@ function SimulationPage() {
                 ref={canvasRef}
                 className="sim2-canvas-host"
                 editor={state}
-                simResult={simResult}
+                simResult={displayedResult}
                 onAddComponent={onAddComponent}
                 onSelectComponent={selectComponent}
                 onSelectWire={selectWire}
@@ -623,7 +616,7 @@ function SimulationPage() {
                 onPrepareWireReshape={prepareWireReshape}
                 onBeginReshapeWire={beginReshapeWire}
                 onMoveWireEndpoint={moveWireEndpoint}
-                onCommitWireEndpoint={commitWireEndpoint}
+                onCommitWireEndpoint={onCommitWireEndpoint}
                 onBeginMoveWireEndpoint={beginMoveWireEndpoint}
                 placementType={state.placementType}
               />
@@ -655,8 +648,8 @@ function SimulationPage() {
               <WorkspaceMentorPanel
                 experimentId={experiment?.id ?? experimentParam}
                 experimentTitle={experiment?.title ?? null}
-                simResult={simResult}
-                simulationRunId={simulationRunId}
+                simResult={displayedResult}
+                simulationRunId={displayedResult ? simulationRunId : null}
                 onClose={() => setShowMentor(false)}
               />
             </div>
@@ -714,12 +707,12 @@ function SimulationPage() {
                     <p className="sim2-analysis-empty" role="status">
                       Simulation running…
                     </p>
-                  ) : simResult ? (
-                    <MeasurementsPanel result={simResult} />
+                  ) : displayedResult ? (
+                    <MeasurementsPanel result={displayedResult} />
                   ) : (
                     <AnalysisPanel
-                      circuit={getEngineCircuit()}
-                      result={simResult}
+                      circuit={liveEngineCircuit}
+                      result={displayedResult}
                       selectedComponentId={state.selectedComponentId}
                     />
                   )}
@@ -753,11 +746,14 @@ function SimulationPage() {
                     <p className="sim2-analysis-empty" role="status">
                       Waiting for solver graphs…
                     </p>
-                  ) : simResult?.measurements ? (
+                  ) : displayedResult?.measurements ? (
                     <GraphViewer
-                      key={simulationRunId ?? `${simResult.status}-${simResult.measurements?.totalCurrent ?? 0}`}
-                      result={simResult}
-                      graphs={simResult.graphs}
+                      key={
+                        simulationRunId ??
+                        `${displayedResult.metadata?.solvedCircuitFingerprint ?? displayedResult.status}`
+                      }
+                      result={displayedResult}
+                      graphs={displayedResult.graphs}
                     />
                   ) : (
                     <p className="sim2-analysis-empty" role="status">
@@ -778,8 +774,8 @@ function SimulationPage() {
             ? { experiment: experiment?.id ?? experimentParam! }
             : {}),
           stage: "simulation",
-          ...(simulationRunId ? { simulation: simulationRunId } : {}),
-          ...(simResult?.status ? { sim: simResult.status } : {}),
+          ...(displayedResult && simulationRunId ? { simulation: simulationRunId } : {}),
+          ...(displayedResult?.status ? { sim: displayedResult.status } : {}),
         }).toString()}`}
       >
         Open AI Mentor

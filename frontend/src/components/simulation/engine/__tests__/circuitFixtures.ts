@@ -47,6 +47,29 @@ export function voltageDivider12V(): CircuitDefinition {
   };
 }
 
+/** Divider with VM across R2 and AM in the source lead. */
+export function voltageDivider12VWithMeters(): CircuitDefinition {
+  return {
+    components: [
+      comp('V1', 'voltage_source', { voltage: 12 }, ['positive', 'negative']),
+      comp('R1', 'resistor', { resistance: 1000 }, ['A', 'B']),
+      comp('R2', 'resistor', { resistance: 4000 }, ['A', 'B']),
+      comp('GND1', 'ground', {}, ['ground']),
+      comp('VM1', 'voltmeter', {}, ['positive', 'negative']),
+      comp('AM1', 'ammeter', {}, ['input', 'output']),
+    ],
+    connections: [
+      wire('W1', T('V1', 'positive'), T('AM1', 'input')),
+      wire('W2', T('AM1', 'output'), T('R1', 'A')),
+      wire('W3', T('R1', 'B'), T('R2', 'A')),
+      wire('W4', T('R2', 'B'), T('GND1', 'ground')),
+      wire('W5', T('V1', 'negative'), T('GND1', 'ground')),
+      wire('W6', T('VM1', 'positive'), T('R2', 'A')),
+      wire('W7', T('VM1', 'negative'), T('GND1', 'ground')),
+    ],
+  };
+}
+
 export function series5VTwo1k(): CircuitDefinition {
   return {
     components: [

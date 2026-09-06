@@ -33,31 +33,23 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
   const measurements = result?.measurements;
   const comps = measurements?.componentMeasurements ?? [];
 
-  const voltmeter =
-    comps.find(c => c.type === "voltmeter") ??
-    (selectedComponentId
-      ? comps.find(c => c.componentId === selectedComponentId && c.voltage !== undefined)
-      : undefined);
-  const ammeter = comps.find(c => c.type === "ammeter");
-  const ohmmeter = comps.find(c => c.type === "ohmmeter");
-  const powerMeter = comps.find(c => c.type === "power_meter");
+  const voltmeters = comps.filter((c) => c.type === "voltmeter");
+  const ammeters = comps.filter((c) => c.type === "ammeter");
+  const ohmmeter = comps.find((c) => c.type === "ohmmeter");
+  const powerMeter = comps.find((c) => c.type === "power_meter");
 
-  const selected = selectedComponentId
-    ? comps.find(c => c.componentId === selectedComponentId)
-    : undefined;
-
+  const selectedVolt = voltmeters.find((c) => c.componentId === selectedComponentId);
+  const selectedAmp = ammeters.find((c) => c.componentId === selectedComponentId);
   const voltReading =
-    voltmeter?.type === "voltmeter"
-      ? voltmeter.voltage
-      : selected?.voltage;
-  const ampReading = ammeter?.current ?? selected?.current;
+    selectedVolt?.voltage ?? (voltmeters.length === 1 ? voltmeters[0].voltage : undefined);
+  const ampReading =
+    selectedAmp?.current ?? (ammeters.length === 1 ? ammeters[0].current : undefined);
   const ohmReading =
     ohmmeter?.resistance ??
-    selected?.resistance ??
     (measurements && measurements.equivalentResistance > 0
       ? measurements.equivalentResistance
       : undefined);
-  const powerReading = powerMeter?.power ?? selected?.power ?? measurements?.totalPower;
+  const powerReading = powerMeter?.power ?? measurements?.totalPower;
 
   const status = result?.status ?? "idle";
   const ready = status === "completed" && Boolean(measurements);
@@ -78,7 +70,9 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
             <span className="sim-instrument-reading">
               {voltReading !== undefined && Number.isFinite(voltReading)
                 ? formatVoltage(voltReading)
-                : "— (place meter or select a component)"}
+                : voltmeters.length > 1
+                  ? `${voltmeters.length} meters — select Results for each`
+                  : "— (connect a voltmeter across two nodes and Run)"}
             </span>
           </div>
           <div className="sim-instrument-card">
@@ -86,7 +80,9 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
             <span className="sim-instrument-reading">
               {ampReading !== undefined && Number.isFinite(ampReading)
                 ? formatCurrent(ampReading)
-                : "— (place meter or select a component)"}
+                : ammeters.length > 1
+                  ? `${ammeters.length} meters — select Results for each`
+                  : "— (insert an ammeter in the branch and Run)"}
             </span>
           </div>
           <div className="sim-instrument-card">
