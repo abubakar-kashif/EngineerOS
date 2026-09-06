@@ -21,11 +21,11 @@ function FeaturedExperiments({ experiments, isLoading }: FeaturedExperimentsProp
   const featured = experiments.slice(0, 6);
 
   return (
-    <section className="home-section">
+    <section className="home-section home-section--panel" id="experiments">
       <SectionHeading
-        eyebrow="FEATURED EXPERIMENTS"
-        title="Start with the fundamentals"
-        description="Explore electrical engineering experiments designed to build your understanding step by step."
+        eyebrow="ELECTRICAL ENGINEERING"
+        title="Experiments"
+        description="Explore guided experiments designed to build understanding step by step — from Ohm's Law to LED circuits."
       />
 
       {isLoading && (

@@ -1,36 +1,36 @@
-import { BookOpen, Wrench, Brain, TrendingUp } from "lucide-react";
+import { BookOpen, Wrench, PlayCircle, Lightbulb } from "lucide-react";
 import SectionHeading from "../ui/SectionHeading";
 
 const pillars = [
   {
     icon: BookOpen,
-    step: "1",
-    title: "Learn the theory",
+    step: "01",
+    title: "Learn",
     desc: "Each experiment starts with the engineering concept — the equations, the physics, and why it matters.",
   },
   {
     icon: Wrench,
-    step: "2",
-    title: "Build & simulate",
-    desc: "Construct circuits visually, assign component values, and run simulations with instant DC analysis.",
+    step: "02",
+    title: "Build",
+    desc: "Construct circuits visually and assign component values in the simulation workspace.",
   },
   {
-    icon: Brain,
-    step: "3",
-    title: "Ask the AI Mentor",
-    desc: "Connect results back to theory. Ask why measurements differ, what went wrong, or how to improve.",
+    icon: PlayCircle,
+    step: "03",
+    title: "Simulate",
+    desc: "Run simulations with DC analysis, measurements, and graphs that reflect your circuit.",
   },
   {
-    icon: TrendingUp,
-    step: "4",
-    title: "Prove your understanding",
-    desc: "Take quizzes, write lab reports, and track progress across experiments and topics.",
+    icon: Lightbulb,
+    step: "04",
+    title: "Understand",
+    desc: "Connect results to theory with quizzes, lab reports, and AI Mentor guidance.",
   },
 ];
 
 function HowItWorks() {
   return (
-    <section className="home-section">
+    <section className="home-section home-section--panel" id="how-it-works">
       <SectionHeading
         eyebrow="HOW IT WORKS"
         title="From concept to confidence in four steps"
@@ -39,7 +39,7 @@ function HowItWorks() {
 
       <div className="home-how-grid">
         {pillars.map((p) => (
-          <div key={p.step} className="home-how-card">
+          <div key={p.step} className="home-how-card animate-slide-up">
             <span className="home-how-step">{p.step}</span>
             <div className="home-how-icon">
               <p.icon size={20} />

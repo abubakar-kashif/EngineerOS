@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 
 import HeroSection from "../components/home/HeroSection";
-import FeaturedExperiments from "../components/home/FeaturedExperiments";
-import LearningWorkflow from "../components/home/LearningWorkflow";
-import AIMentorPreview from "../components/home/AIMentorPreview";
-import SimulationPreview from "../components/home/SimulationPreview";
-import WhyEngineerOS from "../components/home/WhyEngineerOS";
 import HowItWorks from "../components/home/HowItWorks";
+import FeaturedExperiments from "../components/home/FeaturedExperiments";
+import SimulationPreview from "../components/home/SimulationPreview";
+import AIMentorPreview from "../components/home/AIMentorPreview";
+import StatsProof from "../components/home/StatsProof";
 import FinalCTA from "../components/home/FinalCTA";
 import HomeFooter from "../components/home/HomeFooter";
 
@@ -26,29 +25,26 @@ function HomePage() {
         if (cancelled) return;
         setExperiments(response.items);
       } catch {
-        // Backend unavailable — an empty featured section is honest; no
-        // bundled fallback data.
         if (!cancelled) setExperiments([]);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     }
 
-    load();
-    return () => { cancelled = true; };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
-    <div className="home-page">
+    <div className="home-page home-page--landing">
       <HeroSection />
-      <WhyEngineerOS />
-      <LearningWorkflow />
+      <HowItWorks />
       <FeaturedExperiments experiments={experiments} isLoading={isLoading} />
       <SimulationPreview />
       <AIMentorPreview />
-      <div id="how-it-works">
-        <HowItWorks />
-      </div>
+      <StatsProof />
       <FinalCTA />
       <HomeFooter />
     </div>
