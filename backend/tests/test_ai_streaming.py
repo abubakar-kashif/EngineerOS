@@ -19,10 +19,10 @@ class TestStreamEvent:
     def test_stream_event_start(self):
         event = StreamEvent(
             type=StreamEventType.START,
-            metadata={"model": "gemini-2.5-flash"}
+            metadata={"model": "gemini-3.6-flash"}
         )
         assert event.type == StreamEventType.START
-        assert event.metadata["model"] == "gemini-2.5-flash"
+        assert event.metadata["model"] == "gemini-3.6-flash"
 
     def test_stream_event_delta(self):
         event = StreamEvent(
@@ -80,7 +80,7 @@ class TestStreamResult:
     def test_stream_result_completed(self):
         result = StreamResult.completed(
             content="Hello world",
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             usage={"total_tokens": 10}
         )
         assert result.success is True

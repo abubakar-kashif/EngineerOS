@@ -13,7 +13,7 @@ from app.services.ai.types import (
 from app.services.ai.provider import AIProvider
 
 # Free-tier eligible Flash model (verify against the live Models API at runtime).
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
 
 
 def _redact_secrets(message: str, api_key: Optional[str] = None) -> str:

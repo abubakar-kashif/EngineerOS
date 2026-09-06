@@ -180,7 +180,7 @@ describe("sendMessage real Mentor stream", () => {
       "PATCH /conversations/c1": () => jsonResponse(summary("c1", "Renamed", 0)),
       "POST /conversations/c1/ask/stream": () =>
         sseResponse([
-          { type: "start", content: "", metadata: { model: "gemini-2.5-flash" } },
+          { type: "start", content: "", metadata: { model: "gemini-3.6-flash" } },
           { type: "delta", content: "Ohm" },
           { type: "delta", content: "'s Law" },
           {

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # AI Configuration (server-side only — never expose AI_API_KEY to frontend)
     AI_PROVIDER: str = "gemini"
-    AI_MODEL: str = "gemini-2.5-flash"
+    AI_MODEL: str = "gemini-3.6-flash"
     AI_API_KEY: Optional[str] = None
     AI_BASE_URL: Optional[str] = None
     AI_TIMEOUT_SECONDS: int = 60

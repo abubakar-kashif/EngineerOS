@@ -172,7 +172,7 @@ json
     "conversation_id": "conv-456",
     "role": "assistant",
     "content": "Ohm's law states that the current through a conductor...",
-    "extra_data": {"model": "gemini-2.5-flash"},
+    "extra_data": {"model": "gemini-3.6-flash"},
     "created_at": "2026-08-31T10:01:30"
   }
 ]
@@ -196,7 +196,7 @@ Response (200 OK):
 json
 {
   "content": "Ohm's law states that the current through a conductor...",
-  "model": "gemini-2.5-flash",
+  "model": "gemini-3.6-flash",
   "usage": {
     "prompt_tokens": 150,
     "completion_tokens": 80,
@@ -224,9 +224,9 @@ Response: Server-Sent Events (SSE) stream
 Events:
 
 Event Type	Description	Example
-start	Stream started	{"type":"start","content":"","metadata":{"model":"gemini-2.5-flash"}}
+start	Stream started	{"type":"start","content":"","metadata":{"model":"gemini-3.6-flash"}}
 delta	Text chunk	{"type":"delta","content":"Ohm's law"}
-metadata	Model/usage info	{"type":"metadata","metadata":{"model":"gemini-2.5-flash","usage":{...}}}
+metadata	Model/usage info	{"type":"metadata","metadata":{"model":"gemini-3.6-flash","usage":{...}}}
 complete	Stream finished	{"type":"complete","content":"Full response..."}
 error	Error occurred	{"type":"error","error":"Provider unavailable"}
 Error Codes
