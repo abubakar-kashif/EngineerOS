@@ -48,7 +48,18 @@ export function solveCircuit(circuit: CircuitDefinition): SimulationResult {
     if (!dcResult.success) {
       return {
         status: 'failed',
-        validation,
+        validation: {
+          ...validation,
+          errors: [
+            ...validation.errors,
+            {
+              code: dcResult.errorCode ?? 'SOLVER_FAILED',
+              severity: 'error' as const,
+              message: dcResult.error || 'Solver failed',
+              suggestedFix: 'Check for shorts, floating nodes, or unsupported topology.',
+            },
+          ],
+        },
         error: dcResult.error || 'Solver failed',
         graphs: [],
       };

@@ -16,6 +16,8 @@ export * from './circuitGraphBuilder';
 export * from './circuitValidator';
 
 // Phase A5 - DC Solver
+export * from './linearAlgebra';
+export * from './netlist';
 export * from './dcSolver';
 export * from './circuitSolver';
 
