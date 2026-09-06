@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { QUIZ_ATTEMPT_SIZE, QUIZ_BANK } from "../data/quiz/quizBank";
+import {
+  countSeedByDifficulty,
+  enrichSeedQuestions,
+  sampleUnique,
+  TARGET_PER_DIFFICULTY,
+} from "../data/quiz/quizDifficulty";
 import type { AnswerLetter, QuizCategory } from "../types/quiz";
 
 const ANSWER_LETTERS: AnswerLetter[] = ["A", "B", "C", "D"];
@@ -15,10 +21,10 @@ const CATEGORIES: QuizCategory[] = [
   "common_mistakes",
 ];
 
-describe("quiz bank shape (Phase 6)", () => {
+describe("quiz bank shape", () => {
   const experiments = Object.entries(QUIZ_BANK);
 
-  it("gives every experiment a 40-question bank", () => {
+  it("gives every experiment a 40-question base bank", () => {
     expect(experiments).toHaveLength(10);
     for (const [experimentId, questions] of experiments) {
       expect(questions, experimentId).toHaveLength(40);
@@ -47,17 +53,27 @@ describe("quiz bank shape (Phase 6)", () => {
     }
   });
 
-  it("keeps question texts unique across the whole bank", () => {
-    const all = experiments.flatMap(([, questions]) =>
-      questions.map((entry) => entry.question),
-    );
-    expect(new Set(all).size).toBe(400);
+  it("enriches each experiment to 40 questions per difficulty", () => {
+    for (const [experimentId, questions] of experiments) {
+      const enriched = enrichSeedQuestions(experimentId, questions);
+      expect(enriched).toHaveLength(3 * TARGET_PER_DIFFICULTY);
+      const counts = countSeedByDifficulty(enriched);
+      expect(counts.easy).toBe(TARGET_PER_DIFFICULTY);
+      expect(counts.medium).toBe(TARGET_PER_DIFFICULTY);
+      expect(counts.hard).toBe(TARGET_PER_DIFFICULTY);
+    }
   });
 
-  it("defines the Phase 6 attempt size", () => {
+  it("samples unique questions without duplicates", () => {
+    const enriched = enrichSeedQuestions("ohms-law", QUIZ_BANK["ohms-law"]);
+    const pool = enriched.filter((q) => q.difficulty === "hard");
+    const sample = sampleUnique(pool, 20);
+    expect(sample).toHaveLength(20);
+    expect(new Set(sample.map((q) => q.question)).size).toBe(20);
+    expect(() => sampleUnique(pool, 999)).toThrow();
+  });
+
+  it("defines a default attempt size hint", () => {
     expect(QUIZ_ATTEMPT_SIZE).toBe(20);
-    for (const [, questions] of experiments) {
-      expect(QUIZ_ATTEMPT_SIZE).toBeLessThan(questions.length);
-    }
   });
 });

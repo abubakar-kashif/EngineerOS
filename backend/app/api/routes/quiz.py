@@ -6,11 +6,19 @@ from app.db.database import get_db
 from app.models.user import User
 from app.schemas.quiz import (
     QuizAttemptResponse,
+    QuizAvailabilityResponse,
     QuizResponse,
+    QuizStartRequest,
     QuizSubmitRequest,
     QuizSubmitResponse,
 )
-from app.services.quiz_service import get_quiz_questions, list_quiz_attempts, submit_quiz
+from app.services.quiz_service import (
+    get_quiz_availability,
+    get_quiz_questions,
+    list_quiz_attempts,
+    start_quiz,
+    submit_quiz,
+)
 
 router = APIRouter(prefix="/api/quizzes", tags=["Quiz"])
 
@@ -22,6 +30,25 @@ def get_my_quiz_attempts(
 ):
     """The signed-in user's graded quiz attempts, newest first."""
     return list_quiz_attempts(db, user)
+
+
+@router.get("/{experiment_id}/availability", response_model=QuizAvailabilityResponse)
+def quiz_availability(
+    experiment_id: str,
+    db: Session = Depends(get_db),
+):
+    """How many questions exist per difficulty for setup UI / validation."""
+    return get_quiz_availability(db, experiment_id)
+
+
+@router.post("/{experiment_id}/start", response_model=QuizResponse)
+def quiz_start(
+    experiment_id: str,
+    payload: QuizStartRequest,
+    db: Session = Depends(get_db),
+):
+    """Start an attempt: filter by difficulty, sample unique questions."""
+    return start_quiz(db, experiment_id, payload)
 
 
 @router.get("/{experiment_id}", response_model=QuizResponse)
@@ -39,4 +66,11 @@ def submit_quiz_answers(
     user: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
-    return submit_quiz(db, experiment_id, payload.answers, user)
+    return submit_quiz(
+        db,
+        experiment_id,
+        payload.answers,
+        user,
+        difficulty=payload.difficulty,
+        question_count=payload.question_count,
+    )

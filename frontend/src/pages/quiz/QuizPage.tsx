@@ -10,19 +10,23 @@ import SectionHeading from "../../components/ui/SectionHeading";
 import Spinner from "../../components/ui/Spinner";
 import QuestionCard from "../../components/quiz/QuestionCard";
 import QuizNavigation from "../../components/quiz/QuizNavigation";
+import QuizSetup from "../../components/quiz/QuizSetup";
 import QuizSkeleton from "../../components/quiz/QuizSkeleton";
 import {
   clearQuizResult,
   getExperimentMeta,
-  getQuiz,
+  getQuizAvailability,
   getSeedQuestionCount,
   getSeedQuizIds,
   NO_QUIZ_ERROR,
   saveQuizResult,
+  startQuiz,
   submitQuiz,
+  type QuizAvailability,
 } from "../../services/quiz/quizService";
 import { mockExperiments } from "../../data/mockExperiments";
-import { QUIZ_ATTEMPT_SIZE } from "../../data/quiz/quizBank";
+import { QUIZ_DIFFICULTY_LABELS } from "../../data/quiz/quizBank";
+import type { QuizDifficultyLevel, QuizQuestionCount } from "../../data/quiz/quizDifficulty";
 import type { Experiment, ExperimentDifficulty } from "../../types/experiment";
 import type { AnswerLetter, Quiz, QuizAnswers } from "../../types/quiz";
 
@@ -46,14 +50,12 @@ function QuizIndex() {
       <SectionHeading
         eyebrow="ASSESSMENTS"
         title="Knowledge checks"
-        description={`Pick an experiment to test your understanding. Each check draws a random sample of up to ${QUIZ_ATTEMPT_SIZE} questions from the experiment's bank.`}
+        description="Pick an experiment, then choose question count and difficulty before you start."
       />
 
       <div className="quiz-index-grid">
         {experiments.map((experiment) => {
           const bankSize = getSeedQuestionCount(experiment.id);
-          const attemptSize = Math.min(QUIZ_ATTEMPT_SIZE, bankSize);
-          const minutes = Math.max(1, Math.ceil((attemptSize * 30) / 60));
 
           return (
             <Link
@@ -75,15 +77,15 @@ function QuizIndex() {
 
               <div className="quiz-index-meta">
                 <span>
-                  <ListChecks size={13} /> {attemptSize} of {bankSize} questions
+                  <ListChecks size={13} /> Setup 10 / 20 / 40 · Easy–Hard
                 </span>
                 <span>
-                  <Clock size={13} /> ~{minutes} min
+                  <Clock size={13} /> Bank {bankSize}+
                 </span>
               </div>
 
               <span className="quiz-index-cta">
-                Start knowledge check <ArrowRight size={14} />
+                Configure quiz <ArrowRight size={14} />
               </span>
             </Link>
           );
@@ -100,15 +102,21 @@ type QuizRunnerProps = {
 function QuizRunner({ experimentId }: QuizRunnerProps) {
   const navigate = useNavigate();
 
+  const [phase, setPhase] = useState<"setup" | "running">("setup");
+  const [availability, setAvailability] = useState<QuizAvailability | null>(null);
+  const [questionCount, setQuestionCount] = useState<QuizQuestionCount>(10);
+  const [difficulty, setDifficulty] = useState<QuizDifficultyLevel>("easy");
+  const [setupLoading, setSetupLoading] = useState(true);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
   const [answers, setAnswers] = useState<QuizAnswers>({});
   const [marked, setMarked] = useState<Set<number>>(new Set());
   const [current, setCurrent] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [noQuiz, setNoQuiz] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
@@ -116,23 +124,24 @@ function QuizRunner({ experimentId }: QuizRunnerProps) {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function loadSetup() {
+      setSetupLoading(true);
+      setSetupError(null);
       setNoQuiz(false);
       setLoadFailed(false);
-      setLoading(true);
-      setSubmitError(null);
-      // A fresh attempt invalidates any stored result.
       clearQuizResult(experimentId);
 
       try {
-        const [quizData, experimentData] = await Promise.all([
-          getQuiz(experimentId),
+        const [meta, availabilityData] = await Promise.all([
           getExperimentMeta(experimentId),
+          getQuizAvailability(experimentId),
         ]);
         if (cancelled) return;
-        // getQuiz already sampled the random QUIZ_ATTEMPT_SIZE attempt.
-        setQuiz(quizData);
-        setExperiment(experimentData);
+        setExperiment(meta);
+        setAvailability(availabilityData);
+        // Prefer the largest available count for the current difficulty.
+        const pool = availabilityData.counts.easy;
+        if (pool >= 10) setQuestionCount(10);
       } catch (error) {
         if (cancelled) return;
         if (error instanceof Error && error.message === NO_QUIZ_ERROR) {
@@ -141,15 +150,45 @@ function QuizRunner({ experimentId }: QuizRunnerProps) {
           setLoadFailed(true);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setSetupLoading(false);
       }
     }
 
-    load();
+    void loadSetup();
     return () => {
       cancelled = true;
     };
-  }, [experimentId, reloadKey]);
+  }, [experimentId]);
+
+  async function handleStart() {
+    if (!availability || starting) return;
+    const available = availability.counts[difficulty] ?? 0;
+    if (available < questionCount) {
+      setSetupError(
+        `${questionCount} ${QUIZ_DIFFICULTY_LABELS[difficulty]} questions are not currently available. Available: ${available}. Please choose a smaller quiz or another difficulty.`,
+      );
+      return;
+    }
+
+    setStarting(true);
+    setSetupError(null);
+    try {
+      const quizData = await startQuiz(experimentId, questionCount, difficulty);
+      setQuiz(quizData);
+      setAnswers({});
+      setMarked(new Set());
+      setCurrent(0);
+      setPhase("running");
+    } catch (error) {
+      setSetupError(
+        error instanceof Error
+          ? error.message
+          : "Could not start this quiz. Try another combination.",
+      );
+    } finally {
+      setStarting(false);
+    }
+  }
 
   const total = quiz?.questions.length ?? 0;
   const question = quiz?.questions[current];
@@ -198,11 +237,7 @@ function QuizRunner({ experimentId }: QuizRunnerProps) {
     }
   }
 
-  function retryLoad() {
-    setReloadKey((key) => key + 1);
-  }
-
-  if (loading) {
+  if (setupLoading) {
     return (
       <div className="page quiz-page">
         <QuizSkeleton />
@@ -227,14 +262,54 @@ function QuizRunner({ experimentId }: QuizRunnerProps) {
     );
   }
 
-  if (loadFailed || !quiz || !question) {
+  if (loadFailed && phase === "setup") {
+    return (
+      <div className="page quiz-page">
+        <ErrorState
+          title="Unable to load quiz setup."
+          description="Something went wrong while retrieving availability."
+          retryAction={() => window.location.reload()}
+          retryLabel="Try Again"
+        />
+      </div>
+    );
+  }
+
+  if (phase === "setup") {
+    return (
+      <div className="page quiz-page">
+        <nav className="quiz-breadcrumb" aria-label="Breadcrumb">
+          <Link to="/quiz">Assessments</Link>
+          <span className="quiz-bc-sep" aria-hidden="true">/</span>
+          <span className="quiz-bc-current">{experiment?.title ?? experimentId}</span>
+        </nav>
+        <QuizSetup
+          experimentTitle={experiment?.title ?? experimentId}
+          availability={availability}
+          questionCount={questionCount}
+          difficulty={difficulty}
+          starting={starting}
+          error={setupError}
+          onQuestionCount={setQuestionCount}
+          onDifficulty={(level) => {
+            setDifficulty(level);
+            setSetupError(null);
+          }}
+          onStart={() => void handleStart()}
+          onBackHref="/quiz"
+        />
+      </div>
+    );
+  }
+
+  if (!quiz || !question) {
     return (
       <div className="page quiz-page">
         <ErrorState
           title="Unable to load this quiz."
-          description="Something went wrong while retrieving the assessment."
-          retryAction={retryLoad}
-          retryLabel="Try Again"
+          description="Something went wrong while starting the assessment."
+          retryAction={() => setPhase("setup")}
+          retryLabel="Back to Setup"
         />
       </div>
     );
@@ -245,7 +320,7 @@ function QuizRunner({ experimentId }: QuizRunnerProps) {
   return (
     <div className="page quiz-page">
       <nav className="quiz-breadcrumb" aria-label="Breadcrumb">
-        <Link to="/experiments">Experiments</Link>
+        <Link to="/quiz">Assessments</Link>
         <span className="quiz-bc-sep" aria-hidden="true">/</span>
         <Link to={`/experiments/${experimentId}`}>
           {experiment?.title ?? experimentId}
@@ -262,19 +337,25 @@ function QuizRunner({ experimentId }: QuizRunnerProps) {
           <p className="quiz-subtitle">{quiz.description}</p>
         </div>
         <div className="quiz-header-meta">
-          {experiment && (
-            <Badge variant={difficultyVariant(experiment.difficulty)} size="sm">
-              {experiment.difficulty}
+          {quiz.difficulty && (
+            <Badge
+              variant={
+                quiz.difficulty === "easy"
+                  ? "success"
+                  : quiz.difficulty === "medium"
+                    ? "warning"
+                    : "danger"
+              }
+              size="sm"
+            >
+              {QUIZ_DIFFICULTY_LABELS[quiz.difficulty]}
             </Badge>
           )}
           <span className="quiz-meta-chip">
             <Clock size={13} /> ~{quiz.estimated_minutes} min
           </span>
           <span className="quiz-meta-chip">
-            <ListChecks size={13} />{" "}
-            {quiz.bank_size && quiz.bank_size > total
-              ? `${total} of ${quiz.bank_size} questions`
-              : `${total} questions`}
+            <ListChecks size={13} /> {total} questions
           </span>
         </div>
       </header>

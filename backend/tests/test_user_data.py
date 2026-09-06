@@ -39,19 +39,29 @@ def quiz_answer_key(experiment_id="ohms-law"):
 WRONG_LETTER = {"A": "B", "B": "C", "C": "D", "D": "A"}
 
 
-def perfect_quiz_answers(client, experiment_id="ohms-law"):
+def perfect_quiz_answers(client, experiment_id="ohms-law", *, count=40, difficulty="medium"):
     key = quiz_answer_key(experiment_id)
-    questions = client.get(f"/api/quizzes/{experiment_id}").json()["questions"]
+    started = client.post(
+        f"/api/quizzes/{experiment_id}/start",
+        json={"question_count": count, "difficulty": difficulty},
+    )
+    assert started.status_code == 200, started.text
+    questions = started.json()["questions"]
     return [
         {"question_id": question["id"], "answer": key[question["question"]]}
         for question in questions
     ]
 
 
-def failing_quiz_answers(client, experiment_id="ohms-law"):
+def failing_quiz_answers(client, experiment_id="ohms-law", *, count=40, difficulty="medium"):
     """Every question answered with a wrong letter."""
     key = quiz_answer_key(experiment_id)
-    questions = client.get(f"/api/quizzes/{experiment_id}").json()["questions"]
+    started = client.post(
+        f"/api/quizzes/{experiment_id}/start",
+        json={"question_count": count, "difficulty": difficulty},
+    )
+    assert started.status_code == 200, started.text
+    questions = started.json()["questions"]
     return [
         {
             "question_id": question["id"],
@@ -59,6 +69,19 @@ def failing_quiz_answers(client, experiment_id="ohms-law"):
         }
         for question in questions
     ]
+
+
+def quiz_submit_payload(client, *, perfect=True, count=40, difficulty="medium"):
+    answers = (
+        perfect_quiz_answers(client, count=count, difficulty=difficulty)
+        if perfect
+        else failing_quiz_answers(client, count=count, difficulty=difficulty)
+    )
+    return {
+        "answers": answers,
+        "difficulty": difficulty,
+        "question_count": count,
+    }
 
 
 def create_conversation(client, headers, **payload):
@@ -433,7 +456,7 @@ def test_mark_all_notifications_read(phase9_client):
     submission = client.post(
         "/api/quizzes/ohms-law/submit",
         headers=headers,
-        json={"answers": perfect_quiz_answers(client)},
+        json=quiz_submit_payload(client, perfect=True),
     )
     assert submission.status_code == 200
     assert (
@@ -674,7 +697,7 @@ def test_quiz_submission_records_attempt_progress_and_notification(phase9_client
     submission = client.post(
         "/api/quizzes/ohms-law/submit",
         headers=headers,
-        json={"answers": perfect_quiz_answers(client)},
+        json=quiz_submit_payload(client, perfect=True),
     )
 
     assert submission.status_code == 200
@@ -720,7 +743,7 @@ def test_failed_quiz_records_attempt_without_completing_progress(phase9_client):
     submission = client.post(
         "/api/quizzes/ohms-law/submit",
         headers=headers,
-        json={"answers": failing_quiz_answers(client)},
+        json=quiz_submit_payload(client, perfect=False),
     )
 
     assert submission.status_code == 200
@@ -739,7 +762,7 @@ def test_anonymous_quiz_submission_stays_stateless(phase9_client):
 
     submission = client.post(
         "/api/quizzes/ohms-law/submit",
-        json={"answers": perfect_quiz_answers(client)},
+        json=quiz_submit_payload(client, perfect=True),
     )
 
     assert submission.status_code == 200
@@ -758,13 +781,13 @@ def test_quiz_attempt_history_lists_newest_first(phase9_client):
     failed = client.post(
         "/api/quizzes/ohms-law/submit",
         headers=headers,
-        json={"answers": failing_quiz_answers(client)},
+        json=quiz_submit_payload(client, perfect=False),
     )
     assert failed.status_code == 200
     perfect = client.post(
         "/api/quizzes/ohms-law/submit",
         headers=headers,
-        json={"answers": perfect_quiz_answers(client)},
+        json=quiz_submit_payload(client, perfect=True),
     )
     assert perfect.status_code == 200
 
@@ -789,7 +812,7 @@ def test_quiz_attempt_history_scoped_per_user(phase9_client):
     submission = client.post(
         "/api/quizzes/ohms-law/submit",
         headers=alice,
-        json={"answers": perfect_quiz_answers(client)},
+        json=quiz_submit_payload(client, perfect=True),
     )
     assert submission.status_code == 200
 

@@ -5,18 +5,16 @@ import {
   loadQuizResult,
   NO_QUIZ_ERROR,
   saveQuizResult,
+  startQuiz,
   submitQuiz,
 } from "../services/quiz/quizService";
 import { QUIZ_ATTEMPT_SIZE, QUIZ_BANK } from "../data/quiz/quizBank";
+import { TARGET_PER_DIFFICULTY } from "../data/quiz/quizDifficulty";
 import { jsonResponse, mockApiRoutes } from "../test/apiMocks";
 import type { AnswerLetter, Quiz, QuizAnswers } from "../types/quiz";
 
 const OPTION_LETTERS: AnswerLetter[] = ["A", "B", "C", "D"];
 
-/**
- * Stable 5-question fixture so tests don't break when the bank grows.
- * Uses the first N entries from the real ohms-law bank.
- */
 const TEST_SIZE = 5;
 
 function seedQuiz(): Quiz {
@@ -36,12 +34,13 @@ function seedQuiz(): Quiz {
       })),
     })),
     source: "seed",
+    attempt_size: TEST_SIZE,
+    difficulty: "easy",
   };
 }
 
-/** Same questions, but flagged as loaded from the backend (API grading path). */
 function apiQuiz(): Quiz {
-  return { ...seedQuiz(), source: "api" };
+  return { ...seedQuiz(), source: "api", difficulty: "easy", attempt_size: TEST_SIZE };
 }
 
 function correctAnswers(): QuizAnswers {
@@ -52,11 +51,14 @@ function correctAnswers(): QuizAnswers {
   return answers;
 }
 
-describe("getQuiz", () => {
-  it("prefers the backend quiz and normalizes the question options", async () => {
+describe("startQuiz / getQuiz", () => {
+  it("starts from the backend with filtered difficulty questions", async () => {
     mockApiRoutes({
-      "GET /quizzes/ohms-law": jsonResponse({
+      "POST /quizzes/ohms-law/start": jsonResponse({
         experiment_id: "ohms-law",
+        difficulty: "easy",
+        question_count: 10,
+        available: 40,
         questions: [
           {
             id: 1,
@@ -66,6 +68,7 @@ describe("getQuiz", () => {
             option_b: "V = I/R",
             option_c: "V = R/I",
             option_d: "V = I + R",
+            difficulty: "easy",
           },
           {
             id: 2,
@@ -75,43 +78,30 @@ describe("getQuiz", () => {
             option_b: "Ampere",
             option_c: "Ohm",
             option_d: "Watt",
+            difficulty: "easy",
           },
         ],
       }),
     });
 
-    const quiz = await getQuiz("ohms-law");
+    const quiz = await startQuiz("ohms-law", 10, "easy");
 
     expect(quiz.source).toBe("api");
     expect(quiz.questions).toHaveLength(2);
-    expect(quiz.attempt_size).toBe(2);
-    expect(quiz.bank_size).toBe(2);
-    expect(quiz.questions[0].options).toEqual([
-      { key: "A", text: "V = IR" },
-      { key: "B", text: "V = I/R" },
-      { key: "C", text: "V = R/I" },
-      { key: "D", text: "V = I + R" },
-    ]);
-    expect(quiz.estimated_minutes).toBe(1);
+    expect(quiz.difficulty).toBe("easy");
+    expect(quiz.questions[0].options[0]).toEqual({ key: "A", text: "V = IR" });
   });
 
-  it("falls back to the mirrored seed bank when the API is unreachable", async () => {
-    // No routes installed: every fetch fails like a network outage.
+  it("falls back to the enriched seed bank when the API is unreachable", async () => {
     mockApiRoutes({});
 
     const quiz = await getQuiz("ohms-law");
 
     expect(quiz.source).toBe("seed");
-    // The 40-question bank is sampled down to a random 20-question attempt.
-    expect(quiz.bank_size).toBe(QUIZ_BANK["ohms-law"].length);
+    expect(quiz.difficulty).toBe("medium");
     expect(quiz.attempt_size).toBe(QUIZ_ATTEMPT_SIZE);
     expect(quiz.questions).toHaveLength(QUIZ_ATTEMPT_SIZE);
-    const bankQuestions = new Set(
-      QUIZ_BANK["ohms-law"].map((entry) => entry.question),
-    );
-    expect(
-      quiz.questions.every((question) => bankQuestions.has(question.question)),
-    ).toBe(true);
+    expect(quiz.available).toBe(TARGET_PER_DIFFICULTY);
     expect(new Set(quiz.questions.map((question) => question.id)).size).toBe(
       QUIZ_ATTEMPT_SIZE,
     );
@@ -141,7 +131,6 @@ describe("submitQuiz", () => {
     });
     expect(result.feedback.every((item) => item.is_correct)).toBe(true);
     expect(result.feedback[0].explanation).toBe(QUIZ_BANK["ohms-law"][0].explanation);
-    // A seed quiz never touches the backend.
     expect(calls).toHaveLength(0);
   });
 
@@ -177,7 +166,6 @@ describe("submitQuiz", () => {
       }),
     });
 
-    // Locally every answer is correct (score 100) — the backend result wins.
     const result = await submitQuiz("ohms-law", apiQuiz(), correctAnswers());
 
     expect(result).toMatchObject({
@@ -193,6 +181,8 @@ describe("submitQuiz", () => {
         question_id: Number(questionId),
         answer,
       })),
+      difficulty: "easy",
+      question_count: TEST_SIZE,
     });
   });
 

@@ -1,11 +1,19 @@
-import { apiRequest } from "../api";
+import { apiRequest, ApiError } from "../api";
 import { QUIZ_ATTEMPT_SIZE, QUIZ_BANK } from "../../data/quiz/quizBank";
+import {
+  countSeedByDifficulty,
+  enrichSeedQuestions,
+  sampleUnique,
+  type QuizDifficultyLevel,
+  type QuizQuestionCount,
+} from "../../data/quiz/quizDifficulty";
 import { getExperimentById } from "../experimentService";
 import type { Experiment } from "../../types/experiment";
 import type {
   AnswerLetter,
   Quiz,
   QuizAnswers,
+  QuizDifficulty,
   QuizQuestion,
   QuizResult,
   QuestionFeedback,
@@ -35,11 +43,22 @@ interface ApiQuizQuestion {
   option_b: string;
   option_c: string;
   option_d: string;
+  difficulty?: QuizDifficulty;
 }
 
 interface ApiQuizResponse {
   experiment_id: string;
   questions: ApiQuizQuestion[];
+  difficulty?: QuizDifficulty;
+  question_count?: number;
+  available?: number;
+}
+
+interface ApiAvailabilityResponse {
+  experiment_id: string;
+  counts: Record<string, number>;
+  allowed_counts: number[];
+  allowed_difficulties: string[];
 }
 
 interface ApiQuizSubmitResponse {
@@ -49,7 +68,6 @@ interface ApiQuizSubmitResponse {
   passed: boolean;
 }
 
-/** One graded attempt from the user's persisted quiz history. */
 export interface QuizAttemptRecord {
   id: number;
   experiment_id: string;
@@ -58,6 +76,13 @@ export interface QuizAttemptRecord {
   correct_answers: number;
   passed: boolean;
   created_at: string;
+}
+
+export interface QuizAvailability {
+  experiment_id: string;
+  counts: Record<QuizDifficultyLevel, number>;
+  allowed_counts: QuizQuestionCount[];
+  allowed_difficulties: QuizDifficultyLevel[];
 }
 
 function estimateMinutes(questionCount: number): number {
@@ -75,80 +100,132 @@ function normalizeQuestion(raw: ApiQuizQuestion): QuizQuestion {
       { key: "C", text: raw.option_c },
       { key: "D", text: raw.option_d },
     ],
+    difficulty: raw.difficulty,
   };
 }
 
-/** Phase 6: an attempt presents a random sample of the bank (all of it when small). */
-function sampleAttemptQuestions<T>(questions: T[]): T[] {
-  if (questions.length <= QUIZ_ATTEMPT_SIZE) return questions;
-  const shuffled = [...questions].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, QUIZ_ATTEMPT_SIZE);
-}
-
-function buildQuiz(
+function buildQuizFromQuestions(
   experimentId: string,
   questions: QuizQuestion[],
   source: QuizSource,
+  meta?: { difficulty?: QuizDifficulty; available?: number },
 ): Quiz {
-  const attempt = sampleAttemptQuestions(questions);
   return {
     experiment_id: experimentId,
     title: QUIZ_TITLE,
     description: QUIZ_DESCRIPTION,
-    estimated_minutes: estimateMinutes(attempt.length),
-    questions: attempt,
-    attempt_size: attempt.length,
-    bank_size: questions.length,
+    estimated_minutes: estimateMinutes(questions.length),
+    questions,
+    attempt_size: questions.length,
+    bank_size: meta?.available ?? questions.length,
     source,
+    difficulty: meta?.difficulty,
+    available: meta?.available,
   };
 }
 
-function buildSeedQuiz(experimentId: string): Quiz | null {
-  const bank = QUIZ_BANK[experimentId];
-  if (!bank || bank.length === 0) return null;
+/**
+ * Loads quiz availability counts for the setup screen.
+ */
+export async function getQuizAvailability(experimentId: string): Promise<QuizAvailability> {
+  try {
+    const response = await apiRequest<ApiAvailabilityResponse>(
+      `/quizzes/${encodeURIComponent(experimentId)}/availability`,
+    );
+    return {
+      experiment_id: response.experiment_id,
+      counts: {
+        easy: response.counts.easy ?? 0,
+        medium: response.counts.medium ?? 0,
+        hard: response.counts.hard ?? 0,
+      },
+      allowed_counts: response.allowed_counts as QuizQuestionCount[],
+      allowed_difficulties: response.allowed_difficulties as QuizDifficultyLevel[],
+    };
+  } catch {
+    const bank = QUIZ_BANK[experimentId];
+    if (!bank?.length) throw new Error(NO_QUIZ_ERROR);
+    const enriched = enrichSeedQuestions(experimentId, bank);
+    return {
+      experiment_id: experimentId,
+      counts: countSeedByDifficulty(enriched),
+      allowed_counts: [10, 20, 40],
+      allowed_difficulties: ["easy", "medium", "hard"],
+    };
+  }
+}
 
-  return buildQuiz(
+/**
+ * Starts an attempt: backend filters by difficulty and samples unique questions.
+ * Falls back to the enriched seed bank when the API is unavailable.
+ */
+export async function startQuiz(
+  experimentId: string,
+  questionCount: QuizQuestionCount,
+  difficulty: QuizDifficulty,
+): Promise<Quiz> {
+  try {
+    const response = await apiRequest<ApiQuizResponse>(
+      `/quizzes/${encodeURIComponent(experimentId)}/start`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          question_count: questionCount,
+          difficulty,
+        }),
+      },
+    );
+    if (!response.questions?.length) {
+      throw new Error("Empty quiz start response");
+    }
+    return buildQuizFromQuestions(
+      experimentId,
+      response.questions.map(normalizeQuestion),
+      "api",
+      {
+        difficulty: response.difficulty ?? difficulty,
+        available: response.available,
+      },
+    );
+  } catch (error) {
+    // Client/validation errors (insufficient pool, bad payload) must surface.
+    if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+      throw error;
+    }
+    // Network / server failures fall through to the seed bank.
+  }
+
+  const bank = QUIZ_BANK[experimentId];
+  if (!bank?.length) throw new Error(NO_QUIZ_ERROR);
+
+  const enriched = enrichSeedQuestions(experimentId, bank);
+  const pool = enriched.filter((q) => q.difficulty === difficulty);
+  if (pool.length < questionCount) {
+    throw new Error(
+      `${questionCount} ${difficulty.charAt(0).toUpperCase()}${difficulty.slice(1)} questions are not currently available. Available: ${pool.length}. Please choose a smaller quiz or another difficulty.`,
+    );
+  }
+
+  const sampled = sampleUnique(pool, questionCount);
+  return buildQuizFromQuestions(
     experimentId,
-    bank.map((entry, index) => ({
+    sampled.map((entry, index) => ({
       id: index + 1,
       experiment_id: experimentId,
       question: entry.question,
       options: entry.options.map((text, i) => ({ key: OPTION_LETTERS[i], text })),
+      difficulty: entry.difficulty,
     })),
     "seed",
+    { difficulty, available: pool.length },
   );
 }
 
-/**
- * Loads a quiz attempt for an experiment: a random QUIZ_ATTEMPT_SIZE sample
- * of the bank, taken from the backend API when available and from the
- * seeded mirror otherwise. Throws NO_QUIZ_ERROR when no assessment exists
- * for the experiment.
- */
+/** @deprecated Prefer startQuiz — kept for callers that still expect a full bank load. */
 export async function getQuiz(experimentId: string): Promise<Quiz> {
-  try {
-    const response = await apiRequest<ApiQuizResponse>(
-      `/quizzes/${encodeURIComponent(experimentId)}`,
-    );
-    if (response.questions && response.questions.length > 0) {
-      return buildQuiz(
-        experimentId,
-        response.questions.map(normalizeQuestion),
-        "api",
-      );
-    }
-  } catch {
-    // Backend unavailable — fall through to the seeded bank.
-  }
-
-  const seeded = buildSeedQuiz(experimentId);
-  if (!seeded) {
-    throw new Error(NO_QUIZ_ERROR);
-  }
-  return seeded;
+  return startQuiz(experimentId, QUIZ_ATTEMPT_SIZE as QuizQuestionCount, "medium");
 }
 
-/** Experiments that have a seeded assessment (used by the quiz index). */
 export function getSeedQuizIds(): string[] {
   return Object.keys(QUIZ_BANK);
 }
@@ -163,7 +240,8 @@ export function hasSeedQuiz(experimentId: string): boolean {
 
 function answerKeyFor(experimentId: string): Map<string, { correct: AnswerLetter; explanation: string }> {
   const map = new Map<string, { correct: AnswerLetter; explanation: string }>();
-  for (const entry of QUIZ_BANK[experimentId] ?? []) {
+  const enriched = enrichSeedQuestions(experimentId, QUIZ_BANK[experimentId] ?? []);
+  for (const entry of enriched) {
     map.set(entry.question.trim().toLowerCase(), {
       correct: entry.correct_answer,
       explanation: entry.explanation,
@@ -180,11 +258,6 @@ function statusFor(score: number, unanswered: number, total: number): QuizStatus
   return "incomplete";
 }
 
-/**
- * Submits quiz answers and grades them. Per-question feedback is computed from
- * the mirrored answer key; when the quiz came from the API the backend grading
- * endpoint is authoritative for the aggregate score.
- */
 export async function submitQuiz(
   experimentId: string,
   quiz: Quiz,
@@ -229,6 +302,8 @@ export async function submitQuiz(
               question_id: question.id,
               answer: answers[question.id],
             })),
+            difficulty: quiz.difficulty ?? null,
+            question_count: quiz.attempt_size ?? total,
           }),
         },
       );
@@ -256,7 +331,6 @@ export async function submitQuiz(
   };
 }
 
-/** Persists the latest result so the result page survives a refresh. */
 export function saveQuizResult(experimentId: string, result: QuizResult): void {
   try {
     sessionStorage.setItem(
@@ -264,7 +338,7 @@ export function saveQuizResult(experimentId: string, result: QuizResult): void {
       JSON.stringify(result),
     );
   } catch {
-    // Storage unavailable (private mode) — the result page falls back to state.
+    // ignore
   }
 }
 
@@ -281,20 +355,14 @@ export function clearQuizResult(experimentId: string): void {
   try {
     sessionStorage.removeItem(`${RESULT_STORAGE_PREFIX}${experimentId}`);
   } catch {
-    // Ignore storage failures.
+    // ignore
   }
 }
 
-/** The signed-in user's graded quiz attempts, newest first (server history). */
 export async function getMyQuizAttempts(): Promise<QuizAttemptRecord[]> {
   return apiRequest<QuizAttemptRecord[]>("/quizzes/me/attempts");
 }
 
-/**
- * Resolves experiment metadata (title, difficulty) for quiz headers and
- * breadcrumbs. Returns null when the catalog is unreachable — callers
- * degrade gracefully instead of showing bundled data.
- */
 export async function getExperimentMeta(experimentId: string): Promise<Experiment | null> {
   try {
     return (await getExperimentById(experimentId)) ?? null;

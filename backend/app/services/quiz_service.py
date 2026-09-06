@@ -1,7 +1,9 @@
+import random
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.data.quiz_difficulty import ALLOWED_COUNTS, DIFFICULTIES, count_by_difficulty
 from app.models.experiment import Experiment
 from app.models.quiz import QuizAttempt, QuizQuestion
 from app.models.user import User
@@ -9,8 +11,10 @@ from app.schemas.progress import ProgressCreate
 from app.schemas.quiz import (
     QuizAnswer,
     QuizAttemptResponse,
+    QuizAvailabilityResponse,
     QuizResponse,
     QuizQuestionResponse,
+    QuizStartRequest,
     QuizSubmitResponse,
 )
 from app.services.notification_service import create_notification
@@ -18,27 +22,81 @@ from app.services.progress_service import upsert_progress
 
 PASSING_SCORE = 70.0
 
-# Phase 6: an attempt presents a random sample of this many questions from
-# the experiment's bank (the whole bank when it is smaller).
+# Legacy constant kept for older clients / docs; new attempts use start().
 QUIZ_ATTEMPT_SIZE = 20
 
 
-def get_quiz_questions(db: Session, experiment_id: str) -> QuizResponse:
+def _load_bank(db: Session, experiment_id: str) -> list[QuizQuestion]:
     questions = db.execute(
         select(QuizQuestion)
         .where(QuizQuestion.experiment_id == experiment_id)
         .order_by(QuizQuestion.id)
     ).scalars().all()
-
     if not questions:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    return list(questions)
+
+
+def get_quiz_questions(db: Session, experiment_id: str) -> QuizResponse:
+    """Return the full bank (no answers). Prefer /start for an attempt sample."""
+    questions = _load_bank(db, experiment_id)
+    return QuizResponse(
+        experiment_id=experiment_id,
+        questions=[QuizQuestionResponse.model_validate(q) for q in questions],
+        available=len(questions),
+    )
+
+
+def get_quiz_availability(db: Session, experiment_id: str) -> QuizAvailabilityResponse:
+    questions = _load_bank(db, experiment_id)
+    return QuizAvailabilityResponse(
+        experiment_id=experiment_id,
+        counts=count_by_difficulty(questions),
+        allowed_counts=list(ALLOWED_COUNTS),
+        allowed_difficulties=list(DIFFICULTIES),
+    )
+
+
+def start_quiz(
+    db: Session,
+    experiment_id: str,
+    payload: QuizStartRequest,
+) -> QuizResponse:
+    """Filter by difficulty, then sample a unique set of the requested size."""
+    difficulty = payload.difficulty
+    count = int(payload.question_count)
+
+    if difficulty not in DIFFICULTIES:
+        raise HTTPException(status_code=400, detail="Unsupported difficulty")
+    if count not in ALLOWED_COUNTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"question_count must be one of {list(ALLOWED_COUNTS)}",
+        )
+
+    bank = _load_bank(db, experiment_id)
+    pool = [q for q in bank if (q.difficulty or "").lower() == difficulty]
+    available = len(pool)
+
+    if available < count:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{count} {difficulty.capitalize()} questions are not currently available. "
+                f"Available: {available}. Please choose a smaller quiz or another difficulty."
+            ),
+        )
+
+    selected = random.sample(pool, count)
+    # Stable display order by id within the random sample
+    selected.sort(key=lambda q: q.id)
 
     return QuizResponse(
         experiment_id=experiment_id,
-        questions=[
-            QuizQuestionResponse.model_validate(question)
-            for question in questions
-        ],
+        questions=[QuizQuestionResponse.model_validate(q) for q in selected],
+        difficulty=difficulty,
+        question_count=count,
+        available=available,
     )
 
 
@@ -47,16 +105,15 @@ def submit_quiz(
     experiment_id: str,
     answers: list[QuizAnswer],
     user: User | None = None,
+    *,
+    difficulty: str | None = None,
+    question_count: int | None = None,
 ) -> QuizSubmitResponse:
     """Grade a quiz submission.
 
-    Phase 6: clients submit a random QUIZ_ATTEMPT_SIZE sample of the bank
-    (legacy clients may still submit the full bank), so the score is
-    computed over the submitted answers. Authenticated submissions are
-    persisted as a QuizAttempt (answers plus grade), fire a notification,
-    and — when passed — mark the experiment as completed in progress
-    (Quiz → Attempt → Score → Progress). Anonymous submissions stay
-    stateless, exactly as before Phase 9.
+    Attempts must use unique question IDs. When difficulty/question_count are
+    provided (Phase 1), every answered question must match that difficulty and
+    the answer count must equal the requested size.
     """
     if not answers:
         raise HTTPException(status_code=400, detail="Answers cannot be empty")
@@ -69,15 +126,7 @@ def submit_quiz(
             detail="Duplicate question IDs are not allowed",
         )
 
-    all_questions = db.execute(
-        select(QuizQuestion)
-        .where(QuizQuestion.experiment_id == experiment_id)
-        .order_by(QuizQuestion.id)
-    ).scalars().all()
-
-    if not all_questions:
-        raise HTTPException(status_code=404, detail="Quiz not found")
-
+    all_questions = _load_bank(db, experiment_id)
     question_map = {question.id: question for question in all_questions}
 
     invalid_ids = [
@@ -85,32 +134,58 @@ def submit_quiz(
         for question_id in question_ids
         if question_id not in question_map
     ]
-
     if invalid_ids:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid question ID(s): {invalid_ids}",
         )
 
-    # Phase 6: the submission must cover a complete attempt — at least
-    # QUIZ_ATTEMPT_SIZE questions (the whole bank when it is smaller).
-    # Full-bank submissions from older clients remain valid.
-    min_answers = min(len(all_questions), QUIZ_ATTEMPT_SIZE)
-    if len(question_ids) < min_answers:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"A complete attempt must answer at least {min_answers} "
-                f"of {len(all_questions)} questions"
-            ),
-        )
+    if difficulty is not None:
+        difficulty = difficulty.lower()
+        if difficulty not in DIFFICULTIES:
+            raise HTTPException(status_code=400, detail="Unsupported difficulty")
+        mixed = [
+            qid
+            for qid in question_ids
+            if (question_map[qid].difficulty or "").lower() != difficulty
+        ]
+        if mixed:
+            raise HTTPException(
+                status_code=400,
+                detail="All submitted questions must match the selected difficulty",
+            )
+
+    if question_count is not None:
+        if question_count not in ALLOWED_COUNTS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"question_count must be one of {list(ALLOWED_COUNTS)}",
+            )
+        if len(question_ids) != question_count:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"A complete attempt must answer exactly {question_count} questions"
+                ),
+            )
+    else:
+        # Legacy / flexible path: accept 10, 20, 40, or a full-bank submission.
+        allowed = set(ALLOWED_COUNTS) | {len(all_questions)}
+        if len(question_ids) not in allowed:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"A complete attempt must answer one of "
+                    f"{sorted(ALLOWED_COUNTS)} questions "
+                    f"(or the full bank of {len(all_questions)})"
+                ),
+            )
 
     correct_answers = sum(
         answer.answer == question_map[answer.question_id].correct_answer
         for answer in answers
     )
 
-    # Graded over the attempted questions, matching the client's attempt view.
     total_questions = len(question_ids)
     score = round((correct_answers / total_questions) * 100, 2)
     passed = score >= PASSING_SCORE
@@ -199,7 +274,6 @@ def _record_attempt(
         )
 
     if passed:
-        # A passing grade completes the experiment for this user.
         upsert_progress(
             db,
             ProgressCreate(experiment_id=experiment_id, status="completed"),

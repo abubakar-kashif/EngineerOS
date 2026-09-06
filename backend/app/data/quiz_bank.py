@@ -426,9 +426,11 @@ QUIZ_BANK = {
 
 
 def iter_questions():
+    from app.data.quiz_difficulty import enrich_questions
+
     question_id = 1
     for experiment_id, questions in QUIZ_BANK.items():
-        for question in questions:
+        for question in enrich_questions(experiment_id, questions):
             yield {
                 "id": question_id,
                 "experiment_id": experiment_id,

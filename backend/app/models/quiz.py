@@ -17,6 +17,7 @@ class QuizQuestion(Base):
     option_d = Column(String(500), nullable=False)
     correct_answer = Column(String(1), nullable=False)
     explanation = Column(Text, nullable=False)
+    difficulty = Column(String(20), nullable=False, default="medium", index=True)
 
 
 class QuizAttempt(Base):

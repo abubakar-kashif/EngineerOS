@@ -162,3 +162,5 @@ def run_migrations(engine: Engine) -> None:
         "quiz_performance",
     ):
         _add_column(engine, "reports", column, "JSON")
+    # Quiz redesign — real per-question difficulty metadata
+    _add_column(engine, "quiz_questions", "difficulty", "VARCHAR(20) NOT NULL DEFAULT 'medium'")

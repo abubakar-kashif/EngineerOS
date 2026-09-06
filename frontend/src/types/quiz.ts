@@ -1,5 +1,10 @@
 export type AnswerLetter = "A" | "B" | "C" | "D";
 
+/** Phase 1 question difficulty (must match backend quiz_questions.difficulty). */
+export type QuizDifficulty = "easy" | "medium" | "hard";
+
+export type QuizQuestionCount = 10 | 20 | 40;
+
 /** Phase 6 question categories. */
 export type QuizCategory =
   | "conceptual"
@@ -22,6 +27,7 @@ export interface QuizQuestion {
   question: string;
   options: QuizOption[];
   category?: QuizCategory;
+  difficulty?: QuizDifficulty;
 }
 
 export type QuizSource = "api" | "seed";
@@ -33,10 +39,10 @@ export interface Quiz {
   estimated_minutes: number;
   questions: QuizQuestion[];
   source: QuizSource;
-  /** Phase 6: questions presented in this attempt (a random bank sample). */
   attempt_size?: number;
-  /** Total questions available in the experiment's bank. */
   bank_size?: number;
+  difficulty?: QuizDifficulty;
+  available?: number;
 }
 
 /** Map of question id -> selected answer letter. */
@@ -65,7 +71,6 @@ export interface QuizResult {
   passed: boolean;
   status: QuizStatus;
   submitted_at: string;
-  /** Which grading path produced the aggregate score. */
   graded_by: "api" | "local";
   feedback: QuestionFeedback[];
 }

@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_valid
 
 
 AnswerChoice = Literal["A", "B", "C", "D"]
+QuizDifficulty = Literal["easy", "medium", "hard"]
+QuizQuestionCount = Literal[10, 20, 40]
 
 
 class QuizQuestionResponse(BaseModel):
@@ -17,11 +19,27 @@ class QuizQuestionResponse(BaseModel):
     option_b: str
     option_c: str
     option_d: str
+    difficulty: QuizDifficulty
 
 
 class QuizResponse(BaseModel):
     experiment_id: str
     questions: list[QuizQuestionResponse]
+    difficulty: QuizDifficulty | None = None
+    question_count: int | None = None
+    available: int | None = None
+
+
+class QuizAvailabilityResponse(BaseModel):
+    experiment_id: str
+    counts: dict[str, int]
+    allowed_counts: list[int]
+    allowed_difficulties: list[str]
+
+
+class QuizStartRequest(BaseModel):
+    question_count: QuizQuestionCount
+    difficulty: QuizDifficulty
 
 
 class QuizAnswer(BaseModel):
@@ -38,6 +56,8 @@ class QuizAnswer(BaseModel):
 
 class QuizSubmitRequest(BaseModel):
     answers: list[QuizAnswer] = Field(min_length=1)
+    difficulty: QuizDifficulty | None = None
+    question_count: QuizQuestionCount | None = None
 
 
 class QuizSubmitResponse(BaseModel):

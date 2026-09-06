@@ -14,8 +14,14 @@ export interface SeedQuizQuestion {
   category?: QuizCategory;
 }
 
-/** Phase 6: recommended attempt size — random 20 from the bank. */
+/** Phase 1: default setup suggestion — actual size comes from Start Quiz. */
 export const QUIZ_ATTEMPT_SIZE = 20;
+
+export const QUIZ_DIFFICULTY_LABELS = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+} as const;
 
 export const QUIZ_BANK: Record<string, SeedQuizQuestion[]> = {
   "ohms-law": [
