@@ -16,6 +16,7 @@ from app.schemas.auth import (
     VerifyEmailRequest,
 )
 from app.services import auth_service, user_service
+from app.services.email_service import is_console_delivery
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -29,7 +30,7 @@ def _dev_code(code: str | None) -> str | None:
         return None
     if not settings.DEBUG:
         return None
-    if (settings.EMAIL_DELIVERY or "console").strip().lower() != "console":
+    if not is_console_delivery():
         return None
     return code
 

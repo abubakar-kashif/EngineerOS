@@ -539,6 +539,119 @@ def test_smtp_sender_requires_configuration():
         assert "SMTP" in str(exc)
 
 
+def test_smtp_sender_delivers_through_starttls_without_logging_secrets(monkeypatch, caplog):
+    import smtplib
+
+    from app.core.config import settings
+    from app.services.email_service import SmtpSender
+
+    previous = (
+        settings.SMTP_HOST,
+        settings.SMTP_FROM,
+        settings.SMTP_USERNAME,
+        settings.SMTP_PASSWORD,
+        settings.SMTP_PORT,
+        settings.SMTP_USE_TLS,
+        settings.SMTP_USE_SSL,
+    )
+    settings.SMTP_HOST = "smtp.gmail.com"
+    settings.SMTP_FROM = "sender@gmail.com"
+    settings.SMTP_USERNAME = "sender@gmail.com"
+    settings.SMTP_PASSWORD = "abcd efgh ijkl mnop"
+    settings.SMTP_PORT = 587
+    settings.SMTP_USE_TLS = True
+    settings.SMTP_USE_SSL = False
+
+    class FakeSMTP:
+        last = None
+
+        def __init__(self, host, port, timeout=None):
+            self.host = host
+            self.port = port
+            self.logged_in = None
+            self.sent = None
+            self.started_tls = False
+
+        def ehlo(self):
+            return None
+
+        def starttls(self):
+            self.started_tls = True
+
+        def login(self, user, password):
+            self.logged_in = (user, password)
+
+        def send_message(self, message):
+            self.sent = message
+            FakeSMTP.last = self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(smtplib, "SMTP", FakeSMTP)
+    try:
+        with caplog.at_level(logging.INFO, logger="engineeros.email"):
+            SmtpSender().send(
+                "inbox@gmail.com",
+                "Verify your EngineerOS account",
+                "Your verification code is: 654321",
+            )
+        session = FakeSMTP.last
+        assert session is not None
+        assert session.host == "smtp.gmail.com"
+        assert session.port == 587
+        assert session.started_tls is True
+        assert session.logged_in == ("sender@gmail.com", "abcdefghijklmnop")
+        assert session.sent["To"] == "inbox@gmail.com"
+        assert "EngineerOS" in str(session.sent["From"])
+        assert "654321" in session.sent.get_content()
+        assert "654321" not in caplog.text
+        assert "abcdefghijklmnop" not in caplog.text
+        assert "abcd efgh" not in caplog.text
+    finally:
+        (
+            settings.SMTP_HOST,
+            settings.SMTP_FROM,
+            settings.SMTP_USERNAME,
+            settings.SMTP_PASSWORD,
+            settings.SMTP_PORT,
+            settings.SMTP_USE_TLS,
+            settings.SMTP_USE_SSL,
+        ) = previous
+
+
+def test_gmail_smtp_requires_app_password():
+    from app.core.config import settings
+    from app.services.email_service import EmailDeliveryError, require_smtp_settings
+
+    previous = (
+        settings.SMTP_HOST,
+        settings.SMTP_FROM,
+        settings.SMTP_USERNAME,
+        settings.SMTP_PASSWORD,
+    )
+    settings.SMTP_HOST = "smtp.gmail.com"
+    settings.SMTP_FROM = "sender@gmail.com"
+    settings.SMTP_USERNAME = "sender@gmail.com"
+    settings.SMTP_PASSWORD = ""
+    try:
+        try:
+            require_smtp_settings()
+            raise AssertionError("expected EmailDeliveryError")
+        except EmailDeliveryError as exc:
+            assert "App Password" in str(exc)
+    finally:
+        (
+            settings.SMTP_HOST,
+            settings.SMTP_FROM,
+            settings.SMTP_USERNAME,
+            settings.SMTP_PASSWORD,
+        ) = previous
+
+
 def test_dev_code_hidden_when_debug_false(phase9_client):
     from app.core.config import settings
 

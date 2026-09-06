@@ -172,7 +172,7 @@ describe("Phase 9 security scan (backend app)", () => {
     const auth = read(join(BACKEND_APP, "api/routes/auth.py"));
     expect(auth).toMatch(/def _dev_code/);
     expect(auth).toMatch(/if not settings\.DEBUG/);
-    expect(auth).toMatch(/EMAIL_DELIVERY/);
+    expect(auth).toMatch(/is_console_delivery/);
     expect(auth).toMatch(/Production \(DEBUG=false\) and SMTP delivery never return codes/);
   });
 
