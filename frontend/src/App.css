@@ -1302,7 +1302,7 @@
 
 @media (max-width: 600px) {
   .auth-card { padding: var(--space-xl); }
-  .profile-menu-dropdown { right: -20px; width: 240px; }
+  .profile-menu-dropdown { right: 0; width: 240px; }
   .notification-dropdown { width: 280px; right: -40px; }
   .auth-code-group { gap: 6px; }
   .auth-code-input { width: 38px; height: 46px; font-size: 18px; }
@@ -8209,6 +8209,7 @@
     width: min(320px, calc(100vw - 16px));
   }
   .profile-menu-dropdown {
+    right: 0;
     width: min(260px, calc(100vw - 16px));
   }
 }
