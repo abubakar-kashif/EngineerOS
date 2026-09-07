@@ -38,7 +38,7 @@ function WorkspaceHeader({
   return (
     <header className="ws-header">
       <nav className="ws-breadcrumb" aria-label="Breadcrumb">
-        <Link to="/">Home</Link>
+        <Link to="/home">Home</Link>
         <span className="ws-bc-sep">/</span>
         <Link to="/experiments">Experiments</Link>
         <span className="ws-bc-sep">/</span>

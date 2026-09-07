@@ -42,7 +42,7 @@ describe("Phase 11 mobile navigation", () => {
     const paths = menuGroups.flatMap((g) => g.items.map((i) => i.path));
     expect(paths).toEqual(
       expect.arrayContaining([
-        "/",
+        "/home",
         "/dashboard",
         "/experiments",
         "/quiz",
