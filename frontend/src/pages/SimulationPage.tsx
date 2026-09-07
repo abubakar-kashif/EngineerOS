@@ -765,7 +765,7 @@ function SimulationPage() {
                       Simulation running…
                     </p>
                   ) : displayedResult ? (
-                    <MeasurementsPanel result={displayedResult} />
+                    <MeasurementsPanel result={displayedResult} circuit={liveEngineCircuit} />
                   ) : (
                     <AnalysisPanel
                       circuit={liveEngineCircuit}
@@ -811,6 +811,7 @@ function SimulationPage() {
                       }
                       result={displayedResult}
                       graphs={displayedResult.graphs}
+                      circuit={liveEngineCircuit}
                     />
                   ) : (
                     <p className="sim2-analysis-empty" role="status">

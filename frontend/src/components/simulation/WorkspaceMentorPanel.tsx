@@ -14,6 +14,7 @@ import type { ChatMessage } from "../../types/chat";
 import type { SimulationResult } from "./engine";
 import type { CircuitDefinition } from "./engine/circuitGraph";
 import { compactCircuitForMentor } from "./engine/electricalSnapshot";
+import { labelForComponent } from "./engine/graphData";
 import {
   buildMentorExpandHref,
   saveSimMentorSnapshot,
@@ -160,11 +161,13 @@ function WorkspaceMentorPanel({
     for (const c of m.componentMeasurements) {
       if (c.componentId.startsWith("__")) continue;
       if (["resistor", "diode", "led"].includes(c.type) || c.type === "resistor") {
-        chips.push(`${c.componentId} ${c.voltage.toFixed(2)} V`);
+        chips.push(
+          `${labelForComponent(liveCircuit ?? undefined, c.componentId, c.type)} ${c.voltage.toFixed(2)} V`,
+        );
       }
     }
     return chips.slice(0, 6);
-  }, [simResult]);
+  }, [simResult, liveCircuit]);
 
   const suggestions = useMemo(() => {
     if (!simResult) {

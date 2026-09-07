@@ -1,13 +1,15 @@
 /**
  * Display simulation results in a structured format.
  */
-import type { SimulationResult } from "./engine";
+import type { CircuitDefinition, SimulationResult } from "./engine";
+import { labelForComponent } from "./engine/graphData";
 
 interface SimulationResultsProps {
   result: SimulationResult | null;
+  circuit?: CircuitDefinition | null;
 }
 
-function SimulationResults({ result }: SimulationResultsProps) {
+function SimulationResults({ result, circuit = null }: SimulationResultsProps) {
   if (!result) return <p className="sim-results-empty">Run a simulation to see results.</p>;
 
   if (result.status === "invalid" || result.status === "failed") {
@@ -53,7 +55,9 @@ function SimulationResults({ result }: SimulationResultsProps) {
       <div className="sim-component-results">
         {measurements.componentMeasurements.map((comp) => (
           <div key={comp.componentId} className="sim-comp-result-row">
-            <span className="sim-comp-name">{comp.componentId}</span>
+            <span className="sim-comp-name">
+              {labelForComponent(circuit ?? undefined, comp.componentId, comp.type)}
+            </span>
             <span className="sim-comp-details">
               {comp.voltage.toFixed(3)} V &nbsp; {comp.current.toFixed(4)} A &nbsp; {comp.power.toFixed(4)} W
               {comp.resistance !== undefined && ` (${comp.resistance.toFixed(2)} Ω)`}

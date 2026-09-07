@@ -40,6 +40,9 @@ export interface GraphData {
 /** Empty-state copy for missing SimulationRun data. */
 export const NO_MEASUREMENT_DATA = 'No measurement data available';
 
+/** User-facing fallback when a measurement id is not in the live circuit. */
+export const UNKNOWN_COMPONENT_LABEL = 'Unknown component';
+
 export type SignalQuantity =
   | 'voltage'
   | 'current'
@@ -97,13 +100,23 @@ function emptyCatalogGraph(
   };
 }
 
-function labelForComponent(
+/**
+ * User-facing component reference. Looks up circuit.components[].label by id.
+ * Does not mutate ids, topology, or measurements.
+ */
+export function labelForComponent(
   circuit: CircuitDefinition | undefined,
   componentId: string,
-  fallbackType: string,
+  fallbackType?: string,
 ): string {
+  if (componentId.startsWith('__')) {
+    return (fallbackType || 'instrument').replace(/_/g, ' ');
+  }
   const comp = circuit?.components.find((c) => c.id === componentId);
-  return comp?.label || fallbackType || componentId;
+  const label = typeof comp?.label === 'string' ? comp.label.trim() : '';
+  if (label) return label;
+  if (!circuit && /^[A-Za-z]+\d+$/.test(componentId)) return componentId;
+  return UNKNOWN_COMPONENT_LABEL;
 }
 
 /**
@@ -175,12 +188,11 @@ export function listAvailableSignals(
     },
   ];
 
-  let i = 1;
   for (const cm of m.componentMeasurements) {
     const name = labelForComponent(circuit, cm.componentId, cm.type);
     signals.push({
       id: `V_${cm.componentId}`,
-      label: `V_${name}`,
+      label: `V(${name})`,
       unit: 'V',
       quantity: 'voltage',
       value: cm.voltage,
@@ -188,7 +200,7 @@ export function listAvailableSignals(
     });
     signals.push({
       id: `I_${cm.componentId}`,
-      label: `I${i}`,
+      label: `I(${name})`,
       unit: 'A',
       quantity: 'current',
       value: cm.current,
@@ -196,7 +208,7 @@ export function listAvailableSignals(
     });
     signals.push({
       id: `P_${cm.componentId}`,
-      label: `P_${name}`,
+      label: `P(${name})`,
       unit: 'W',
       quantity: 'power',
       value: cm.power,
@@ -205,14 +217,13 @@ export function listAvailableSignals(
     if (cm.resistance != null && Number.isFinite(cm.resistance)) {
       signals.push({
         id: `R_${cm.componentId}`,
-        label: `R_${name}`,
+        label: `R(${name})`,
         unit: 'Ω',
         quantity: 'resistance',
         value: cm.resistance,
         available: true,
       });
     }
-    i += 1;
   }
 
   return signals;
@@ -533,7 +544,10 @@ export function generateGraphsFromMeasurements(
       ...drops.map((cm, i) => ({ x: i + 1, y: cm.current })),
       { x: drops.length + 1, y: measurements.totalCurrent },
     ];
-    const kclLabels = [...drops.map((_, i) => `I${i + 1}`), 'ΣI'];
+    const kclLabels = [
+      ...drops.map((cm) => `I(${labelForComponent(circuit, cm.componentId, cm.type)})`),
+      'ΣI',
+    ];
     graphs.push({
       id: 'current_signals',
       type: 'bar',
@@ -564,7 +578,7 @@ export function generateGraphsFromMeasurements(
     ];
     const dropLabels = drops.map((cm) => {
       const name = labelForComponent(circuit, cm.componentId, cm.type);
-      return `V${name}`;
+      return `V(${name})`;
     });
     const kvlLabels = ['Vs', ...dropLabels, 'ΣV'];
     graphs.push({
@@ -656,7 +670,7 @@ export function generateGraphsFromMeasurements(
     metadata: {
       source: 'measurements',
       labels,
-      signals: drops.map((_, i) => `I${i + 1}`),
+      signals: drops.map((cm) => `I_${cm.componentId}`),
     },
   });
 

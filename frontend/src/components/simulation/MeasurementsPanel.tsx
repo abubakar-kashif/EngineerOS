@@ -2,10 +2,12 @@
  * Measurements panel: simulation status + global / per-component readings.
  * Values come only from SimulationResult.measurements.
  */
-import type { SimulationResult } from "./engine";
+import type { CircuitDefinition, SimulationResult } from "./engine";
+import { labelForComponent } from "./engine/graphData";
 
 interface MeasurementsPanelProps {
   result: SimulationResult | null;
+  circuit?: CircuitDefinition | null;
 }
 
 function formatCurrent(a: number): string {
@@ -14,18 +16,7 @@ function formatCurrent(a: number): string {
   return `${a.toFixed(4)} A`;
 }
 
-function friendlyComponentName(componentId: string, type: string): string {
-  if (componentId.startsWith("__")) {
-    return type.replace(/_/g, " ");
-  }
-  // Prefer short editor ids like R1 / V1 when present; otherwise type + short suffix.
-  if (/^[A-Za-z]+\d+$/.test(componentId)) return componentId;
-  const short = componentId.replace(/^comp_[a-z0-9]+_/i, "").slice(-6);
-  const kind = type.replace(/_/g, " ");
-  return short ? `${kind} (${short})` : kind;
-}
-
-function MeasurementsPanel({ result }: MeasurementsPanelProps) {
+function MeasurementsPanel({ result, circuit = null }: MeasurementsPanelProps) {
   if (!result) {
     return <p className="sim-measurements-empty">Run simulation to see measurements.</p>;
   }
@@ -95,8 +86,8 @@ function MeasurementsPanel({ result }: MeasurementsPanelProps) {
             </div>
             {physical.map((comp) => (
               <div key={comp.componentId} className="sim-comp-measurement">
-                <span className="sim-comp-id" title={comp.componentId}>
-                  {friendlyComponentName(comp.componentId, comp.type)}
+                <span className="sim-comp-id">
+                  {labelForComponent(circuit ?? undefined, comp.componentId, comp.type)}
                 </span>
                 <span>{comp.voltage.toFixed(3)} V</span>
                 <span>{formatCurrent(comp.current)}</span>
