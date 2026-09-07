@@ -2,17 +2,17 @@
 
 > **AI-Powered Electrical Engineering Learning Platform**
 
-EngineerOS is an AI-powered electrical engineering learning platform designed to bridge the gap between engineering theory and practical experimentation.
+EngineerOS is an AI-powered electrical engineering learning platform designed to bridge the gap between **engineering theory and practical experimentation**.
 
-The platform brings together **theory, circuit building, simulation, validation, results analysis, AI assistance, quizzes, lab reports, and learning progress** into one integrated environment.
+It brings together **experiments, circuit building, simulation, validation, results, graphs, AI assistance, quizzes, lab reports, and learning progress** into one integrated learning environment.
 
 ---
 
-## Vision
+## Overview
 
-Traditional engineering learning often separates theory from practical experimentation.
+Engineering education often separates theoretical concepts from practical experimentation.
 
-EngineerOS aims to create a unified learning workflow:
+EngineerOS is designed around a connected learning workflow:
 
 ```text
 Theory
@@ -38,41 +38,67 @@ Lab Report
 Progress
 ```
 
-The long-term goal is to provide engineering students with an interactive environment where they can learn concepts, build circuits, experiment with parameters, validate their results, understand mistakes, and document their work.
+The goal is to give engineering students an environment where they can learn a concept, experiment with it, build and simulate circuits, inspect results, understand mistakes, and document what they learned.
 
 ---
 
-## Project Status
+## Current Status
 
-🚧 **Currently under active development**
+🚧 **Actively under development**
 
-The project is being developed incrementally.
+EngineerOS is being developed incrementally as a full-stack engineering learning platform.
 
-### Current Phase
+The current system includes the core website, authentication, engineering experiments, quizzes, reports, resources, AI Mentor functionality, simulation workspace functionality, result visualization, learning progress, and a public landing experience.
 
-The current development phase focuses on building the complete website foundation:
-
-* Frontend application
-* Backend API
-* Database
-* API contracts
-* Documentation
-* Engineering experiments
-* Dashboard and workspace interfaces
-* Testing infrastructure
-* GitHub collaboration workflow
-
-Advanced AI systems and real circuit simulation will be implemented in later development phases.
+The platform continues to evolve as additional engineering and learning capabilities are developed.
 
 ---
 
-## Core Features
+# Key Features
 
-EngineerOS is planned around several major areas.
+## 🌐 Public Landing Experience
 
-### 1. Engineering Experiments
+EngineerOS includes a public landing page that introduces the platform before authentication.
 
-Students will be able to explore electrical engineering experiments including:
+The landing experience provides:
+
+* Platform overview
+* Engineering-focused product presentation
+* Feature highlights
+* Learning workflow
+* AI Mentor introduction
+* Calls to action for Login and Registration
+* Responsive design
+* Animated/reveal-based visual elements
+
+The public landing page is separate from the authenticated application.
+
+---
+
+## 🔐 Authentication
+
+EngineerOS provides an authentication flow for accessing the learning environment.
+
+The authentication system includes:
+
+* User registration
+* Login
+* Email verification
+* Protected application routes
+* Verification-required handling
+* Password reset flow
+* Authenticated sessions
+* Secure backend-side credential handling
+
+Authentication and verification are integrated with the existing application rather than being handled directly by the frontend.
+
+---
+
+## ⚡ Engineering Experiments
+
+EngineerOS is built around interactive electrical engineering experiments.
+
+The initial experiment library includes:
 
 * Ohm's Law
 * Series Circuits
@@ -85,129 +111,216 @@ Students will be able to explore electrical engineering experiments including:
 * Diode Characteristics
 * LED Circuits
 
-Each experiment is designed to connect theoretical concepts with practical experimentation.
+Experiments are designed to connect theoretical concepts with practical circuit experimentation.
 
----
+Each experiment can provide engineering context such as:
 
-### 2. Circuit Workspace
-
-The platform will provide an interactive workspace where students can:
-
-* Build circuits
-* Configure components
-* Modify circuit parameters
-* Connect components
-* Inspect circuit values
-* Prepare circuits for simulation
-* Validate circuit configurations
-
----
-
-### 3. Circuit Simulation
-
-Future versions will provide circuit simulation capabilities including:
-
-* Circuit execution
-* Voltage calculations
-* Current calculations
-* Waveform generation
-* Parameter sweeps
-* Simulation results
-* Graph visualization
-* Result validation
-
----
-
-### 4. AI Engineering Mentor
-
-EngineerOS will eventually include an AI engineering mentor capable of helping students understand and troubleshoot engineering problems.
-
-Planned capabilities include:
-
-* Concept explanations
-* Step-by-step guidance
-* Circuit explanations
-* Error diagnosis
-* Troubleshooting assistance
-* Result interpretation
-* Engineering questions and answers
-* Personalized learning assistance
-
----
-
-### 5. AI Circuit Assistance
-
-Future AI capabilities may allow students to describe a desired circuit using natural language.
-
-For example:
-
-```text
-"Create a voltage divider using a 10V source
-with an output of approximately 5V."
-```
-
-The AI system could eventually assist with:
-
-* Circuit generation
-* Component selection
-* Circuit modification
-* Parameter suggestions
-* Circuit validation
-* Troubleshooting
-
----
-
-### 6. Quizzes
-
-Each experiment will eventually include quizzes designed to test understanding.
-
-Planned quiz functionality:
-
-* Concept questions
-* Multiple-choice questions
-* Experiment-based questions
-* Results interpretation
-* Instant feedback
-* Progress tracking
-
----
-
-### 7. Lab Reports
-
-EngineerOS will provide tools to help students document their experiments.
-
-Planned report sections include:
-
-* Experiment title
 * Objective
 * Theory
 * Components
-* Circuit diagram
+* Circuit configuration
 * Procedure
-* Observations
+* Results
 * Calculations
-* Simulation results
-* Graphs
-* Discussion
-* Conclusion
-
-AI assistance may later help students organize and explain their results.
+* Learning activities
 
 ---
 
-### 8. Learning Progress
+## 🔌 Interactive Circuit Workspace
 
-The platform will track student progress across experiments and learning activities.
+The simulation workspace provides an environment for working with circuit components and connections.
 
-Planned progress features include:
+Students can work with:
 
-* Completed experiments
-* Quiz scores
-* Learning history
+* Circuit components
+* Component parameters
+* Circuit connections
+* Circuit configuration
+* Circuit validation
+* Simulation controls
+* Measurements
+* Simulation results
+
+The workspace is designed around an engineering-tool workflow rather than a static diagram.
+
+---
+
+## 📊 Circuit Simulation & Results
+
+EngineerOS includes simulation-oriented functionality for analyzing circuit behavior.
+
+The simulation layer is responsible for determining what happens in the circuit, including engineering measurements and simulation results.
+
+The system supports concepts such as:
+
+* Voltage measurements
+* Current measurements
+* Circuit results
+* Simulation state
+* Result validation
+* Graph visualization
+* Result selection
+* Simulation-to-AI context
+
+A core architectural principle is:
+
+> **Simulation determines what happened. AI determines what it means.**
+
+This separation keeps engineering calculations and simulation evidence independent from AI interpretation.
+
+---
+
+## 🤖 AI Engineering Mentor
+
+EngineerOS includes an AI Mentor designed specifically around the engineering learning workflow.
+
+The AI Mentor can assist with:
+
+* Engineering concept explanations
+* Step-by-step guidance
+* Circuit interpretation
+* Simulation-result interpretation
+* Troubleshooting guidance
+* Error explanation
+* Experiment-specific assistance
+* Context-aware conversations
+
+The AI layer can use relevant application context such as:
+
+* Experiment context
+* Simulation context
+* Quiz context
+* Report context
+* User context
+* Conversation context
+
+AI responses are generated through the backend rather than exposing AI provider credentials or direct provider communication to the frontend.
+
+### AI Architecture
+
+```text
+React Frontend
+      ↓
+FastAPI API
+      ↓
+Mentor Service
+      ↓
+Context Engine
+      ↓
+Prompt Builder
+      ↓
+AI Provider
+      ↓
+AI Response
+```
+
+This provider abstraction allows the AI layer to remain independent from a specific model provider.
+
+---
+
+## 🧠 Context-Aware AI
+
+The AI Mentor is designed to understand the context of the student's current activity rather than functioning only as a generic chatbot.
+
+For example, when working with a simulation, the AI can receive relevant simulation evidence and explain what those results mean.
+
+This creates a separation between:
+
+```text
+Simulation
+    ↓
+Engineering Evidence
+    ↓
+AI Interpretation
+```
+
+The AI layer should not independently invent circuit measurements, simulation results, or engineering state.
+
+---
+
+## 📝 Quizzes
+
+EngineerOS includes experiment-oriented quizzes designed to reinforce engineering understanding.
+
+Quiz functionality includes:
+
+* Multiple-choice questions
+* Experiment-specific questions
+* Engineering concept questions
+* Result interpretation
+* Answer evaluation
+* Explanations
+* Progress tracking
+* Configurable quiz behavior
+
+Mathematical and engineering content can be presented using formatted mathematical notation where appropriate.
+
+---
+
+## 📄 Lab Reports
+
+EngineerOS provides functionality for documenting engineering experiments.
+
+Reports can incorporate information such as:
+
+* Experiment information
+* Observations
+* Results
+* Conclusions
+* Engineering analysis
+
+The report system is designed to connect practical experimentation with formal engineering documentation.
+
+Future iterations can expand report generation and AI-assisted documentation capabilities.
+
+---
+
+## 📈 Graphs & Data Visualization
+
+Simulation and experiment results can be visualized through graphs.
+
+The graph system is designed to work with actual available result data rather than fabricated values.
+
+Users can select relevant simulation/result data for visualization and inspect the behavior of engineering quantities.
+
+This helps connect:
+
+```text
+Circuit
+   ↓
+Simulation
+   ↓
+Measurements
+   ↓
+Graph
+   ↓
+Engineering Interpretation
+```
+
+---
+
+## 📚 Learning Resources
+
+EngineerOS includes a resources area for supporting engineering learning.
+
+Resources can be associated with the platform's experiments and learning workflow, allowing students to access supporting educational material alongside practical experimentation.
+
+---
+
+## 📊 Learning Progress
+
+The platform tracks learning activity across the application.
+
+Progress functionality can be used for areas such as:
+
 * Experiment progress
-* Performance statistics
+* Quiz performance
+* Completed activities
+* Learning history
 * Reports
-* Overall learning progress
+* Overall progress
+
+The long-term goal is to provide students with a clear view of their engineering learning journey.
 
 ---
 
@@ -221,6 +334,7 @@ Planned progress features include:
 * Tailwind CSS
 * React Router
 * Lucide React
+* Framer Motion
 
 ## Backend
 
@@ -232,6 +346,12 @@ Planned progress features include:
 ## Database
 
 * SQLite
+
+## AI
+
+* Provider-abstracted AI architecture
+* Gemini provider integration
+* Context-aware AI Mentor system
 
 ## Testing
 
@@ -249,55 +369,64 @@ Planned progress features include:
 
 # Architecture
 
-EngineerOS is being developed as a **modular monolith** rather than a collection of microservices.
+EngineerOS follows a **modular monolith architecture**.
 
-The initial architecture is:
+The primary application architecture is:
 
 ```text
-┌──────────────────────────┐
-│     React Frontend       │
-│   TypeScript + Vite      │
-└────────────┬─────────────┘
-             │
-             │ REST API / JSON
-             ↓
-┌──────────────────────────┐
-│      FastAPI Backend     │
-│   Python + Pydantic      │
-└────────────┬─────────────┘
-             │
-             ↓
-┌──────────────────────────┐
-│       SQLAlchemy         │
-└────────────┬─────────────┘
-             │
-             ↓
-┌──────────────────────────┐
-│          SQLite          │
-└──────────────────────────┘
+┌──────────────────────────────┐
+│       React Frontend         │
+│     TypeScript + Vite        │
+└──────────────┬───────────────┘
+               │
+               │ REST API / JSON
+               ↓
+┌──────────────────────────────┐
+│       FastAPI Backend        │
+│        Python + Pydantic     │
+└──────────────┬───────────────┘
+               │
+       ┌───────┴────────┐
+       ↓                ↓
+┌──────────────┐  ┌──────────────┐
+│ Application  │  │ AI Services  │
+│ Services     │  │              │
+└──────┬───────┘  └──────────────┘
+       │
+       ↓
+┌──────────────┐
+│  SQLAlchemy  │
+└──────┬───────┘
+       ↓
+┌──────────────┐
+│    SQLite    │
+└──────────────┘
 ```
 
-Future components will integrate into this architecture:
+The application also contains dedicated simulation functionality:
 
 ```text
-                 ┌─────────────────┐
-                 │  React Frontend │
-                 └────────┬────────┘
+                 ┌──────────────────┐
+                 │  React Frontend  │
+                 └────────┬─────────┘
                           │
                           ↓
-                 ┌─────────────────┐
-                 │  FastAPI API    │
-                 └───────┬─┬───────┘
-                         │ │
-              ┌──────────┘ └──────────┐
-              ↓                       ↓
-      ┌───────────────┐       ┌───────────────┐
-      │ Simulation    │       │ AI Services   │
-      │ Engine        │       │               │
-      └───────────────┘       └───────────────┘
+                 ┌──────────────────┐
+                 │   FastAPI API    │
+                 └───────┬──┬───────┘
+                         │  │
+              ┌──────────┘  └──────────┐
+              ↓                        ↓
+      ┌────────────────┐       ┌────────────────┐
+      │ Simulation     │       │ AI Engineering │
+      │ Layer          │       │ Layer          │
+      └───────┬────────┘       └───────┬────────┘
+              │                        │
+              │ Engineering Evidence   │
+              └───────────→────────────┘
 ```
 
-Detailed architectural decisions will be documented in:
+Detailed architectural decisions are maintained in:
 
 ```text
 docs/ARCHITECTURE.md
@@ -307,7 +436,7 @@ docs/ARCHITECTURE.md
 
 # API
 
-The backend exposes a REST API.
+The backend exposes a REST API for communication with the frontend.
 
 Development base URL:
 
@@ -315,7 +444,20 @@ Development base URL:
 http://127.0.0.1:8000
 ```
 
-Initial API endpoints include:
+The API is organized around application domains including:
+
+```text
+Authentication
+Experiments
+Quizzes
+Progress
+Reports
+Resources
+AI Mentor
+Simulation
+```
+
+Representative endpoints include:
 
 ```text
 GET  /api/health
@@ -336,9 +478,7 @@ GET  /api/resources
 GET  /api/resources/{resource_id}
 ```
 
-Simulation and AI endpoints will be introduced in later development phases.
-
-Detailed API contracts will be maintained in:
+Detailed API contracts are maintained in:
 
 ```text
 docs/API_CONTRACT.md
@@ -348,20 +488,29 @@ docs/API_CONTRACT.md
 
 # Project Structure
 
-The project is organized as follows:
+The repository follows a frontend/backend/docs organization:
 
 ```text
 EngineerOS/
 │
 ├── backend/
 │   ├── app/
-│   ├── tests/
-│   └── ...
+│   │   ├── api/
+│   │   ├── core/
+│   │   ├── data/
+│   │   ├── db/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   └── services/
+│   └── tests/
 │
 ├── frontend/
 │   ├── src/
-│   ├── public/
-│   └── ...
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── routes/
+│   │   └── ...
+│   └── public/
 │
 ├── docs/
 │   ├── ARCHITECTURE.md
@@ -375,15 +524,48 @@ EngineerOS/
 └── README.md
 ```
 
-The structure will evolve as development progresses.
+The repository structure may evolve as the platform grows.
+
+---
+
+# Application Routes
+
+The application separates the public experience from the authenticated learning environment.
+
+### Public
+
+```text
+/                    Public landing page
+/login               Login
+/register            Registration
+/verify              Email verification
+/forgot-password     Password recovery
+/reset-password      Password reset
+```
+
+### Authenticated
+
+```text
+/home
+/dashboard
+/experiments
+/quiz
+/reports
+/resources
+/simulation
+/ai-mentor
+/tools
+/settings
+/about
+```
+
+The public landing page is intentionally **not part of the authenticated application sidebar**.
 
 ---
 
 # Development Workflow
 
 EngineerOS uses Git and GitHub for collaborative development.
-
-The main branch is protected from direct development.
 
 The general workflow is:
 
@@ -409,138 +591,166 @@ merge
 main
 ```
 
-Example branches:
+The `main` branch is treated as the shared stable branch, while feature development is performed through dedicated branches and pull requests.
+
+Detailed Git conventions are maintained in:
 
 ```text
-frontend/home
-frontend/experiments
-frontend/workspace
-
-backend/experiments
-backend/quiz
-backend/progress
-backend/reports
-
-docs/api-contract
-test/api
+docs/GIT_WORKFLOW.md
 ```
 
 ---
 
-# Team
+# Testing
 
-EngineerOS is being developed by a **5-member student team**.
+Testing is an important part of the development workflow.
 
-The project follows a collaborative development model where responsibilities are divided across:
+### Frontend
 
-* Project architecture
-* Frontend development
-* Backend development
-* API integration
-* Testing
-* Documentation
-* GitHub collaboration
+The frontend uses:
+
+* Vitest
+* React Testing Library
+* ESLint
+* TypeScript validation
+* Vite production builds
+
+### Backend
+
+The backend uses:
+
+* pytest
+* API tests
+* Service-level tests
+* Backend logic tests
+
+The project maintains automated tests across core frontend and backend functionality as development progresses.
 
 ---
 
 # Development Roadmap
 
-## Phase 1 — Website Foundation
+EngineerOS is being developed incrementally.
 
-* Project setup
-* React frontend
-* FastAPI backend
-* SQLite database
-* API foundation
+## Phase 1 — Foundation
+
+* Project architecture
+* Frontend application
+* Backend API
+* Database
 * Routing
-* Shared UI
-* Experiment pages
-* Dashboard
-* Workspace
+* Authentication
 * Documentation
-* Testing foundation
+* Testing infrastructure
 
-## Phase 2 — Engineering Experiment System
+## Phase 2 — Engineering Learning System
 
-* Experiment data
+* Engineering experiments
 * Experiment details
 * Components
 * Procedures
 * Calculations
-* Results
-* Experiment progress
+* Quiz system
+* Progress tracking
+* Reports
+* Learning resources
 
 ## Phase 3 — Interactive Circuit Workspace
 
 * Circuit components
+* Component configuration
 * Circuit connections
-* Circuit configuration
-* Circuit validation
 * Workspace interaction
+* Circuit validation
+* Simulation workflow
 
-## Phase 4 — Simulation Engine
+## Phase 4 — Simulation & Results
 
 * Circuit simulation
 * Electrical calculations
+* Measurements
 * Simulation execution
-* Waveforms
-* Graphs
-* Results analysis
+* Result validation
+* Graph visualization
+* Parameter experimentation
+* Simulation context
 
 ## Phase 5 — AI Engineering Layer
 
-* AI engineering mentor
-* AI explanations
-* AI troubleshooting
-* AI circuit generation
-* AI circuit modification
-* AI result interpretation
+* AI Engineering Mentor
+* Context-aware assistance
+* Engineering explanations
+* Simulation-result interpretation
+* Troubleshooting guidance
+* AI provider abstraction
+* Prompt and context systems
+* Streaming AI responses
 
 ## Phase 6 — Learning Intelligence
 
-* AI quizzes
 * Personalized learning
-* Lab report assistance
-* Progress analytics
-* Engineering knowledge retrieval
+* Advanced AI-assisted learning
+* Knowledge retrieval
+* Intelligent quizzes
+* Lab-report assistance
+* Learning analytics
+* Deeper experiment intelligence
 
 ---
 
-# Development Philosophy
+# Development Principles
 
-EngineerOS is being built with the following principles:
+### 1. Engineering First
 
-### Build incrementally
+EngineerOS is designed around real engineering concepts and experimentation rather than generic educational content.
 
-Features are implemented in stages rather than attempting to build the entire platform at once.
+### 2. Separation of Responsibilities
 
-### Keep the architecture simple
+Different system layers have clear responsibilities.
 
-The initial system uses a modular monolith instead of unnecessary microservices.
+```text
+Frontend
+    ↓
+Application/API
+    ↓
+Simulation / Services
+    ↓
+AI Interpretation
+```
 
-### Separate responsibilities
+### 3. Simulation Determines What Happened
 
-Frontend, backend, database, simulation, AI, and documentation should have clear boundaries.
+The simulation layer owns engineering state, circuit behavior, calculations, measurements, and simulation evidence.
 
-### Use contracts
+The AI layer interprets that evidence.
 
-Frontend and backend communicate through clearly defined API contracts.
+### 4. AI Determines What It Means
 
-### Test important functionality
+AI is responsible for explanation, guidance, interpretation, troubleshooting assistance, and educational interaction.
 
-Core backend logic and frontend functionality will be tested as the project develops.
+It should not independently invent simulation measurements or circuit state.
 
-### Build for real engineering learning
+### 5. Contract-Driven Development
 
-The platform should connect theoretical knowledge with practical engineering experimentation rather than simply presenting static educational content.
+Frontend and backend communicate through defined API contracts.
+
+### 6. Build Incrementally
+
+EngineerOS is developed in controlled phases rather than attempting to implement the entire platform simultaneously.
+
+### 7. Test Before Integration
+
+Important functionality is tested before changes are merged into the main development branch.
+
+### 8. Keep the Architecture Practical
+
+The project uses a modular monolith because it provides clear separation without introducing unnecessary microservice complexity.
 
 ---
 
 # Documentation
 
-Detailed project documentation will be maintained inside the `docs/` directory.
-
-Planned documentation:
+Project documentation is maintained in the `docs/` directory.
 
 ```text
 docs/
@@ -550,25 +760,84 @@ docs/
 └── GIT_WORKFLOW.md
 ```
 
+These documents contain more detailed information about:
+
+* System architecture
+* API contracts
+* Local setup
+* Development workflow
+
 ---
 
 # Local Development
 
-Detailed setup instructions will be provided in:
-
-```text
-docs/SETUP.md
-```
-
-The project will eventually require:
+Typical development requirements include:
 
 * Node.js
 * npm
 * Python
 * Git
 
+Frontend and backend setup instructions are maintained in:
+
+```text
+docs/SETUP.md
+```
+
+The backend development server runs on:
+
+```text
+http://127.0.0.1:8000
+```
+
+---
+
+# Team
+
+EngineerOS is being developed by a **5-member student engineering team**.
+
+The project follows a collaborative development model with responsibilities distributed across areas such as:
+
+* Project architecture
+* Frontend engineering
+* Backend engineering
+* AI engineering
+* Simulation engineering
+* API integration
+* Testing
+* Documentation
+* GitHub collaboration
+
+---
+
+# Vision
+
+The long-term vision of EngineerOS is to create a complete digital engineering laboratory where students can move naturally from understanding a concept to experimenting with it.
+
+```text
+Learn
+  ↓
+Build
+  ↓
+Simulate
+  ↓
+Measure
+  ↓
+Analyze
+  ↓
+Understand
+  ↓
+Practice
+  ↓
+Document
+  ↓
+Improve
+```
+
+EngineerOS aims to make electrical engineering learning more **interactive, practical, measurable, and intelligent**.
+
 ---
 
 # License
 
-This project is licensed under the terms specified in the `LICENSE` file.
+This project is licensed under the terms specified in the [`LICENSE`](LICENSE) file.
