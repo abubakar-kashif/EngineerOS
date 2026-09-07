@@ -1,4 +1,5 @@
 import AnswerOption from "./AnswerOption";
+import { MathText } from "../chat/MarkdownLite";
 import type { AnswerLetter, QuizQuestion } from "../../types/quiz";
 
 type QuestionCardProps = {
@@ -48,7 +49,7 @@ function QuestionCard({
       </div>
 
       <h2 className="quiz-question-text" id={headingId}>
-        {question.question}
+        <MathText text={question.question} />
       </h2>
 
       <div className="quiz-options" role="radiogroup" aria-labelledby={headingId}>

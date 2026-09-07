@@ -3462,6 +3462,30 @@
   white-space: nowrap;
 }
 
+.md-math-inline {
+  display: inline;
+}
+
+.md-math-display {
+  display: block;
+  overflow-x: auto;
+  margin: 0.45em 0;
+  text-align: center;
+}
+
+.md-root .katex,
+.quiz-question-text .katex,
+.quiz-option-text .katex,
+.quiz-review-question .katex,
+.quiz-review-why .katex,
+.quiz-review-answer-value .katex {
+  font-size: 1.05em;
+}
+
+.md-root .katex-display {
+  margin: 0.35em 0;
+}
+
 .md-blockquote {
   margin: 0;
   padding: var(--space-sm) var(--space-md);
@@ -4497,6 +4521,10 @@
 .quiz-review-why-label {
   font-weight: 700;
   color: var(--color-primary);
+}
+.quiz-review-why .md-root,
+.quiz-review-why .md-paragraph {
+  display: inline;
 }
 
 /* =========================================================

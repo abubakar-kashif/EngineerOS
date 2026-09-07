@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
+import MarkdownLite, { MathText } from "../chat/MarkdownLite";
 import type { QuestionFeedback } from "../../types/quiz";
 
 type ReviewFilter = "all" | "correct" | "incorrect";
@@ -72,7 +73,9 @@ function QuizReview({ feedback }: QuizReviewProps) {
                 </span>
               </header>
 
-              <p className="quiz-review-question">{item.question}</p>
+              <p className="quiz-review-question">
+                <MathText text={item.question} />
+              </p>
 
               <div className="quiz-review-answers">
                 <div className="quiz-review-answer">
@@ -84,22 +87,23 @@ function QuizReview({ feedback }: QuizReviewProps) {
                         : "quiz-review-answer-value quiz-review-answer-value--wrong"
                     }
                   >
-                    {answerText(item, item.your_answer)}
+                    <MathText text={answerText(item, item.your_answer)} />
                   </span>
                 </div>
                 {!item.is_correct && item.correct_answer !== null && (
                   <div className="quiz-review-answer quiz-review-answer--correct">
                     <span className="quiz-review-answer-label">Correct answer</span>
                     <span className="quiz-review-answer-value quiz-review-answer-value--right">
-                      {answerText(item, item.correct_answer)}
+                      <MathText text={answerText(item, item.correct_answer)} />
                     </span>
                   </div>
                 )}
               </div>
 
-              <p className="quiz-review-why">
-                <span className="quiz-review-why-label">Why:</span> {item.explanation}
-              </p>
+              <div className="quiz-review-why">
+                <span className="quiz-review-why-label">Why:</span>{" "}
+                <MarkdownLite content={item.explanation} />
+              </div>
             </article>
           ))}
         </div>
