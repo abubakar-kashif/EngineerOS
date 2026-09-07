@@ -39,8 +39,11 @@ class Settings(BaseSettings):
     SMTP_USERNAME: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     SMTP_FROM: Optional[str] = None
+    SMTP_REPLY_TO: Optional[str] = None
     SMTP_USE_TLS: bool = True
     SMTP_USE_SSL: bool = False
+    # Public app origin used in verification emails (not a secret).
+    FRONTEND_URL: Optional[str] = None
 
     CORS_ORIGINS: list = [
         "http://localhost:5173",

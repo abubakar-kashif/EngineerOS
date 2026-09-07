@@ -12,6 +12,7 @@ Register a new EmailSender subclass in _SENDERS to wire another provider.
 
 from __future__ import annotations
 
+import html
 import logging
 import smtplib
 from email.message import EmailMessage
@@ -32,6 +33,10 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
+VERIFICATION_SUBJECT = "Verify your EngineerOS account"
+PASSWORD_RESET_SUBJECT = "Reset your EngineerOS password"
+
+
 class EmailDeliveryError(Exception):
     """Raised when an email cannot be delivered."""
 
@@ -39,7 +44,7 @@ class EmailDeliveryError(Exception):
 class EmailSender:
     """Delivery backend contract — one subclass per provider."""
 
-    def send(self, to: str, subject: str, body: str) -> None:
+    def send(self, to: str, subject: str, body: str, html_body: str | None = None) -> None:
         raise NotImplementedError
 
 
@@ -50,7 +55,7 @@ class ConsoleSender(EmailSender):
     EMAIL_DELIVERY=smtp configuration go through SmtpSender instead.
     """
 
-    def send(self, to: str, subject: str, body: str) -> None:
+    def send(self, to: str, subject: str, body: str, html_body: str | None = None) -> None:
         logger.info("EMAIL to=%s subject=%s\n%s", to, subject, body)
 
 
@@ -84,25 +89,57 @@ def require_smtp_settings() -> None:
         )
 
 
-def _build_message(to: str, subject: str, body: str) -> EmailMessage:
+def frontend_public_url() -> str:
+    """Public EngineerOS origin for email links. Not a secret."""
+    configured = (settings.FRONTEND_URL or "").strip().rstrip("/")
+    if configured:
+        return configured
+    origins = settings.CORS_ORIGINS or []
+    if origins:
+        first = str(origins[0]).strip().rstrip("/")
+        if first:
+            return first
+    return "http://localhost:5173"
+
+
+def verification_page_url() -> str:
+    return f"{frontend_public_url()}/verify"
+
+
+def _reply_to_address() -> str:
+    return (settings.SMTP_REPLY_TO or "").strip()
+
+
+def _build_message(
+    to: str,
+    subject: str,
+    body: str,
+    html_body: str | None = None,
+) -> EmailMessage:
     from_addr = _smtp_from_address()
     message = EmailMessage()
     message["Subject"] = subject
     message["From"] = formataddr(("EngineerOS", from_addr))
     message["To"] = to
     message["Date"] = formatdate(localtime=True)
-    message["Message-ID"] = make_msgid(domain=from_addr.split("@")[-1])
+    domain = from_addr.split("@")[-1] if "@" in from_addr else "localhost"
+    message["Message-ID"] = make_msgid(domain=domain)
+    reply_to = _reply_to_address()
+    if reply_to:
+        message["Reply-To"] = reply_to
     message.set_content(body)
+    if html_body:
+        message.add_alternative(html_body, subtype="html")
     return message
 
 
 class SmtpSender(EmailSender):
     """Production sender: delivers through a configured SMTP server."""
 
-    def send(self, to: str, subject: str, body: str) -> None:
+    def send(self, to: str, subject: str, body: str, html_body: str | None = None) -> None:
         require_smtp_settings()
         host = (settings.SMTP_HOST or "").strip()
-        message = _build_message(to, subject, body)
+        message = _build_message(to, subject, body, html_body)
 
         try:
             if settings.SMTP_USE_SSL:
@@ -185,27 +222,72 @@ def _sender() -> EmailSender:
     return sender_cls()
 
 
+def _verification_plain_text(code: str) -> str:
+    page = verification_page_url()
+    return (
+        "Hello,\n\n"
+        "Welcome to EngineerOS. You are receiving this email because an account "
+        "was created with this address.\n\n"
+        "Please verify your EngineerOS account by entering this code on the "
+        f"verification page:\n\n{code}\n\n"
+        f"Verification page: {page}\n\n"
+        "The code expires in 2 minutes. If you did not create this account, "
+        "you can safely ignore this email.\n\n"
+        "Regards,\n"
+        "EngineerOS\n"
+    )
+
+
+def _verification_html(code: str) -> str:
+    page = verification_page_url()
+    safe_code = html.escape(code)
+    safe_page = html.escape(page)
+    return (
+        "<!DOCTYPE html>"
+        '<html lang="en"><head><meta charset="utf-8">'
+        f"<title>{html.escape(VERIFICATION_SUBJECT)}</title></head>"
+        '<body style="font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #111827;">'
+        "<p>Hello,</p>"
+        "<p>Welcome to EngineerOS. You are receiving this email because an account "
+        "was created with this address.</p>"
+        "<p>Please verify your EngineerOS account by entering this code on the verification page:</p>"
+        f'<p style="font-size: 22px; font-weight: 700; letter-spacing: 0.12em;">{safe_code}</p>'
+        f'<p><a href="{safe_page}">Open the EngineerOS verification page</a></p>'
+        "<p>The code expires in 2 minutes. If you did not create this account, "
+        "you can safely ignore this email.</p>"
+        "<p>Regards,<br>EngineerOS</p>"
+        "</body></html>"
+    )
+
+
+def build_verification_message(to: str, code: str) -> EmailMessage:
+    """MIME message for account verification (plain + HTML, no tracking)."""
+    return _build_message(
+        to,
+        VERIFICATION_SUBJECT,
+        _verification_plain_text(code),
+        _verification_html(code),
+    )
+
+
 def send_verification_email(to: str, code: str) -> None:
     _sender().send(
         to=to,
-        subject="Verify your EngineerOS account",
-        body=(
-            "Welcome to EngineerOS!\n\n"
-            f"Your verification code is: {code}\n\n"
-            "Enter it on the verification screen to activate your account. "
-            "This code expires in 2 minutes. "
-            "If you did not create an account, you can ignore this email."
-        ),
+        subject=VERIFICATION_SUBJECT,
+        body=_verification_plain_text(code),
+        html_body=_verification_html(code),
     )
 
 
 def send_password_reset_email(to: str, code: str) -> None:
     _sender().send(
         to=to,
-        subject="Reset your EngineerOS password",
+        subject=PASSWORD_RESET_SUBJECT,
         body=(
             "A password reset was requested for your EngineerOS account.\n\n"
             f"Your reset code is: {code}\n\n"
-            "If you did not request this, you can safely ignore this email."
+            "If you did not request this, you can safely ignore this email.\n\n"
+            "Regards,\n"
+            "EngineerOS\n"
         ),
     )
