@@ -90,12 +90,14 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
 
   const graphHasPoints = Boolean(graph?.series?.some((s) => s.points.length > 0));
 
+  const EMPTY_GRAPH_HINT = "Run a valid simulation to generate graph data.";
+
   const unavailableReason =
     mode === "custom"
       ? customBuild.unavailableReason
       : graph?.unavailableReason
         ?? (!graphHasPoints && graph ? NO_MEASUREMENT_DATA : undefined)
-        ?? (!presets.length ? NO_MEASUREMENT_DATA : undefined);
+        ?? (!presets.length ? EMPTY_GRAPH_HINT : undefined);
 
   const bounds = useMemo(() => {
     if (!graph) return { minX: 0, maxX: 1, minY: 0, maxY: 1 };
@@ -142,7 +144,15 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
   if (!result.measurements) {
     return (
       <p className="sim2-analysis-empty" role="status">
-        {NO_MEASUREMENT_DATA}
+        {EMPTY_GRAPH_HINT}
+      </p>
+    );
+  }
+
+  if (!presets.length && mode === "preset" && !yCandidates.length) {
+    return (
+      <p className="sim2-analysis-empty" role="status">
+        {EMPTY_GRAPH_HINT}
       </p>
     );
   }
@@ -167,6 +177,7 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
           xCandidates={xCandidates}
           yCandidates={yCandidates}
           axisOptionLabel={axisOptionLabel}
+          setZoom={setZoom}
           onResetView={() => {
             setZoom(1);
             setHover(null);
@@ -182,7 +193,7 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
   if (!graph) {
     return (
       <p className="sim2-analysis-empty" role="status">
-        {NO_MEASUREMENT_DATA}
+        {EMPTY_GRAPH_HINT}
       </p>
     );
   }
@@ -376,30 +387,52 @@ function SignalToolbar({
 }) {
   return (
     <div className="sim-graph-toolbar">
-      <select
-        className="sim-graph-select"
-        value={mode}
-        onChange={(e) => setMode(e.target.value as "preset" | "custom")}
-        aria-label="Graph mode"
-      >
-        <option value="preset">Measurement plots</option>
-        <option value="custom">Custom X / Y signals</option>
-      </select>
-      {mode === "preset" ? (
-        <select
-          className="sim-graph-select"
-          value={activeId}
-          onChange={(e) => setActiveId(e.target.value)}
-          aria-label="Select measurement graph"
+      <div className="sim-graph-mode" role="group" aria-label="Graph mode">
+        <button
+          type="button"
+          className={`sim-graph-mode-btn${mode === "preset" ? " sim-graph-mode-btn--active" : ""}`}
+          aria-pressed={mode === "preset"}
+          onClick={() => setMode("preset")}
         >
-          {presets.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.unavailableReason ? `${g.title} — no data` : g.title}
-            </option>
-          ))}
-        </select>
+          Measurement plots
+        </button>
+        <button
+          type="button"
+          className={`sim-graph-mode-btn${mode === "custom" ? " sim-graph-mode-btn--active" : ""}`}
+          aria-pressed={mode === "custom"}
+          onClick={() => setMode("custom")}
+        >
+          Custom signals
+        </button>
+      </div>
+
+      {mode === "preset" ? (
+        presets.length === 0 ? (
+          <p className="sim-graph-selector-empty" role="status">
+            No measurement graphs available for this run.
+          </p>
+        ) : (
+          <div className="sim-graph-preset-list" role="listbox" aria-label="Available measurement graphs">
+            {presets.map((g) => {
+              const selected = g.id === activeId;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  className={`sim-graph-preset-btn${selected ? " sim-graph-preset-btn--active" : ""}`}
+                  onClick={() => setActiveId(g.id)}
+                >
+                  {selected ? "✓ " : ""}
+                  {g.title}
+                </button>
+              );
+            })}
+          </div>
+        )
       ) : (
-        <>
+        <div className="sim-graph-custom-axes">
           <label className="sim-graph-axis-label">
             X
             <select
@@ -430,8 +463,9 @@ function SignalToolbar({
               ))}
             </select>
           </label>
-        </>
+        </div>
       )}
+
       <div className="sim-graph-actions">
         {setZoom && (
           <>
