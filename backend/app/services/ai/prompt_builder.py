@@ -169,6 +169,28 @@ If Validation PASSED, do not invent an open, short, wrong wire, or bad component
 Recommend a correction; do not claim you re-solved or re-validated the circuit.
 If the student asks about a voltmeter or current, use only the provided measurements for that instrument/component."""
 
+    PRE_RUN_MENTOR_RULES = """PRE-RUN / EDITOR-ONLY MODE — a live canvas snapshot is attached, but there is no matching SimulationRun.
+
+FACT: only name components, labels, values, connections, nets, and unconnected terminals listed in CURRENT EDITOR CIRCUIT.
+GUIDANCE: you MAY give construction and next-step coaching from the experiment catalog plus this snapshot.
+  "How do I build this?" means teaching the student what to place and check next — not fabricating a finished circuit.
+  You did not place or wire anything. Do not say "I connected …".
+UNKNOWN: voltages, currents, power, whether the circuit is electrically valid, and any "what happened" claim until they Run the simulator.
+
+Never invent extra components, wires, or measurements that are not in the snapshot.
+Never say the circuit is valid unless SIMULATION CONTEXT contains Validation PASSED from the simulator.
+If they ask for a measurement (current, voltage, power) before a run, say those values are unknown until they Run.
+If the canvas is empty, say so and guide from the catalog.
+If the drawing is partial, refer only to the real parts and suggest the next safe check.
+When the intended loop looks complete in the drawing, tell them to Run simulation — do not predict the results."""
+
+    STALE_RUN_MENTOR_RULES = """STALE RUN MODE — the live editor no longer matches the attached SimulationRun.
+
+FACT: CURRENT EDITOR CIRCUIT is the only current drawing.
+UNKNOWN: previous run voltages/currents/power (they were dropped because the drawing changed).
+GUIDANCE: tell the student to Run again for new measurements. Construction coaching from the snapshot is still allowed.
+Never present old conversation numbers as the current result."""
+
     def __init__(self):
         self.template = PromptTemplate()
 
@@ -195,9 +217,12 @@ If the student asks about a voltmeter or current, use only the provided measurem
                 f"{self.ENGINEEROS_RULES}\n\n{self.GENERAL_MENTOR_RULES}"
             )
         else:
-            template.engineeros_rules = (
-                f"{self.ENGINEEROS_RULES}\n\n{self.SIMULATION_MENTOR_RULES}"
-            )
+            extra = self.SIMULATION_MENTOR_RULES
+            if self._is_stale_run(context.simulation):
+                extra = f"{self.SIMULATION_MENTOR_RULES}\n\n{self.STALE_RUN_MENTOR_RULES}"
+            elif self._is_pre_run(context.simulation):
+                extra = f"{self.SIMULATION_MENTOR_RULES}\n\n{self.PRE_RUN_MENTOR_RULES}"
+            template.engineeros_rules = f"{self.ENGINEEROS_RULES}\n\n{extra}"
 
         # 3. Experiment context
         if context.experiment:
@@ -295,12 +320,41 @@ If the student asks about a voltmeter or current, use only the provided measurem
             lines.append(f"Boundary: {experiment.get('guidance_boundary')}")
         return "\n".join(lines)
 
-    def _format_simulation(self, simulation: Dict[str, Any]) -> str:
-        """Format authoritative simulation facts (never invent values)."""
-        lines = []
-        lines.append(
-            "AUTHORITATIVE SIMULATION FACTS (from EngineerOS simulator — do not recalculate or invent):"
+    @staticmethod
+    def _is_stale_run(simulation: Dict[str, Any]) -> bool:
+        return bool(
+            simulation.get("run_is_stale")
+            or simulation.get("status") == "stale_editor_mismatch"
         )
+
+    @staticmethod
+    def _is_pre_run(simulation: Dict[str, Any]) -> bool:
+        if simulation.get("status") == "editor_only":
+            return True
+        if simulation.get("simulation_run_id"):
+            return False
+        if simulation.get("measurements") or simulation.get("dc_result"):
+            return False
+        if simulation.get("validation"):
+            return False
+        return True
+
+    def _format_simulation(self, simulation: Dict[str, Any]) -> str:
+        """Format editor snapshot and, when present, authoritative run facts."""
+        lines = []
+        if self._is_pre_run(simulation):
+            lines.append(
+                "PRE-RUN EDITOR CONTEXT (student drawing only — not a SimulationRun):"
+            )
+            lines.append(
+                "FACT: only CURRENT EDITOR CIRCUIT below. "
+                "GUIDANCE: construction next-steps from the catalog + this drawing. "
+                "UNKNOWN: all measurements and electrical validity until the student Runs."
+            )
+        else:
+            lines.append(
+                "AUTHORITATIVE SIMULATION FACTS (from EngineerOS simulator — do not recalculate or invent):"
+            )
 
         if simulation.get('simulation_run_id'):
             lines.append(f"Simulation run ID: {simulation.get('simulation_run_id')}")
@@ -338,7 +392,8 @@ If the student asks about a voltmeter or current, use only the provided measurem
             lines.extend(self._format_circuit_summary(run_circuit))
 
         lines.append(f"Status: {simulation.get('status', 'unknown')}")
-        lines.extend(self._format_diagnosis_hints(simulation))
+        if not (self._is_pre_run(simulation) and not simulation.get("validation")):
+            lines.extend(self._format_diagnosis_hints(simulation))
 
         # Validation / structured errors
         if simulation.get('validation'):
@@ -435,13 +490,20 @@ If the student asks about a voltmeter or current, use only the provided measurem
 
     def _format_circuit_summary(self, circuit: Dict[str, Any]) -> List[str]:
         lines: List[str] = []
+        components = circuit.get("components") or []
         if circuit.get("fingerprint"):
             lines.append(f"Electrical fingerprint: {circuit.get('fingerprint')}")
-        for comp in circuit.get("components") or []:
+        if not components:
+            lines.append("  Canvas is empty: no components and no connections.")
+            return lines
+        for comp in components:
             props = comp.get("properties") or {}
             prop_bits = ", ".join(f"{k}={v}" for k, v in props.items())
             extra = f" ({prop_bits})" if prop_bits else ""
-            lines.append(f"  - {comp.get('id')} [{comp.get('type')}]{extra}")
+            label = comp.get("label") or comp.get("id")
+            ident = str(comp.get("id"))
+            name = ident if label == ident else f"{label} ({ident})"
+            lines.append(f"  - {name} [{comp.get('type')}]{extra}")
         if circuit.get("connections"):
             lines.append("Connections:")
             for conn in circuit["connections"]:
