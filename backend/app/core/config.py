@@ -31,8 +31,9 @@ class Settings(BaseSettings):
     AI_TEMPERATURE: float = 0.7
 
     # Email delivery (backend-only — never expose SMTP credentials to frontend)
-    # EMAIL_DELIVERY: "console" (dev) | "smtp" (configured environments)
-    EMAIL_DELIVERY: str = "console"
+    # Empty: console when DEBUG=true, smtp when DEBUG=false.
+    # Explicit "console" is rejected when DEBUG=false.
+    EMAIL_DELIVERY: Optional[str] = None
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587
     SMTP_USERNAME: Optional[str] = None

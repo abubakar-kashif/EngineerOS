@@ -175,9 +175,10 @@ def _sender() -> EmailSender:
                 "Set EMAIL_DELIVERY=smtp for production."
             )
     if key == "console" and not settings.DEBUG:
-        logger.warning(
-            "EMAIL_DELIVERY=console while DEBUG=false — codes will appear in "
-            "server logs. Prefer EMAIL_DELIVERY=smtp in production."
+        raise EmailDeliveryError(
+            "EMAIL_DELIVERY=console is not allowed when DEBUG=false. "
+            "Set EMAIL_DELIVERY=smtp so verification codes go to the mailbox, "
+            "not the server log."
         )
     if key == "smtp":
         require_smtp_settings()

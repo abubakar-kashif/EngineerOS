@@ -652,12 +652,20 @@ def test_gmail_smtp_requires_app_password():
         ) = previous
 
 
-def test_dev_code_hidden_when_debug_false(phase9_client):
+def test_dev_code_hidden_when_debug_false(phase9_client, monkeypatch):
     from app.core.config import settings
+    from app.services import email_service
 
     client, _ = phase9_client
     previous = settings.DEBUG
+    previous_delivery = settings.EMAIL_DELIVERY
     settings.DEBUG = False
+    settings.EMAIL_DELIVERY = "smtp"
+    monkeypatch.setattr(
+        email_service,
+        "send_verification_email",
+        lambda to, code: None,
+    )
     try:
         response = client.post(
             "/api/auth/register",
@@ -671,6 +679,26 @@ def test_dev_code_hidden_when_debug_false(phase9_client):
         assert response.json().get("dev_code") is None
     finally:
         settings.DEBUG = previous
+        settings.EMAIL_DELIVERY = previous_delivery
+
+
+def test_console_delivery_rejected_when_debug_false():
+    from app.core.config import settings
+    from app.services.email_service import EmailDeliveryError, _sender
+
+    previous_debug = settings.DEBUG
+    previous_delivery = settings.EMAIL_DELIVERY
+    settings.DEBUG = False
+    settings.EMAIL_DELIVERY = "console"
+    try:
+        try:
+            _sender()
+            raise AssertionError("expected EmailDeliveryError")
+        except EmailDeliveryError as exc:
+            assert "not allowed when DEBUG=false" in str(exc)
+    finally:
+        settings.DEBUG = previous_debug
+        settings.EMAIL_DELIVERY = previous_delivery
 
 
 def test_dev_code_hidden_when_smtp_delivery(phase9_client, monkeypatch):

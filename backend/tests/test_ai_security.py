@@ -151,10 +151,11 @@ class TestDataLeakageGuard:
         # Should detect as some kind of token/key
         assert result["has_leak"] is True
 
-    def test_check_response_for_leakage_generic_key(self):
-        response = "Key: 1234567890abcdef1234567890abcdef"
+    def test_check_response_for_leakage_generic_hex_is_not_a_key(self):
+        # Simulation run ids / hex blobs must not trip the leak detector.
+        response = "Context run: 23691a4ceecc4c9fb2f99975e2581662"
         result = DataLeakageGuard.check_response_for_leakage(response)
-        assert result["has_leak"] is True
+        assert result["has_leak"] is False
 
     def test_check_response_for_leakage_no_leak(self):
         response = "Ohm's law states that V = I * R"
@@ -163,9 +164,14 @@ class TestDataLeakageGuard:
         assert len(result["leaks"]) == 0
 
     def test_check_response_for_leakage_multiple_leaks(self):
-        response = "Key: sk-proj-123456, Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+        response = (
+            "Key: sk-proj-1234567890abcdefghijklmnopqrstuvwxyz "
+            "Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0"
+        )
         result = DataLeakageGuard.check_response_for_leakage(response)
         assert result["has_leak"] is True
+        assert "OPENAI_API_KEY" in result["leaks"]
+        assert "JWT_TOKEN" in result["leaks"]
 
 
 class TestSecurityIntegration:
@@ -182,7 +188,7 @@ class TestSecurityIntegration:
 
     def test_response_safety_check(self):
         # Use a key format that matches the regex pattern
-        dangerous_response = "Key: 1234567890abcdef1234567890abcdef"
+        dangerous_response = "Here is your key: AIzaSyAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         result = DataLeakageGuard.check_response_for_leakage(dangerous_response)
         assert result["has_leak"] is True
 

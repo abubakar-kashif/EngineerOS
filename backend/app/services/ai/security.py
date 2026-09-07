@@ -73,9 +73,8 @@ class SecurityVerifier:
         """
         Remove sensitive information from log messages.
         """
-        # Remove API key patterns
-        api_key_pattern = r'[A-Za-z0-9]{20,}'
-        message = re.sub(api_key_pattern, '[REDACTED_API_KEY]', message)
+        message = re.sub(r'sk-[A-Za-z0-9_-]{20,}', '[REDACTED_API_KEY]', message)
+        message = re.sub(r'AIza[0-9A-Za-z_-]{20,}', '[REDACTED_API_KEY]', message)
         
         # Remove authorization headers
         auth_pattern = r'Authorization: [A-Za-z0-9\-_\.]+'
@@ -153,10 +152,9 @@ class DataLeakageGuard:
     """
 
     SENSITIVE_PATTERNS = [
-        (r'sk-[A-Za-z0-9]{48,}', 'OPENAI_API_KEY'),
-        (r'AIza[0-9A-Za-z\-_]{20,}', 'GEMINI_API_KEY'),
-        (r'[A-Za-z0-9]{32,}', 'API_KEY'),
-        (r'ey[A-Za-z0-9\-_]+\.ey[A-Za-z0-9\-_]+\.', 'JWT_TOKEN'),
+        (r'sk-[A-Za-z0-9_-]{20,}', 'OPENAI_API_KEY'),
+        (r'AIza[0-9A-Za-z_-]{20,}', 'GEMINI_API_KEY'),
+        (r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', 'JWT_TOKEN'),
     ]
 
     @staticmethod
