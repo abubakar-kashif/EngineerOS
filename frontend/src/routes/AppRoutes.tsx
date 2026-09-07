@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import MainLayout from "../components/layout/MainLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
+import LandingPage from "../pages/Landing/LandingPage";
 import HomePage from "../pages/HomePage";
 import ExperimentsPage from "../pages/ExperimentsPage";
 import ExperimentDetailsPage from "../pages/ExperimentDetailsPage";
@@ -36,6 +37,9 @@ import SecuritySettings from "../pages/settings/SecuritySettings";
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public marketing landing page (no shell, no auth) */}
+      <Route path="/" element={<LandingPage />} />
+
       {/* Public auth routes (no shell) */}
       <Route
         path="/login"
@@ -66,7 +70,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<HomePage />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/experiments" element={<ExperimentsPage />} />
         <Route path="/experiments/:experimentId" element={<ExperimentDetailsPage />} />
         <Route path="/experiments/:experimentId/workspace" element={<WorkspacePage />} />

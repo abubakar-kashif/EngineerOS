@@ -28,7 +28,7 @@ export const menuGroups: MenuGroup[] = [
   {
     title: "HOME",
     items: [
-      { path: "/", label: "Home", icon: House },
+      { path: "/home", label: "Home", icon: House },
       { path: "/dashboard", label: "Dashboard", icon: ChartNoAxesCombined },
     ],
   },
