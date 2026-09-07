@@ -18,9 +18,10 @@ from app.services.progress_service import upsert_progress
 
 PASSING_SCORE = 70.0
 
-# Phase 2: an attempt presents a random sample of this many questions from
-# the experiment's bank (the whole bank when it is smaller).
+# Largest attempt size the product offers. Clients may submit 10, 20, or 40
+# questions (or a full-bank legacy payload). Smaller complete attempts are valid.
 QUIZ_ATTEMPT_SIZE = 40
+MIN_QUIZ_ATTEMPT_SIZE = 10
 
 
 def get_quiz_questions(db: Session, experiment_id: str) -> QuizResponse:
@@ -92,10 +93,8 @@ def submit_quiz(
             detail=f"Invalid question ID(s): {invalid_ids}",
         )
 
-    # Phase 2: the submission must cover a complete attempt — at least
-    # QUIZ_ATTEMPT_SIZE questions (the whole bank when it is smaller).
-    # Full-bank submissions from older clients remain valid.
-    min_answers = min(len(all_questions), QUIZ_ATTEMPT_SIZE)
+    # Complete attempts may be 10, 20, or 40 questions (or the full bank).
+    min_answers = min(len(all_questions), MIN_QUIZ_ATTEMPT_SIZE)
     if len(question_ids) < min_answers:
         raise HTTPException(
             status_code=400,

@@ -607,7 +607,9 @@ def test_smtp_sender_delivers_through_starttls_without_logging_secrets(monkeypat
         assert session.logged_in == ("sender@gmail.com", "abcdefghijklmnop")
         assert session.sent["To"] == "inbox@gmail.com"
         assert "EngineerOS" in str(session.sent["From"])
-        assert "654321" in session.sent.get_content()
+        plain = session.sent.get_body(preferencelist=("plain",))
+        assert plain is not None
+        assert "654321" in plain.get_content()
         assert "654321" not in caplog.text
         assert "abcdefghijklmnop" not in caplog.text
         assert "abcd efgh" not in caplog.text

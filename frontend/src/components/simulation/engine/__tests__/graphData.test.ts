@@ -84,7 +84,7 @@ describe("measurement-based graph data", () => {
     measurements = result.measurements!;
   });
 
-  it("lists real signals (Vs, I1, V_R1) not experiment names", () => {
+  it("lists real signals (Vs, I_R1, V_R1) not experiment names", () => {
     const signals = listAvailableSignals({ measurements }, circuit);
     const ids = signals.map((s) => s.id);
     expect(ids).toContain("Vs");
@@ -94,10 +94,11 @@ describe("measurement-based graph data", () => {
     expect(ids).not.toContain("kvl");
     expect(ids).not.toContain("kcl");
     expect(ids).not.toContain("ohms_law");
+    expect(signals.find((s) => s.id === "time")).toBeUndefined();
 
-    const time = signals.find((s) => s.id === "time");
-    expect(time?.available).toBe(false);
-    expect(time?.unavailableReason).toMatch(/time-series/i);
+    const iR1 = signals.find((s) => s.id === "I_R1");
+    expect(iR1?.label).toBe("I(R1)");
+    expect(iR1?.id).toBe("I_R1");
   });
 
   it("builds default graphs from measurements only", () => {
@@ -111,7 +112,7 @@ describe("measurement-based graph data", () => {
     expect(validateGraphData(voltages!)).toBe(true);
 
     const currents = getGraphById(graphs, "current_signals");
-    expect(currents?.metadata?.labels).toEqual(expect.arrayContaining(["I1", "I2", "ΣI"]));
+    expect(currents?.metadata?.labels).toEqual(expect.arrayContaining(["I(R1)", "I(R2)", "ΣI"]));
     expect(currents?.title).toMatch(/KCL/);
   });
 

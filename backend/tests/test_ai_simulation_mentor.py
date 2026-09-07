@@ -165,6 +165,8 @@ def test_editor_only_prompt_does_not_invent_a_run():
     assert "No matching SimulationRun" in prompt or "editor_only" in prompt
     assert "8.0 V" not in prompt
     assert "SIMULATION MENTOR MODE" in prompt
+    assert "PRE-RUN / EDITOR-ONLY MODE" in prompt
+    assert "construction" in prompt.lower() or "next-step" in prompt.lower()
 
 
 OPEN_CIRCUIT = {
@@ -392,3 +394,154 @@ def test_scenario_correct_circuit_forbids_invented_faults():
     assert "code=OPEN_CIRCUIT" not in prompt
     assert "code=LED_NO_CURRENT_LIMIT" not in prompt
     assert "DIAGNOSIS: Validation PASSED" in prompt
+
+
+EMPTY_CANVAS = {"components": [], "connections": []}
+
+PARTIAL_BUILD = {
+    "components": [
+        {
+            "id": "V1",
+            "type": "voltage_source",
+            "label": "V1",
+            "properties": {"voltage": 5},
+            "terminals": [
+                {"id": "V1.positive", "type": "positive"},
+                {"id": "V1.negative", "type": "negative"},
+            ],
+        },
+        {
+            "id": "R1",
+            "type": "resistor",
+            "label": "R1",
+            "properties": {"resistance": 1000},
+            "terminals": [
+                {"id": "R1.A", "type": "A"},
+                {"id": "R1.B", "type": "B"},
+            ],
+        },
+        {
+            "id": "GND1",
+            "type": "ground",
+            "label": "GND1",
+            "properties": {},
+            "terminals": [{"id": "GND1.ground", "type": "ground"}],
+        },
+    ],
+    "connections": [
+        {"id": "W1", "from": "V1.positive", "to": "R1.A"},
+    ],
+}
+
+
+def test_a_empty_editor_does_not_invent_components_or_measurements():
+    builder = PromptBuilder()
+    context = ContextResult()
+    context.simulation = apply_live_editor_circuit(None, EMPTY_CANVAS)
+    prompt = builder.build_prompt(context, "How should I build this circuit?")
+    assert context.simulation["status"] == "editor_only"
+    assert "Canvas is empty" in prompt
+    assert "PRE-RUN EDITOR CONTEXT" in prompt
+    assert "PRE-RUN / EDITOR-ONLY MODE" in prompt
+    assert "8.0 V" not in prompt
+    assert "Total Current:" not in prompt
+    assert "R2" not in prompt
+    assert "Never invent" in prompt or "never invent" in prompt.lower()
+
+
+def test_b_partial_circuit_lists_real_parts_only():
+    builder = PromptBuilder()
+    context = ContextResult()
+    context.simulation = apply_live_editor_circuit(None, PARTIAL_BUILD)
+    prompt = builder.build_prompt(context, "What should I connect next?")
+    assert "V1" in prompt and "R1" in prompt and "GND1" in prompt
+    assert "V1.positive" in prompt and "R1.A" in prompt
+    assert "R2" not in prompt
+    assert "PRE-RUN / EDITOR-ONLY MODE" in prompt
+    assert "I connected" in prompt
+    assert "Do not say" in prompt
+
+
+def test_c_pre_run_snapshot_supplied_without_measurements():
+    builder = PromptBuilder()
+    context = ContextResult()
+    context.simulation = apply_live_editor_circuit(None, DIVIDER)
+    prompt = builder.build_prompt(context, "What is the current?")
+    assert "CURRENT EDITOR CIRCUIT" in prompt
+    assert "R1" in prompt and "R2" in prompt
+    assert "UNKNOWN" in prompt
+    assert "8.0 V" not in prompt
+    assert "0.004" not in prompt
+    assert "AUTHORITATIVE SIMULATION FACTS (from EngineerOS simulator" not in prompt
+    assert "No matching SimulationRun" in prompt
+
+
+def test_d_post_run_diagnosis_still_includes_measurements():
+    builder = PromptBuilder()
+    context = ContextResult()
+    context.simulation = apply_live_editor_circuit(_run_context("run-div", DIVIDER), DIVIDER)
+    prompt = builder.build_prompt(context, "Explain what is happening in my circuit.")
+    assert "AUTHORITATIVE SIMULATION FACTS" in prompt
+    assert "PRE-RUN / EDITOR-ONLY MODE" not in prompt
+    assert "0.004" in prompt
+    assert "8.0" in prompt
+    assert "run-div" in prompt
+
+
+def test_e_edit_after_run_does_not_keep_stale_measurements():
+    builder = PromptBuilder()
+    context = ContextResult()
+    context.simulation = apply_live_editor_circuit(_run_context("run-old", DIVIDER), CHANGED_R2)
+    prompt = builder.build_prompt(context, "What is the current?")
+    assert "STALE RUN MODE" in prompt
+    assert "4000" in prompt
+    assert "dc_result" not in context.simulation
+    assert "0.004" not in prompt
+    assert "8.0 V" not in prompt
+
+
+def test_f_invalid_circuit_uses_simulator_error_not_invented_values():
+    builder = PromptBuilder()
+    context = ContextResult()
+    error = {
+        "code": "OPEN_CIRCUIT",
+        "message": "The circuit has an open connection.",
+        "affected_terminals": ["V1.negative"],
+        "affected_components": ["V1"],
+        "suggested_fix": "Connect V1.negative to ground.",
+    }
+    context.simulation = apply_live_editor_circuit(
+        _invalid_run("run-open", OPEN_CIRCUIT, error), OPEN_CIRCUIT
+    )
+    prompt = builder.build_prompt(context, "What's wrong with my circuit?")
+    assert "OPEN_CIRCUIT" in prompt
+    assert "PRE-RUN / EDITOR-ONLY MODE" not in prompt
+    assert "Total Current:" not in prompt
+    assert "do not re-solve" in prompt.lower() or "recommend a fix" in prompt.lower()
+
+
+def test_g_current_editor_overrides_old_conversation_values():
+    builder = PromptBuilder()
+    context = ContextResult()
+    context.conversation = [
+        {"role": "user", "content": "R2 is 2000 ohm."},
+        {"role": "assistant", "content": "Yes, R2 is 2000 Ω on that drawing."},
+    ]
+    context.simulation = apply_live_editor_circuit(None, CHANGED_R2)
+    prompt = builder.build_prompt(context, "What about R2?")
+    assert "4000" in prompt
+    assert "CURRENT EDITOR CIRCUIT" in prompt
+    assert "SIMULATION CONTEXT wins" in prompt
+
+
+def test_conversation_history_stays_bounded():
+    builder = PromptBuilder()
+    context = ContextResult()
+    context.conversation = [
+        {"role": "user", "content": f"turn-{i} " + ("x" * 800)}
+        for i in range(15)
+    ]
+    prompt = builder.build_prompt(context, "Follow up")
+    assert "turn-14" in prompt
+    assert "turn-0" not in prompt
+    assert "..." in prompt

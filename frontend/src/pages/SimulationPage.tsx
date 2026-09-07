@@ -24,6 +24,10 @@ import MeasurementsPanel from "../components/simulation/MeasurementsPanel";
 import PanelResizeHandle from "../components/simulation/PanelResizeHandle";
 import { getExperimentById } from "../services/experimentService";
 import { persistAndRunSimulation } from "../services/simulationPersistence";
+import {
+  buildMentorExpandHref,
+  simMentorConversationStorageKey,
+} from "../services/mentor/simMentorBridge";
 import { toast } from "../components/ui/useToast";
 import {
   createWorkspaceProject,
@@ -761,7 +765,7 @@ function SimulationPage() {
                       Simulation running…
                     </p>
                   ) : displayedResult ? (
-                    <MeasurementsPanel result={displayedResult} />
+                    <MeasurementsPanel result={displayedResult} circuit={liveEngineCircuit} />
                   ) : (
                     <AnalysisPanel
                       circuit={liveEngineCircuit}
@@ -807,10 +811,11 @@ function SimulationPage() {
                       }
                       result={displayedResult}
                       graphs={displayedResult.graphs}
+                      circuit={liveEngineCircuit}
                     />
                   ) : (
                     <p className="sim2-analysis-empty" role="status">
-                      No measurement data available
+                      Run the simulation to generate graph data.
                     </p>
                   )}
                 </div>
@@ -822,14 +827,15 @@ function SimulationPage() {
 
       <Link
         className="sim2-mentor-mobile-link"
-        to={`/mentor?${new URLSearchParams({
-          ...(experiment?.id || experimentParam
-            ? { experiment: experiment?.id ?? experimentParam! }
-            : {}),
-          stage: "simulation",
-          ...(displayedResult && simulationRunId ? { simulation: simulationRunId } : {}),
-          ...(displayedResult?.status ? { sim: displayedResult.status } : {}),
-        }).toString()}`}
+        to={buildMentorExpandHref({
+          experimentId: experiment?.id ?? experimentParam,
+          simulationRunId: displayedResult ? simulationRunId : null,
+          simStatus: displayedResult?.status ?? null,
+          conversationId:
+            sessionStorage.getItem(
+              simMentorConversationStorageKey(experiment?.id ?? experimentParam),
+            ) || null,
+        })}
       >
         Open AI Mentor
       </Link>

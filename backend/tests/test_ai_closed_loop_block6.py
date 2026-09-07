@@ -57,6 +57,44 @@ class TestClosedLoopPromptFreshness:
         assert "GENERAL MENTOR MODE" in prompt
         assert "AUTHORITATIVE SIMULATION FACTS" not in prompt or context.simulation is None
 
+    def test_follow_up_prompt_includes_prior_user_and_assistant_turns(self):
+        builder = PromptBuilder()
+        context = ContextResult()
+        context.conversation = [
+            {"role": "user", "content": "What is wrong with my circuit?"},
+            {
+                "role": "assistant",
+                "content": "The simulation shows an open circuit at V1.negative.",
+            },
+        ]
+        context.simulation = {
+            "simulation_run_id": "run-open",
+            "status": "invalid",
+            "validation": {
+                "valid": False,
+                "errors": [{"code": "OPEN_CIRCUIT", "message": "Open"}],
+            },
+        }
+        prompt = builder.build_prompt(context, "How do I fix it?")
+        assert "What is wrong with my circuit?" in prompt
+        assert "open circuit at V1.negative" in prompt
+        assert "How do I fix it?" in prompt
+        assert "OPEN_CIRCUIT" in prompt
+        builder = PromptBuilder()
+        context = ContextResult()
+        context.experiment = {
+            "id": "kvl",
+            "title": "Kirchhoff's Voltage Law",
+            "components": [{"name": "Voltage source"}, {"name": "Resistors"}],
+            "guidance_boundary": "Guidance only; simulator validates.",
+        }
+        # No simulation context yet
+        prompt = builder.build_prompt(context, "I want to build KVL. What components do I need?")
+        assert "kvl" in prompt.lower() or "Kirchhoff" in prompt or "KVL" in prompt
+        assert "instructional guidance only" in prompt.lower() or "Do not invent the student's circuit" in prompt
+        assert "GENERAL MENTOR MODE" in prompt
+        assert "AUTHORITATIVE SIMULATION FACTS" not in prompt or context.simulation is None
+
 
 class TestPersistRunMetadataContract:
     """run_simulation must expose simulation_run_id for Mentor ask bodies."""

@@ -5,6 +5,7 @@
 import { useState } from "react";
 import type { CircuitDefinition, SimulationResult } from "./engine";
 import type { SimulationError } from "./engine/errors";
+import { labelForComponent } from "./engine/graphData";
 
 type AnalysisTab = "results" | "measurements" | "validation";
 
@@ -41,7 +42,7 @@ function AnalysisPanel({
       </div>
 
       <div className="sim2-analysis-content">
-        {tab === "results" && <ResultsTab result={result} />}
+        {tab === "results" && <ResultsTab circuit={circuit} result={result} />}
         {tab === "measurements" && (
           <MeasurementsTab
             circuit={circuit}
@@ -63,7 +64,13 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
   );
 }
 
-function ResultsTab({ result }: { result: SimulationResult | null }) {
+function ResultsTab({
+  circuit,
+  result,
+}: {
+  circuit: CircuitDefinition;
+  result: SimulationResult | null;
+}) {
   if (!result) return <p className="sim2-analysis-empty">Run the simulation to see results.</p>;
   const measurements = result.measurements;
   if (!measurements) return <p className="sim2-analysis-empty">No measurements available.</p>;
@@ -87,7 +94,9 @@ function ResultsTab({ result }: { result: SimulationResult | null }) {
       <h4 className="sim2-results-heading" style={{ marginTop: 16 }}>Component Results</h4>
       {measurements.componentMeasurements.map((cr) => (
         <div key={cr.componentId} className="sim2-comp-result">
-          <span className="sim2-comp-result-label">{cr.componentId}</span>
+          <span className="sim2-comp-result-label">
+            {labelForComponent(circuit, cr.componentId, cr.type)}
+          </span>
           <span className="sim2-comp-result-values">
             {cr.voltage.toFixed(3)} V &nbsp; {cr.current.toFixed(4)} A &nbsp; {cr.power.toFixed(4)} W
             {cr.resistance !== undefined && ` (${cr.resistance.toFixed(2)} Ω)`}
@@ -123,7 +132,9 @@ function MeasurementsTab({
       ];
       return (
         <div className="sim2-measurements">
-          <h4 className="sim2-results-heading">{comp?.label ?? selectedComponentId}</h4>
+          <h4 className="sim2-results-heading">
+            {labelForComponent(circuit, selectedComponentId, comp?.type ?? compMeas.type)}
+          </h4>
           {rows.map((r) => (
             <div key={r.label} className="sim2-result-row">
               <span className="sim2-result-label">{r.label}</span>

@@ -1,4 +1,4 @@
-import type { AnswerLetter, QuizCategory } from "../../types/quiz";
+import type { AnswerLetter, QuizAttemptDifficulty, QuizCategory, QuizQuestionCount } from "../../types/quiz";
 import { QUIZ_BANK_EXTRA } from "./quizBankExtra";
 
 /**
@@ -15,8 +15,10 @@ export interface SeedQuizQuestion {
   category?: QuizCategory;
 }
 
-/** Phase 2: each attempt draws this many questions from the experiment bank. */
+/** Maximum attempt size offered in quiz setup (must not exceed each experiment bank). */
 export const QUIZ_ATTEMPT_SIZE = 40;
+
+export const QUIZ_QUESTION_COUNTS: readonly QuizQuestionCount[] = [10, 20, 40];
 
 const QUIZ_BANK_BASE: Record<string, SeedQuizQuestion[]> = {
   "ohms-law": [
@@ -448,3 +450,28 @@ export const QUIZ_BANK: Record<string, SeedQuizQuestion[]> = Object.fromEntries(
     [...questions, ...(QUIZ_BANK_EXTRA[experimentId] ?? [])],
   ]),
 );
+
+const EASY_CATEGORIES = new Set<QuizCategory>(["conceptual", "formulas"]);
+const MEDIUM_CATEGORIES = new Set<QuizCategory>(["numerical", "circuit_behaviour", "practical"]);
+
+/** Map bank categories onto Easy / Medium / Hard without a schema change. */
+export function seedQuestionDifficulty(entry: SeedQuizQuestion): QuizAttemptDifficulty {
+  if (!entry.category) return "easy";
+  if (EASY_CATEGORIES.has(entry.category)) return "easy";
+  if (MEDIUM_CATEGORIES.has(entry.category)) return "medium";
+  return "hard";
+}
+
+export function countSeedQuestionsByDifficulty(
+  experimentId: string,
+): Record<QuizAttemptDifficulty, number> {
+  const counts: Record<QuizAttemptDifficulty, number> = { easy: 0, medium: 0, hard: 0 };
+  for (const entry of QUIZ_BANK[experimentId] ?? []) {
+    counts[seedQuestionDifficulty(entry)] += 1;
+  }
+  return counts;
+}
+
+export function supportedQuestionCounts(poolSize: number): QuizQuestionCount[] {
+  return QUIZ_QUESTION_COUNTS.filter((count) => count <= poolSize);
+}

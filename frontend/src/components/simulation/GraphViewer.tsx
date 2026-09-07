@@ -3,27 +3,40 @@
  * Never invents series; shows an explicit empty reason when data is missing.
  */
 import { useMemo, useState } from "react";
+import type { CircuitDefinition } from "./engine/circuitGraph";
 import type { SimulationResult } from "./engine/types";
 import {
   buildGraphFromSignals,
   listAvailableSignals,
-  NO_MEASUREMENT_DATA,
+  selectableGraphs,
   type GraphData,
   type GraphPoint,
   type MeasurementSignal,
 } from "./engine/graphData";
+import {
+  RUN_SIMULATION_FOR_GRAPHS,
+  buildGraphSelectorGroups,
+  defaultSelectorOptionId,
+  findSelectorOption,
+  graphForSelectorOption,
+  type GraphSelectorGroup,
+} from "./graphSelector";
 
 interface GraphViewerProps {
   result: SimulationResult;
   graphs?: GraphData[];
+  circuit?: CircuitDefinition | null;
 }
 
 const W = 420;
 const H = 240;
 const PAD = { top: 28, right: 16, bottom: 40, left: 52 };
 
-function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
-  const signals = useMemo(() => listAvailableSignals(result), [result]);
+function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphViewerProps) {
+  const signals = useMemo(
+    () => listAvailableSignals(result, circuit ?? undefined),
+    [result, circuit],
+  );
   const available = useMemo(() => signals.filter((s) => s.available), [signals]);
   const yCandidates = useMemo(
     () => available.filter((s) => s.quantity !== "index" && s.quantity !== "time"),
@@ -43,20 +56,24 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
   }, [available, signals]);
 
   const presets = useMemo(
-    () => (presetGraphs?.length ? presetGraphs : result.graphs ?? []),
+    () => selectableGraphs(presetGraphs?.length ? presetGraphs : result.graphs),
     [presetGraphs, result.graphs],
+  );
+  const groups = useMemo(
+    () => buildGraphSelectorGroups(presets, signals),
+    [presets, signals],
   );
 
   const [mode, setMode] = useState<"preset" | "custom">("preset");
-  const [activeId, setActiveId] = useState(presets[0]?.id ?? "");
+  const [activeOptionId, setActiveOptionId] = useState(defaultSelectorOptionId(groups));
   const [xId, setXId] = useState(xCandidates[0]?.id ?? "index");
   const [yId, setYId] = useState(yCandidates[0]?.id ?? "");
   const [zoom, setZoom] = useState(1);
   const [hover, setHover] = useState<{ x: number; y: number; label: string } | null>(null);
 
-  const resolvedActiveId = presets.some((g) => g.id === activeId)
-    ? activeId
-    : (presets[0]?.id ?? "");
+  const resolvedOptionId = findSelectorOption(groups, activeOptionId)
+    ? activeOptionId
+    : defaultSelectorOptionId(groups);
   const resolvedXId = xCandidates.some((s) => s.id === xId)
     ? xId
     : (xCandidates[0]?.id ?? "index");
@@ -64,26 +81,35 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
     ? yId
     : (yCandidates[0]?.id ?? "");
 
+  const selectedOption = findSelectorOption(groups, resolvedOptionId);
+
   const customBuild = useMemo(() => {
     if (mode !== "custom" || !result.measurements || !resolvedYId) {
       return { graph: null as GraphData | null, unavailableReason: undefined as string | undefined };
     }
-    return buildGraphFromSignals(result.measurements, resolvedXId, [resolvedYId]);
-  }, [mode, result.measurements, resolvedXId, resolvedYId]);
+    return buildGraphFromSignals(result.measurements, resolvedXId, [resolvedYId], circuit ?? undefined);
+  }, [mode, result.measurements, resolvedXId, resolvedYId, circuit]);
+
+  const selectedBuild = useMemo(() => {
+    if (!selectedOption) {
+      return { graph: null as GraphData | null, unavailableReason: undefined as string | undefined };
+    }
+    return graphForSelectorOption(selectedOption, presets, result.measurements, circuit);
+  }, [selectedOption, presets, result.measurements, circuit]);
 
   const graph = useMemo(() => {
     if (mode === "custom") return customBuild.graph;
-    return presets.find((g) => g.id === resolvedActiveId) ?? presets[0] ?? null;
-  }, [mode, customBuild.graph, presets, resolvedActiveId]);
+    return selectedBuild.graph;
+  }, [mode, customBuild.graph, selectedBuild.graph]);
 
   const graphHasPoints = Boolean(graph?.series?.some((s) => s.points.length > 0));
 
   const unavailableReason =
     mode === "custom"
       ? customBuild.unavailableReason
-      : graph?.unavailableReason
-        ?? (!graphHasPoints && graph ? NO_MEASUREMENT_DATA : undefined)
-        ?? (!presets.length ? NO_MEASUREMENT_DATA : undefined);
+      : selectedBuild.unavailableReason
+        ?? (!graphHasPoints && graph ? RUN_SIMULATION_FOR_GRAPHS : undefined)
+        ?? (!groups.length ? RUN_SIMULATION_FOR_GRAPHS : undefined);
 
   const bounds = useMemo(() => {
     if (!graph) return { minX: 0, maxX: 1, minY: 0, maxY: 1 };
@@ -127,27 +153,44 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
   const axisOptionLabel = (s: MeasurementSignal) =>
     s.available ? `${s.label}${s.unit ? ` (${s.unit})` : ""}` : `${s.label} — unavailable`;
 
+  const selectOption = (id: string) => {
+    setMode("preset");
+    setActiveOptionId(id);
+    setZoom(1);
+    setHover(null);
+  };
+
   if (!result.measurements) {
     return (
       <p className="sim2-analysis-empty" role="status">
-        {NO_MEASUREMENT_DATA}
+        {RUN_SIMULATION_FOR_GRAPHS}
       </p>
     );
   }
 
+  if (!groups.length) {
+    return (
+      <p className="sim2-analysis-empty" role="status">
+        {RUN_SIMULATION_FOR_GRAPHS}
+      </p>
+    );
+  }
+
+  const displayTitle = mode === "custom"
+    ? (graph?.title ?? "Custom signals")
+    : (selectedOption?.label ?? graph?.title ?? "");
+
   if (unavailableReason && !graphHasPoints) {
     return (
       <div className="sim-graph-viewer">
-        <SignalToolbar
+        <GraphOptionList
+          groups={groups}
+          selectedId={resolvedOptionId}
+          onSelect={selectOption}
+        />
+        <CustomAxesRow
           mode={mode}
           setMode={setMode}
-          presets={presets}
-          activeId={resolvedActiveId}
-          setActiveId={(id) => {
-            setActiveId(id);
-            setZoom(1);
-            setHover(null);
-          }}
           xId={resolvedXId}
           setXId={setXId}
           yId={resolvedYId}
@@ -170,7 +213,7 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
   if (!graph) {
     return (
       <p className="sim2-analysis-empty" role="status">
-        {NO_MEASUREMENT_DATA}
+        {RUN_SIMULATION_FOR_GRAPHS}
       </p>
     );
   }
@@ -179,16 +222,14 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
 
   return (
     <div className="sim-graph-viewer">
-      <SignalToolbar
+      <GraphOptionList
+        groups={groups}
+        selectedId={resolvedOptionId}
+        onSelect={selectOption}
+      />
+      <CustomAxesRow
         mode={mode}
         setMode={setMode}
-        presets={presets}
-        activeId={graph.id}
-        setActiveId={(id) => {
-          setActiveId(id);
-          setZoom(1);
-          setHover(null);
-        }}
         xId={resolvedXId}
         setXId={setXId}
         yId={resolvedYId}
@@ -207,10 +248,9 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
         className="sim-graph-svg"
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={graph.title}
+        aria-label={displayTitle}
       >
         <rect x={0} y={0} width={W} height={H} className="sim-graph-svg-bg" />
-        {/* subtle grid */}
         {[0.25, 0.5, 0.75].map((t) => {
           const y = PAD.top + (H - PAD.top - PAD.bottom) * (1 - t);
           return (
@@ -239,7 +279,7 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
           className="sim-graph-axis"
         />
         <text x={W / 2} y={16} textAnchor="middle" fontSize={12} className="sim-graph-title">
-          {graph.title}
+          {displayTitle}
         </text>
         <text x={W / 2} y={H - 8} textAnchor="middle" fontSize={10} className="sim-graph-axis-text">
           {graph.xAxis.label}
@@ -331,12 +371,57 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
   );
 }
 
-function SignalToolbar({
+function GraphOptionList({
+  groups,
+  selectedId,
+  onSelect,
+}: {
+  groups: GraphSelectorGroup[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="sim-graph-selector" data-testid="graph-selector">
+      {groups.map((group) => (
+        <div key={group.id} className="sim-graph-selector-group">
+          <p className="sim-graph-selector-heading" id={`graph-group-${group.id}`}>
+            {group.label}
+          </p>
+          <div
+            className="sim-graph-selector-options"
+            role="radiogroup"
+            aria-labelledby={`graph-group-${group.id}`}
+          >
+            {group.options.map((option) => {
+              const selected = option.id === selectedId;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  className={`sim-graph-option${selected ? " sim-graph-option--selected" : ""}`}
+                  onClick={() => onSelect(option.id)}
+                >
+                  {selected ? (
+                    <span className="sim-graph-option-mark" aria-hidden="true">
+                      ✓
+                    </span>
+                  ) : null}
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CustomAxesRow({
   mode,
   setMode,
-  presets,
-  activeId,
-  setActiveId,
   xId,
   setXId,
   yId,
@@ -349,9 +434,6 @@ function SignalToolbar({
 }: {
   mode: "preset" | "custom";
   setMode: (m: "preset" | "custom") => void;
-  presets: GraphData[];
-  activeId: string;
-  setActiveId: (id: string) => void;
   xId: string;
   setXId: (id: string) => void;
   yId: string;
@@ -373,20 +455,7 @@ function SignalToolbar({
         <option value="preset">Measurement plots</option>
         <option value="custom">Custom X / Y signals</option>
       </select>
-      {mode === "preset" ? (
-        <select
-          className="sim-graph-select"
-          value={activeId}
-          onChange={(e) => setActiveId(e.target.value)}
-          aria-label="Select measurement graph"
-        >
-          {presets.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.unavailableReason ? `${g.title} — no data` : g.title}
-            </option>
-          ))}
-        </select>
-      ) : (
+      {mode === "custom" && (
         <>
           <label className="sim-graph-axis-label">
             X

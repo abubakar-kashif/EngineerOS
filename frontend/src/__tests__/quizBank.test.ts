@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { QUIZ_ATTEMPT_SIZE, QUIZ_BANK } from "../data/quiz/quizBank";
+import { countSeedQuestionsByDifficulty, QUIZ_ATTEMPT_SIZE, QUIZ_BANK } from "../data/quiz/quizBank";
 import type { AnswerLetter, QuizCategory } from "../types/quiz";
 
 const ANSWER_LETTERS: AnswerLetter[] = ["A", "B", "C", "D"];
@@ -61,6 +61,13 @@ describe("quiz bank shape (Phase 2)", () => {
     expect(QUIZ_ATTEMPT_SIZE).toBe(40);
     for (const [, questions] of experiments) {
       expect(QUIZ_ATTEMPT_SIZE).toBeLessThan(questions.length);
+    }
+  });
+
+  it("has at least 10 Easy questions per experiment so a short attempt can stay in-band", () => {
+    for (const [experimentId] of experiments) {
+      const counts = countSeedQuestionsByDifficulty(experimentId);
+      expect(counts.easy, `${experimentId} easy`).toBeGreaterThanOrEqual(10);
     }
   });
 });

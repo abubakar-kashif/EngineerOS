@@ -1,4 +1,5 @@
 import { Check, X } from "lucide-react";
+import { MathText } from "../chat/MarkdownLite";
 import type { AnswerLetter } from "../../types/quiz";
 
 type AnswerOptionState = "default" | "correct" | "incorrect";
@@ -48,7 +49,9 @@ function AnswerOption({
       <span className="quiz-option-key" aria-hidden="true">
         {optionKey}
       </span>
-      <span className="quiz-option-text">{text}</span>
+      <span className="quiz-option-text">
+        <MathText text={text} />
+      </span>
       {state === "correct" && (
         <span className="quiz-option-mark quiz-option-mark--correct" aria-hidden="true">
           <Check size={15} strokeWidth={3} />
