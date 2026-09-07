@@ -87,8 +87,8 @@ export function HeroCircuitArt() {
         SERIES LED CIRCUIT
       </text>
 
-      {/* Center the schematic inside the card */}
-      <g transform="translate(-18, 22)">
+      {/* Center the schematic inside the card (card center ≈ 280,250) */}
+      <g transform="translate(-30, -10)">
       <g fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="square">
         <path d="M140 300 L140 170" />
         <path d="M140 170 L220 170" />
