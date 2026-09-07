@@ -111,7 +111,7 @@ describe("measurement-based graph data", () => {
     expect(validateGraphData(voltages!)).toBe(true);
 
     const currents = getGraphById(graphs, "current_signals");
-    expect(currents?.metadata?.labels).toEqual(expect.arrayContaining(["I1", "I2", "ΣI"]));
+    expect(currents?.metadata?.labels).toEqual(expect.arrayContaining(["I_R1", "I_R2", "ΣI"]));
     expect(currents?.title).toMatch(/KCL/);
   });
 

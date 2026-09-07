@@ -3,6 +3,7 @@
  * Never invents series; shows an explicit empty reason when data is missing.
  */
 import { useMemo, useState } from "react";
+import type { CircuitDefinition } from "./engine/circuitGraph";
 import type { SimulationResult } from "./engine/types";
 import {
   buildGraphFromSignals,
@@ -16,14 +17,19 @@ import {
 interface GraphViewerProps {
   result: SimulationResult;
   graphs?: GraphData[];
+  /** Live circuit for user-facing designators (R1); internal IDs stay in signal ids. */
+  circuit?: CircuitDefinition | null;
 }
 
 const W = 420;
 const H = 240;
 const PAD = { top: 28, right: 16, bottom: 40, left: 52 };
 
-function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
-  const signals = useMemo(() => listAvailableSignals(result), [result]);
+function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphViewerProps) {
+  const signals = useMemo(
+    () => listAvailableSignals(result, circuit ?? undefined),
+    [result, circuit],
+  );
   const available = useMemo(() => signals.filter((s) => s.available), [signals]);
   const yCandidates = useMemo(
     () => available.filter((s) => s.quantity !== "index" && s.quantity !== "time"),
@@ -68,8 +74,13 @@ function GraphViewer({ result, graphs: presetGraphs }: GraphViewerProps) {
     if (mode !== "custom" || !result.measurements || !resolvedYId) {
       return { graph: null as GraphData | null, unavailableReason: undefined as string | undefined };
     }
-    return buildGraphFromSignals(result.measurements, resolvedXId, [resolvedYId]);
-  }, [mode, result.measurements, resolvedXId, resolvedYId]);
+    return buildGraphFromSignals(
+      result.measurements,
+      resolvedXId,
+      [resolvedYId],
+      circuit ?? undefined,
+    );
+  }, [mode, result.measurements, resolvedXId, resolvedYId, circuit]);
 
   const graph = useMemo(() => {
     if (mode === "custom") return customBuild.graph;

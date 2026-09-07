@@ -7,6 +7,7 @@
 import type { CircuitDefinition } from './circuitGraph';
 import type { DCResult } from './dcSolver';
 import type { Measurements, SimulationResult } from './types';
+import { resolveComponentReference } from '../componentReference';
 
 export interface GraphPoint {
   x: number;
@@ -102,8 +103,7 @@ function labelForComponent(
   componentId: string,
   fallbackType: string,
 ): string {
-  const comp = circuit?.components.find((c) => c.id === componentId);
-  return comp?.label || fallbackType || componentId;
+  return resolveComponentReference(circuit, componentId, fallbackType);
 }
 
 /**
@@ -175,12 +175,11 @@ export function listAvailableSignals(
     },
   ];
 
-  let i = 1;
   for (const cm of m.componentMeasurements) {
     const name = labelForComponent(circuit, cm.componentId, cm.type);
     signals.push({
       id: `V_${cm.componentId}`,
-      label: `V_${name}`,
+      label: `Voltage — ${name}`,
       unit: 'V',
       quantity: 'voltage',
       value: cm.voltage,
@@ -188,7 +187,7 @@ export function listAvailableSignals(
     });
     signals.push({
       id: `I_${cm.componentId}`,
-      label: `I${i}`,
+      label: `Current — ${name}`,
       unit: 'A',
       quantity: 'current',
       value: cm.current,
@@ -196,7 +195,7 @@ export function listAvailableSignals(
     });
     signals.push({
       id: `P_${cm.componentId}`,
-      label: `P_${name}`,
+      label: `Power — ${name}`,
       unit: 'W',
       quantity: 'power',
       value: cm.power,
@@ -205,14 +204,13 @@ export function listAvailableSignals(
     if (cm.resistance != null && Number.isFinite(cm.resistance)) {
       signals.push({
         id: `R_${cm.componentId}`,
-        label: `R_${name}`,
+        label: `Resistance — ${name}`,
         unit: 'Ω',
         quantity: 'resistance',
         value: cm.resistance,
         available: true,
       });
     }
-    i += 1;
   }
 
   return signals;
@@ -533,7 +531,13 @@ export function generateGraphsFromMeasurements(
       ...drops.map((cm, i) => ({ x: i + 1, y: cm.current })),
       { x: drops.length + 1, y: measurements.totalCurrent },
     ];
-    const kclLabels = [...drops.map((_, i) => `I${i + 1}`), 'ΣI'];
+    const kclLabels = [
+      ...drops.map((cm) => {
+        const name = labelForComponent(circuit, cm.componentId, cm.type);
+        return `I_${name}`;
+      }),
+      'ΣI',
+    ];
     graphs.push({
       id: 'current_signals',
       type: 'bar',
@@ -547,7 +551,7 @@ export function generateGraphsFromMeasurements(
     graphs.push(
       emptyCatalogGraph(
         'current_signals',
-        'KCL (I1, I2, I3, ΣI)',
+        'KCL (component currents, ΣI)',
         { label: 'Signal', unit: '' },
         { label: 'Current', unit: 'A' },
         'bar',
@@ -564,7 +568,7 @@ export function generateGraphsFromMeasurements(
     ];
     const dropLabels = drops.map((cm) => {
       const name = labelForComponent(circuit, cm.componentId, cm.type);
-      return `V${name}`;
+      return `V_${name}`;
     });
     const kvlLabels = ['Vs', ...dropLabels, 'ΣV'];
     graphs.push({
@@ -656,7 +660,7 @@ export function generateGraphsFromMeasurements(
     metadata: {
       source: 'measurements',
       labels,
-      signals: drops.map((_, i) => `I${i + 1}`),
+      signals: drops.map((cm) => `I_${cm.componentId}`),
     },
   });
 

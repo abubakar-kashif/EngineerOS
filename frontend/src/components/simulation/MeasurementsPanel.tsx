@@ -1,11 +1,15 @@
 /**
  * Measurements panel: simulation status + global / per-component readings.
  * Values come only from SimulationResult.measurements.
+ * Component column shows user-facing designators (R1), not internal IDs.
  */
+import type { CircuitDefinition } from "./engine/circuitGraph";
 import type { SimulationResult } from "./engine";
+import { resolveComponentReference } from "./componentReference";
 
 interface MeasurementsPanelProps {
   result: SimulationResult | null;
+  circuit?: CircuitDefinition | null;
 }
 
 function formatCurrent(a: number): string {
@@ -14,18 +18,7 @@ function formatCurrent(a: number): string {
   return `${a.toFixed(4)} A`;
 }
 
-function friendlyComponentName(componentId: string, type: string): string {
-  if (componentId.startsWith("__")) {
-    return type.replace(/_/g, " ");
-  }
-  // Prefer short editor ids like R1 / V1 when present; otherwise type + short suffix.
-  if (/^[A-Za-z]+\d+$/.test(componentId)) return componentId;
-  const short = componentId.replace(/^comp_[a-z0-9]+_/i, "").slice(-6);
-  const kind = type.replace(/_/g, " ");
-  return short ? `${kind} (${short})` : kind;
-}
-
-function MeasurementsPanel({ result }: MeasurementsPanelProps) {
+function MeasurementsPanel({ result, circuit = null }: MeasurementsPanelProps) {
   if (!result) {
     return <p className="sim-measurements-empty">Run simulation to see measurements.</p>;
   }
@@ -93,19 +86,26 @@ function MeasurementsPanel({ result }: MeasurementsPanelProps) {
               <span>P</span>
               <span>R</span>
             </div>
-            {physical.map((comp) => (
-              <div key={comp.componentId} className="sim-comp-measurement">
-                <span className="sim-comp-id" title={comp.componentId}>
-                  {friendlyComponentName(comp.componentId, comp.type)}
-                </span>
-                <span>{comp.voltage.toFixed(3)} V</span>
-                <span>{formatCurrent(comp.current)}</span>
-                <span>{comp.power.toFixed(4)} W</span>
-                <span>
-                  {comp.resistance !== undefined ? `${comp.resistance.toFixed(2)} Ω` : "—"}
-                </span>
-              </div>
-            ))}
+            {physical.map((comp) => {
+              const designator = resolveComponentReference(
+                circuit,
+                comp.componentId,
+                comp.type,
+              );
+              return (
+                <div key={comp.componentId} className="sim-comp-measurement">
+                  <span className="sim-comp-id" title={designator}>
+                    {designator}
+                  </span>
+                  <span>{comp.voltage.toFixed(3)} V</span>
+                  <span>{formatCurrent(comp.current)}</span>
+                  <span>{comp.power.toFixed(4)} W</span>
+                  <span>
+                    {comp.resistance !== undefined ? `${comp.resistance.toFixed(2)} Ω` : "—"}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
