@@ -815,7 +815,7 @@ function SimulationPage() {
                     />
                   ) : (
                     <p className="sim2-analysis-empty" role="status">
-                      No measurement data available
+                      Run the simulation to generate graph data.
                     </p>
                   )}
                 </div>
