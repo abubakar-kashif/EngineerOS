@@ -32,6 +32,7 @@ import {
   moveJunction,
   normalizeEditorCircuit,
   pruneOrphanJunctions,
+  recomputeNetIdsFromTopology,
   rebuildConnections,
   reshapeWireAt,
   retargetWiresForComponent,
@@ -92,9 +93,10 @@ function commitCircuit(circuit: EditorCircuit): EditorCircuit {
     }))
     .filter((w) => w.a && w.b && w.points.length >= 2 && !isZeroLengthWire(w.points));
   const pruned = pruneOrphanJunctions({ ...circuit, wires });
+  const netted = recomputeNetIdsFromTopology(pruned);
   return {
-    ...pruned,
-    connections: rebuildConnections(pruned),
+    ...netted,
+    connections: rebuildConnections(netted),
   };
 }
 

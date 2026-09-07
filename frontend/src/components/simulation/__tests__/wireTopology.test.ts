@@ -10,6 +10,7 @@ import {
   nearestOnPolyline,
   normalizeEditorCircuit,
   rebuildConnections,
+  recomputeNetIdsFromTopology,
   splitWireAtPoint,
   terminalsOnNet,
 } from "../wireTopology";
@@ -165,6 +166,62 @@ describe("wireTopology electrical nets", () => {
     circuit.connections = rebuildConnections(circuit);
     expect(circuit.connections.some((c) => c.from === "R1:B" || c.to === "R1:B")).toBe(true);
     expect(circuit.connections.some((c) => c.from === "R2:A" || c.to === "R2:A")).toBe(true);
+  });
+
+  it("recomputeNetIdsFromTopology splits nets after a joining wire is removed", () => {
+    const merged: EditorCircuit = {
+      components: [resistor("R1", 0, 0), resistor("R2", 200, 0), resistor("R3", 100, 80)],
+      wires: [
+        {
+          id: "w-left",
+          netId: "shared",
+          points: [
+            { x: 0, y: 0 },
+            { x: 80, y: 0 },
+          ],
+          a: { kind: "terminal", componentId: "R1", terminalId: "B" },
+          b: { kind: "junction", junctionId: "j1" },
+        },
+        {
+          id: "w-right",
+          netId: "shared",
+          points: [
+            { x: 80, y: 0 },
+            { x: 200, y: 0 },
+          ],
+          a: { kind: "junction", junctionId: "j1" },
+          b: { kind: "terminal", componentId: "R2", terminalId: "A" },
+        },
+        {
+          id: "w-branch",
+          netId: "shared",
+          points: [
+            { x: 80, y: 0 },
+            { x: 100, y: 80 },
+          ],
+          a: { kind: "junction", junctionId: "j1" },
+          b: { kind: "terminal", componentId: "R3", terminalId: "A" },
+        },
+      ],
+      connections: [],
+      junctions: [{ id: "j1", x: 80, y: 0, netId: "shared" }],
+    };
+    const afterDelete: EditorCircuit = {
+      ...merged,
+      wires: merged.wires.filter((w) => w.id !== "w-branch"),
+    };
+    const split = recomputeNetIdsFromTopology(afterDelete);
+    split.connections = rebuildConnections(split);
+    const r1r2Same = split.connections.some(
+      (c) =>
+        (c.from === "R1:B" && c.to === "R2:A") || (c.from === "R2:A" && c.to === "R1:B"),
+    );
+    const r3Linked = split.connections.some(
+      (c) => c.from === "R3:A" || c.to === "R3:A",
+    );
+    expect(r1r2Same).toBe(true);
+    expect(r3Linked).toBe(false);
+    expect(new Set(split.wires.map((w) => w.netId)).size).toBe(1);
   });
 
   it("toEngineCircuit expands nets into terminal edges (no wire geometry)", () => {

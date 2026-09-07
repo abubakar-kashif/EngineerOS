@@ -170,6 +170,51 @@ describe("useCircuitEditor wiring", () => {
     expect(result.current.state.circuit.wires).toHaveLength(0);
   });
 
+  it("deleting a wire-from-wire branch un-merges nets", () => {
+    const { result } = renderHook(() => useCircuitEditor());
+    act(() => {
+      result.current.addComponent("voltage_source", 0, 0);
+    });
+    act(() => {
+      result.current.addComponent("resistor", 160, 0);
+    });
+    act(() => {
+      result.current.addComponent("ground", 0, 120);
+    });
+    const [vs, r1, gnd] = result.current.state.circuit.components;
+    act(() => {
+      result.current.startWire(vs.id, "positive", vs.x, vs.y - 20);
+    });
+    act(() => {
+      result.current.completeWire(r1.id, "A");
+    });
+    const host = result.current.state.circuit.wires[0];
+    act(() => {
+      result.current.startWireFromWire(host.id, 80, -20);
+    });
+    act(() => {
+      result.current.completeWire(gnd.id, "ground");
+    });
+    act(() => {
+      result.current.startWire(vs.id, "negative", vs.x, vs.y + 20);
+    });
+    act(() => {
+      result.current.completeWire(gnd.id, "ground");
+    });
+    const branch = result.current.state.circuit.wires.find(
+      (w) =>
+        (w.a?.kind === "terminal" && w.a.terminalId === "ground" && w.b?.kind === "junction") ||
+        (w.b?.kind === "terminal" && w.b.terminalId === "ground" && w.a?.kind === "junction"),
+    );
+    expect(branch).toBeTruthy();
+    act(() => {
+      result.current.deleteWire(branch!.id);
+    });
+    const engine = toEngineCircuit(result.current.state.circuit);
+    const report = validateCircuit(engine);
+    expect(report.errors.some((i) => i.code === "SHORT_CIRCUIT")).toBe(false);
+  });
+
   it("pins waypoints for multi-segment wires", () => {
     const { result } = renderHook(() => useCircuitEditor());
     act(() => {

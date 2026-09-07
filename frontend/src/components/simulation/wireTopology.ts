@@ -190,6 +190,57 @@ export function terminalsOnNet(circuit: EditorCircuit, netId: string): string[] 
  * Derive pairwise terminal connections from net membership (star from hub).
  * Geometry / junctions never go to the solver — only these edges do.
  */
+export function recomputeNetIdsFromTopology(circuit: EditorCircuit): EditorCircuit {
+  const parent = new Map<string, string>();
+  const find = (k: string): string => {
+    const p = parent.get(k) ?? k;
+    if (p !== k) {
+      const r = find(p);
+      parent.set(k, r);
+      return r;
+    }
+    parent.set(k, k);
+    return k;
+  };
+  const union = (a: string, b: string) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+
+  for (const wire of circuit.wires) {
+    const ka = wireEndKey(wire.a);
+    const kb = wireEndKey(wire.b);
+    if (ka && kb) union(ka, kb);
+    else if (ka) find(ka);
+    else if (kb) find(kb);
+  }
+  for (const j of circuit.junctions ?? []) {
+    find(`j:${j.id}`);
+  }
+
+  const rootNet = new Map<string, string>();
+  const netFor = (key: string): string => {
+    const root = find(key);
+    let id = rootNet.get(root);
+    if (!id) {
+      id = uid("net");
+      rootNet.set(root, id);
+    }
+    return id;
+  };
+
+  const wires = circuit.wires.map((w) => {
+    const key = wireEndKey(w.a) ?? wireEndKey(w.b);
+    return key ? { ...w, netId: netFor(key) } : { ...w, netId: uid("net") };
+  });
+  const junctions = (circuit.junctions ?? []).map((j) => ({
+    ...j,
+    netId: netFor(`j:${j.id}`),
+  }));
+  return { ...circuit, wires, junctions };
+}
+
 export function rebuildConnections(circuit: EditorCircuit): WireConnection[] {
   const byNet = new Map<string, Set<string>>();
   for (const wire of circuit.wires) {
