@@ -79,7 +79,8 @@ describe("public landing page", () => {
     expect(
       screen.getByText(/EngineerOS connects theory with real understanding/),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Get Started Free/ })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /^Get Started$/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /^Get Started$/ })[0]).toHaveAttribute(
       "href",
       "/register",
     );
@@ -127,10 +128,7 @@ describe("public landing page", () => {
     expect(
       screen.getByRole("heading", { name: "Ready to start your engineering journey?" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Get Started Now/ })).toHaveAttribute(
-      "href",
-      "/register",
-    );
+    expect(screen.getAllByRole("link", { name: /^Get Started$/ }).length).toBeGreaterThan(0);
 
     expect(
       screen.getByText("The complete electrical engineering learning platform."),

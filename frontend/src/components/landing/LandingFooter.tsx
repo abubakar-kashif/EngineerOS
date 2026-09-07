@@ -1,47 +1,17 @@
 /**
  * Marketing footer. Doubles as the "About" anchor target for the navbar.
+ * Only ships links that have real destinations.
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Globe, Mail, MessageCircle, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { BoltMark } from "./illustrations";
 
-type FooterLink = { label: string; to?: string };
-
-const COLUMNS: Array<{ title: string; links: FooterLink[] }> = [
-  {
-    title: "Product",
-    links: [
-      { label: "Experiments", to: "/experiments" },
-      { label: "Simulation", to: "/simulation" },
-      { label: "AI Mentor", to: "/mentor" },
-      { label: "Quizzes", to: "/quiz" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "About Us", to: "/about" },
-      { label: "Contact" },
-      { label: "Privacy Policy" },
-      { label: "Terms of Use" },
-    ],
-  },
-  {
-    title: "Resources",
-    links: [
-      { label: "Documentation" },
-      { label: "Help Center" },
-      { label: "Guides" },
-      { label: "Community" },
-    ],
-  },
-];
-
-const SOCIALS = [
-  { icon: Globe, label: "Website" },
-  { icon: Mail, label: "Email" },
-  { icon: MessageCircle, label: "Community chat" },
+const PRODUCT_LINKS = [
+  { label: "Experiments", to: "/experiments" },
+  { label: "Simulation", to: "/simulation" },
+  { label: "AI Mentor", to: "/mentor" },
+  { label: "Quizzes", to: "/quiz" },
 ];
 
 function LandingFooter() {
@@ -60,22 +30,16 @@ function LandingFooter() {
             <p>The complete electrical engineering learning platform.</p>
           </div>
 
-          {COLUMNS.map((column) => (
-            <div key={column.title} className="landing-footer-col">
-              <h3>{column.title}</h3>
-              <ul>
-                {column.links.map((link) => (
-                  <li key={link.label}>
-                    {link.to ? (
-                      <Link to={link.to}>{link.label}</Link>
-                    ) : (
-                      <span title="Coming soon">{link.label}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div className="landing-footer-col">
+            <h3>Product</h3>
+            <ul>
+              {PRODUCT_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.to}>{link.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
           <div className="landing-footer-col">
             <h3>Stay Connected</h3>
@@ -109,20 +73,6 @@ function LandingFooter() {
             >
               {subscribed ? "Thanks — you're on the list." : ""}
             </p>
-
-            <ul className="landing-footer-social">
-              {SOCIALS.map(({ icon: Icon, label }) => (
-                <li key={label}>
-                  <span
-                    title={`${label} — coming soon`}
-                    aria-label={`${label} — coming soon`}
-                    role="img"
-                  >
-                    <Icon size={16} aria-hidden="true" />
-                  </span>
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
 

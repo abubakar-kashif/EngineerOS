@@ -74,7 +74,7 @@ function LandingHero() {
             transition={{ duration: 0.6, delay: 0.18, ease: EASE_OUT }}
           >
             <LandingButton to="/register" variant="primary" size="lg">
-              Get Started Free <ArrowRight size={18} aria-hidden="true" />
+              Get Started <ArrowRight size={18} aria-hidden="true" />
             </LandingButton>
             <LandingButton
               href="#how-it-works"

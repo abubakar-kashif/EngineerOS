@@ -32,7 +32,7 @@ function LandingFinalCTA() {
           </p>
           <div style={{ marginTop: 36 }}>
             <LandingButton to="/register" variant="primary" size="lg">
-              Get Started Now – It&apos;s Free <ArrowRight size={18} aria-hidden="true" />
+              Get Started <ArrowRight size={18} aria-hidden="true" />
             </LandingButton>
           </div>
         </Reveal>

@@ -76,16 +76,19 @@ export function HeroCircuitArt() {
       />
 
       <text
-        x="56"
+        x="280"
         y="68"
         fill="#6B7280"
         fontSize="12"
         fontFamily="Inter, sans-serif"
         letterSpacing="1.5"
+        textAnchor="middle"
       >
         SERIES LED CIRCUIT
       </text>
 
+      {/* Center the schematic inside the card */}
+      <g transform="translate(-18, 22)">
       <g fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="square">
         <path d="M140 300 L140 170" />
         <path d="M140 170 L220 170" />
@@ -199,6 +202,7 @@ export function HeroCircuitArt() {
           <animateMotion dur="4.2s" repeatCount="indefinite" path={loop} />
         </circle>
       )}
+      </g>
     </svg>
   );
 }

@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import IntroOverlay from "../../components/landing/IntroOverlay";
+import AmbientBackground from "../../components/landing/AmbientBackground";
 import LandingNavbar from "../../components/landing/LandingNavbar";
 import LandingHero from "../../components/landing/LandingHero";
 import LandingFeatures from "../../components/landing/LandingFeatures";
@@ -45,6 +46,7 @@ function LandingPage() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="landing-page">
+        <AmbientBackground />
         <AnimatePresence>
           {introPlaying && <IntroOverlay key="intro" onFinish={handleIntroFinish} />}
         </AnimatePresence>
