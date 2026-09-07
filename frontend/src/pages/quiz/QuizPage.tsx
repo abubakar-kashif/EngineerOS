@@ -178,6 +178,10 @@ function QuizRunner({ experimentId }: { experimentId: string }) {
   const [starting, setStarting] = useState(false);
 
   const supportedCounts = getSupportedQuestionCounts(experimentId);
+  const selectedQuestionCount =
+    supportedCounts.length === 0 || supportedCounts.includes(questionCount)
+      ? questionCount
+      : supportedCounts[0]!;
   const bankSize = getSeedQuestionCount(experimentId);
   const preferredCount = getSeedDifficultyCounts(experimentId)[difficulty];
 
@@ -216,13 +220,8 @@ function QuizRunner({ experimentId }: { experimentId: string }) {
   }, [experimentId, reloadKey]);
 
   useEffect(() => {
-    if (supportedCounts.includes(questionCount) || supportedCounts.length === 0) return;
-    setQuestionCount(supportedCounts[0]!);
-  }, [supportedCounts, questionCount]);
-
-  useEffect(() => {
-    saveQuizSetup(experimentId, { difficulty, questionCount });
-  }, [experimentId, difficulty, questionCount]);
+    saveQuizSetup(experimentId, { difficulty, questionCount: selectedQuestionCount });
+  }, [experimentId, difficulty, selectedQuestionCount]);
 
   async function startQuiz() {
     if (starting) return;
@@ -230,7 +229,7 @@ function QuizRunner({ experimentId }: { experimentId: string }) {
     setSubmitError(null);
     clearQuizResult(experimentId);
     try {
-      const quizData = await getQuiz(experimentId, { difficulty, questionCount });
+      const quizData = await getQuiz(experimentId, { difficulty, questionCount: selectedQuestionCount });
       if (quizData.questions.length === 0) {
         setNoQuiz(true);
         return;
@@ -362,7 +361,7 @@ function QuizRunner({ experimentId }: { experimentId: string }) {
         <QuizSetup
           topic={topic}
           difficulty={difficulty}
-          questionCount={questionCount}
+          questionCount={selectedQuestionCount}
           poolSize={bankSize}
           preferredCount={preferredCount}
           supportedCounts={supportedCounts}
