@@ -17,6 +17,7 @@ import Input from "../components/ui/Input";
 import { useAuth } from "../contexts/AuthContext";
 import { getExperimentById } from "../services/experimentService";
 import * as mentorService from "../services/mentor/mentorService";
+import { loadSimMentorSnapshot } from "../services/mentor/simMentorBridge";
 
 import type { ChatMessage as ChatMessageType, Conversation, ConversationSummary, MessageFeedback } from "../types/chat";
 import type { MentorContext } from "../types/mentor";
@@ -75,6 +76,7 @@ function MentorPage() {
   const simulationParam = searchParams.get("simulation");
   const simStatusParam = searchParams.get("sim") as SimulationStatus | null;
   const quizParam = searchParams.get("quiz");
+  const conversationParam = searchParams.get("conversation");
   const [contextExperiment, setContextExperiment] = useState<Experiment | null>(null);
 
   const cancelSendRef = useRef<(() => void) | null>(null);
@@ -188,6 +190,25 @@ function MentorPage() {
     };
   }, [userId]);
 
+  useEffect(() => {
+    if (!userId || !conversationParam) return;
+    let cancelled = false;
+    const request = ++openRequestRef.current;
+    setActiveId(conversationParam);
+    setDrawerOpen(false);
+    void mentorService.getConversation(conversationParam).then((conv) => {
+      if (cancelled || openRequestRef.current !== request) return;
+      setMessages(conv?.messages ?? []);
+    }).catch(() => {
+      if (!cancelled && openRequestRef.current === request) {
+        setSendError("Unable to load this conversation. Please try again.");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, conversationParam]);
+
   /* ── open a conversation ── */
   async function openConversation(id: string) {
     cancelSendRef.current?.();
@@ -200,6 +221,12 @@ function MentorPage() {
     setActiveId(id);
     setDrawerOpen(false);
     atBottomRef.current = true;
+
+    if (searchParams.get("conversation") && searchParams.get("conversation") !== id) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("conversation");
+      setSearchParams(next, { replace: true });
+    }
 
     if (!userId) return;
     const request = ++openRequestRef.current;
@@ -251,6 +278,7 @@ function MentorPage() {
         experimentId: mentorContext.experimentId,
         simulationId: mentorContext.simulationId,
         stage: mentorContext.stage,
+        circuitSnapshot: loadSimMentorSnapshot(mentorContext.experimentId ?? experimentParam),
         emitUserMessage: options.emitUserMessage,
       },
       {

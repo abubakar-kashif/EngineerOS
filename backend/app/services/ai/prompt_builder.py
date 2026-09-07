@@ -637,9 +637,9 @@ Never present old conversation numbers as the current result."""
         for msg in conversation[-10:]:  # Limit to last 10 messages
             role = "User" if msg.get('role') == 'user' else "Assistant"
             content = msg.get('content', '')
-            # Truncate long messages
-            if len(content) > 200:
-                content = content[:200] + "..."
+            # Bounded history: keep follow-up pronouns resolvable without unbounded tokens.
+            if len(content) > 600:
+                content = content[:600] + "..."
             lines.append(f"  {role}: {content}")
 
         return "\n".join(lines)

@@ -14,6 +14,11 @@ import type { ChatMessage } from "../../types/chat";
 import type { SimulationResult } from "./engine";
 import type { CircuitDefinition } from "./engine/circuitGraph";
 import { compactCircuitForMentor } from "./engine/electricalSnapshot";
+import {
+  buildMentorExpandHref,
+  saveSimMentorSnapshot,
+  simMentorConversationStorageKey,
+} from "../../services/mentor/simMentorBridge";
 
 interface WorkspaceMentorPanelProps {
   experimentId: string | null;
@@ -57,7 +62,7 @@ function WorkspaceMentorPanel({
   const simResultRef = useRef(simResult);
   const liveCircuitRef = useRef(liveCircuit);
 
-  const storageKey = `engineeros.sim-mentor.conversation:${experimentId ?? "lab"}`;
+  const storageKey = simMentorConversationStorageKey(experimentId);
 
   useEffect(() => {
     conversationIdRef.current = conversationId;
@@ -74,7 +79,11 @@ function WorkspaceMentorPanel({
   }, [simResult]);
   useEffect(() => {
     liveCircuitRef.current = liveCircuit;
-  }, [liveCircuit]);
+    saveSimMentorSnapshot(
+      experimentId,
+      liveCircuit ? compactCircuitForMentor(liveCircuit) : null,
+    );
+  }, [liveCircuit, experimentId]);
 
   // Reload persisted Simulation Mentor thread when the panel remounts.
   useEffect(() => {
@@ -108,15 +117,12 @@ function WorkspaceMentorPanel({
     return () => window.clearTimeout(t);
   }, [contextFlash, flashKey]);
 
-  const mentorLink = (() => {
-    const params = new URLSearchParams();
-    if (experimentId) params.set("experiment", experimentId);
-    params.set("stage", "simulation");
-    if (simResult?.status) params.set("sim", simResult.status);
-    if (simulationRunId) params.set("simulation", simulationRunId);
-    const qs = params.toString();
-    return qs ? `/mentor?${qs}` : "/mentor";
-  })();
+  const mentorLink = buildMentorExpandHref({
+    experimentId,
+    simulationRunId,
+    simStatus: simResult?.status ?? null,
+    conversationId,
+  });
 
   const contextHint = useMemo(() => {
     if (!simResult) {
@@ -262,6 +268,7 @@ function WorkspaceMentorPanel({
         simulationId: latestRunId,
         circuitSnapshot: live ? compactCircuitForMentor(live) : null,
         emitUserMessage: false,
+        persistUser: true,
       },
       {
         onStart: () => setStreamingText((prev) => prev ?? ""),

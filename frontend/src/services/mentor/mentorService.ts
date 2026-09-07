@@ -82,6 +82,12 @@ export interface MentorAskContext {
    * (used by regenerate — the user turn already exists in the UI).
    */
   emitUserMessage?: boolean;
+  /**
+   * When false, ask the backend not to persist a new user row
+   * (regenerate/retry). Defaults to matching emitUserMessage so
+   * Lab can persist the user turn while skipping a duplicate bubble.
+   */
+  persistUser?: boolean;
 }
 
 interface StreamEventPayload {
@@ -193,7 +199,7 @@ function askBody(content: string, context: MentorAskContext = {}) {
     quiz_id: context.quizId ?? null,
     report_id: context.reportId ?? null,
     stage: context.stage ?? null,
-    persist_user: context.emitUserMessage !== false,
+    persist_user: context.persistUser ?? context.emitUserMessage !== false,
   };
   if (context.circuitSnapshot) {
     body.circuit_snapshot = context.circuitSnapshot;

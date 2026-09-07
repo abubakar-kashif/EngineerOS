@@ -576,6 +576,49 @@ describe("sendMessage simulation context", () => {
       },
     });
   });
+
+  it("persists the Simulation Lab user turn even when the UI already inserted the bubble", async () => {
+    setAuthToken("token-123");
+    const calls = mockApiRoutes({
+      "GET /conversations/c1": () =>
+        jsonResponse({
+          id: "c1",
+          title: "Sim",
+          experiment_id: "ohms-law",
+          created_at: iso(0),
+          updated_at: iso(0),
+          messages: [],
+        }),
+      "PATCH /conversations/c1": () => jsonResponse(summary("c1", "Renamed", 0)),
+      "POST /conversations/c1/ask/stream": () =>
+        sseResponse([
+          { type: "complete", content: "Check the return path.", message_id: "a1", conversation_id: "c1" },
+        ]),
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      sendMessage(
+        "c1",
+        "What is wrong with my circuit?",
+        {
+          experimentId: "ohms-law",
+          stage: "simulation",
+          emitUserMessage: false,
+          persistUser: true,
+        },
+        {
+          onComplete: () => resolve(),
+          onError: (error) => reject(error),
+        },
+      );
+    });
+
+    const streamCall = calls.find((call) => call.path === "/conversations/c1/ask/stream");
+    expect(streamCall?.body).toMatchObject({
+      persist_user: true,
+      content: "What is wrong with my circuit?",
+    });
+  });
 });
 
 describe("toMentorUserError", () => {

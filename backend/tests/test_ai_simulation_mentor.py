@@ -518,3 +518,30 @@ def test_f_invalid_circuit_uses_simulator_error_not_invented_values():
     assert "PRE-RUN / EDITOR-ONLY MODE" not in prompt
     assert "Total Current:" not in prompt
     assert "do not re-solve" in prompt.lower() or "recommend a fix" in prompt.lower()
+
+
+def test_g_current_editor_overrides_old_conversation_values():
+    builder = PromptBuilder()
+    context = ContextResult()
+    context.conversation = [
+        {"role": "user", "content": "R2 is 2000 ohm."},
+        {"role": "assistant", "content": "Yes, R2 is 2000 Ω on that drawing."},
+    ]
+    context.simulation = apply_live_editor_circuit(None, CHANGED_R2)
+    prompt = builder.build_prompt(context, "What about R2?")
+    assert "4000" in prompt
+    assert "CURRENT EDITOR CIRCUIT" in prompt
+    assert "SIMULATION CONTEXT wins" in prompt
+
+
+def test_conversation_history_stays_bounded():
+    builder = PromptBuilder()
+    context = ContextResult()
+    context.conversation = [
+        {"role": "user", "content": f"turn-{i} " + ("x" * 800)}
+        for i in range(15)
+    ]
+    prompt = builder.build_prompt(context, "Follow up")
+    assert "turn-14" in prompt
+    assert "turn-0" not in prompt
+    assert "..." in prompt
