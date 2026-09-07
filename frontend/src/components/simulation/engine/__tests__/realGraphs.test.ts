@@ -8,7 +8,6 @@ import {
   generateAllGraphs,
   generateGraphsFromMeasurements,
   getGraphById,
-  NO_MEASUREMENT_DATA,
   validateGraphData,
 } from "../graphData";
 import { displayableSimulationResult } from "../electricalSnapshot";
@@ -69,25 +68,17 @@ describe("real measurement graphs", () => {
     expect(labels).toEqual(["I(R1)", "I(R2)", "I(R3)", "ΣI"]);
   });
 
-  it("RC and power vs time are empty on a DC run (no synthetic charging curve)", () => {
+  it("omits RC and power-vs-time graphs on a DC run (no synthetic charging curve)", () => {
     const result = solveCircuit(seriesRC());
     expect(result.graphs?.some((g) => g.id === "rc_charging")).toBe(false);
-
-    const rc = getGraphById(result.graphs!, "rc_time")!;
-    expect(rc.unavailableReason).toBe(NO_MEASUREMENT_DATA);
-    expect(rc.series[0].points).toEqual([]);
-    expect(validateGraphData(rc)).toBe(true);
-
-    const power = getGraphById(result.graphs!, "power_time")!;
-    expect(power.unavailableReason).toBe(NO_MEASUREMENT_DATA);
-    expect(power.series[0].points).toEqual([]);
+    expect(getGraphById(result.graphs!, "rc_time")).toBeUndefined();
+    expect(getGraphById(result.graphs!, "power_time")).toBeUndefined();
   });
 
-  it("voltage divider slot is empty when R2 is missing", () => {
+  it("omits the voltage-divider graph when R2 is missing", () => {
     const graphs = solveCircuit(ohmsLaw(5, 1000)).graphs!;
-    const divider = getGraphById(graphs, "voltage_divider")!;
-    expect(divider.unavailableReason).toBe(NO_MEASUREMENT_DATA);
-    expect(divider.series[0].points).toEqual([]);
+    expect(getGraphById(graphs, "voltage_divider")).toBeUndefined();
+    expect(graphs.some((g) => g.id === "ohms_law")).toBe(true);
   });
 
   it("changing the circuit changes graph points", () => {

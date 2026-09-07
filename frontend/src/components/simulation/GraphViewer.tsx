@@ -9,6 +9,7 @@ import {
   buildGraphFromSignals,
   listAvailableSignals,
   NO_MEASUREMENT_DATA,
+  selectableGraphs,
   type GraphData,
   type GraphPoint,
   type MeasurementSignal,
@@ -48,7 +49,7 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
   }, [available, signals]);
 
   const presets = useMemo(
-    () => (presetGraphs?.length ? presetGraphs : result.graphs ?? []),
+    () => selectableGraphs(presetGraphs?.length ? presetGraphs : result.graphs),
     [presetGraphs, result.graphs],
   );
 

@@ -94,14 +94,11 @@ describe("measurement-based graph data", () => {
     expect(ids).not.toContain("kvl");
     expect(ids).not.toContain("kcl");
     expect(ids).not.toContain("ohms_law");
+    expect(signals.find((s) => s.id === "time")).toBeUndefined();
 
     const iR1 = signals.find((s) => s.id === "I_R1");
     expect(iR1?.label).toBe("I(R1)");
     expect(iR1?.id).toBe("I_R1");
-
-    const time = signals.find((s) => s.id === "time");
-    expect(time?.available).toBe(false);
-    expect(time?.unavailableReason).toMatch(/time-series/i);
   });
 
   it("builds default graphs from measurements only", () => {

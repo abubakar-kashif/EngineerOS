@@ -202,7 +202,7 @@ describe('Block 5 simulation pipeline', () => {
     if (result.status === 'completed' && result.measurements) {
       const built = buildGraphFromSignals(result.measurements, 'time', ['ΣI']);
       expect(built.graph).toBeNull();
-      expect(built.unavailableReason).toMatch(/No current-vs-time data is available|time-series/i);
+      expect(built.unavailableReason).toMatch(/Unknown X-axis signal|No current-vs-time data is available|time-series/i);
     }
   });
 

@@ -81,23 +81,33 @@ function isPassiveDrop(cm: Measurements['componentMeasurements'][number]): boole
   return isPhysicalMeasurement(cm) && cm.type !== 'voltage_source' && cm.type !== 'current_source';
 }
 
-function emptyCatalogGraph(
-  id: string,
-  title: string,
-  xAxis: GraphData['xAxis'],
-  yAxis: GraphData['yAxis'],
-  type: GraphData['type'] = 'line',
-): GraphData {
-  return {
-    id,
-    type,
-    title,
-    xAxis,
-    yAxis,
-    series: [{ name: yAxis.label, points: [], color: COLORS[0] }],
-    metadata: { source: 'measurements', empty: true },
-    unavailableReason: NO_MEASUREMENT_DATA,
-  };
+function measurementBelongsToCircuit(
+  cm: Measurements['componentMeasurements'][number],
+  circuit?: CircuitDefinition,
+): boolean {
+  if (!isPhysicalMeasurement(cm)) return false;
+  if (!circuit) return true;
+  return circuit.components.some((c) => c.id === cm.componentId);
+}
+
+function plottableComponentMeasurements(
+  measurements: Measurements,
+  circuit?: CircuitDefinition,
+): Measurements['componentMeasurements'] {
+  return measurements.componentMeasurements.filter((cm) =>
+    measurementBelongsToCircuit(cm, circuit),
+  );
+}
+
+/** True when a graph contains real SimulationRun points (not an empty catalog slot). */
+export function graphHasRealData(graph: GraphData): boolean {
+  if (graph.unavailableReason) return false;
+  return graph.series.some((s) => s.points.length > 0);
+}
+
+/** Selector list: only graphs that actually have measurement points. */
+export function selectableGraphs(graphs: GraphData[] | null | undefined): GraphData[] {
+  return (graphs ?? []).filter(graphHasRealData);
 }
 
 /**
@@ -130,6 +140,7 @@ export function listAvailableSignals(
   const m = result?.measurements;
   if (!m) return [];
 
+  const plottable = plottableComponentMeasurements(m, circuit);
   const signals: MeasurementSignal[] = [
     {
       id: 'Vs',
@@ -163,32 +174,31 @@ export function listAvailableSignals(
       value: m.equivalentResistance,
       available: Number.isFinite(m.equivalentResistance),
     },
-    {
+  ];
+
+  if (hasRunTimeSeries(m)) {
+    signals.push({
       id: 'time',
       label: 'Time',
       unit: 's',
       quantity: 'time',
       value: null,
-      available: hasRunTimeSeries(m),
-      unavailableReason: hasRunTimeSeries(m)
-        ? undefined
-        : 'No time-series data is available on this SimulationRun (DC solve).',
-    },
-    {
-      id: 'index',
-      label: 'Component',
-      unit: '',
-      quantity: 'index',
-      value: 0,
-      available: m.componentMeasurements.length > 0,
-      unavailableReason:
-        m.componentMeasurements.length === 0
-          ? 'No component measurements are available.'
-          : undefined,
-    },
-  ];
+      available: true,
+    });
+  }
 
-  for (const cm of m.componentMeasurements) {
+  signals.push({
+    id: 'index',
+    label: 'Component',
+    unit: '',
+    quantity: 'index',
+    value: 0,
+    available: plottable.length > 0,
+    unavailableReason:
+      plottable.length === 0 ? 'No component measurements are available.' : undefined,
+  });
+
+  for (const cm of plottable) {
     const name = labelForComponent(circuit, cm.componentId, cm.type);
     signals.push({
       id: `V_${cm.componentId}`,
@@ -250,6 +260,14 @@ export function buildGraphFromSignals(
   const signals = listAvailableSignals(measurementProbe, circuit);
   const x = getSignalById(signals, xSignalId);
   if (!x) {
+    if (xSignalId === 'time') {
+      return {
+        graph: null,
+        unavailableReason: ySignalIds.some((id) => id.startsWith('I_') || id === 'ΣI')
+          ? 'No current-vs-time data is available.'
+          : NO_MEASUREMENT_DATA,
+      };
+    }
     return { graph: null, unavailableReason: `Unknown X-axis signal "${xSignalId}".` };
   }
 
@@ -424,18 +442,17 @@ export function buildGraphFromSignals(
 }
 
 /**
- * Default graphs attached to a SimulationResult — all derived from measurements.
- * Required catalog slots (Ohm's Law, divider, RC, KCL, KVL, power vs time) are
- * always listed; missing data is an empty slot, never a synthetic series.
+ * Default graphs attached to a SimulationResult — derived from this run only.
+ * Experiment catalog slots are included only when the required components and
+ * measurement points actually exist (never as empty placeholders).
  */
 export function generateGraphsFromMeasurements(
   measurements: Measurements,
   circuit?: CircuitDefinition,
 ): GraphData[] {
   const graphs: GraphData[] = [];
-  const allComps = measurements.componentMeasurements;
-  const physical = allComps.filter(isPhysicalMeasurement);
-  const drops = allComps.filter(isPassiveDrop);
+  const physical = plottableComponentMeasurements(measurements, circuit);
+  const drops = physical.filter(isPassiveDrop);
   const resistors = drops.filter((cm) => cm.type === 'resistor');
 
   const ohmsOk =
@@ -456,23 +473,12 @@ export function generateGraphsFromMeasurements(
       ],
       metadata: { source: 'measurements', pointCount: 1 },
     });
-  } else {
-    graphs.push(
-      emptyCatalogGraph(
-        'ohms_law',
-        "Ohm's Law (Voltage vs Current)",
-        { label: 'Voltage', unit: 'V' },
-        { label: 'Current', unit: 'A' },
-        'scatter',
-      ),
-    );
   }
 
-  const r2 =
-    resistors.find((cm) => {
-      const name = labelForComponent(circuit, cm.componentId, cm.type);
-      return cm.componentId === 'R2' || name === 'R2';
-    }) ?? (resistors.length >= 2 ? resistors[1] : undefined);
+  const r2 = resistors.find((cm) => {
+    const name = labelForComponent(circuit, cm.componentId, cm.type);
+    return cm.componentId === 'R2' || name === 'R2';
+  });
   const r2Circuit = circuit?.components.find((c) => c.id === r2?.componentId);
   const r2Ohms = r2Circuit?.properties?.resistance ?? r2?.resistance;
   if (r2 && r2Ohms != null && Number.isFinite(r2Ohms) && Number.isFinite(r2.voltage)) {
@@ -491,16 +497,6 @@ export function generateGraphsFromMeasurements(
       ],
       metadata: { source: 'measurements', r2Id: r2.componentId, pointCount: 1 },
     });
-  } else {
-    graphs.push(
-      emptyCatalogGraph(
-        'voltage_divider',
-        'Voltage Divider (R2 vs Vout)',
-        { label: 'R2', unit: 'Ω' },
-        { label: 'Vout', unit: 'V' },
-        'scatter',
-      ),
-    );
   }
 
   const cap = physical.find((cm) => cm.type === 'capacitor');
@@ -528,15 +524,6 @@ export function generateGraphsFromMeasurements(
       series: [{ name: 'Vc', color: COLORS[0], points: rcPoints }],
       metadata: { source: 'measurements', timeSeries: true },
     });
-  } else {
-    graphs.push(
-      emptyCatalogGraph(
-        'rc_time',
-        'RC (Time vs Capacitor voltage)',
-        { label: 'Time', unit: 's' },
-        { label: 'Capacitor voltage', unit: 'V' },
-      ),
-    );
   }
 
   if (drops.length > 0) {
@@ -557,19 +544,9 @@ export function generateGraphsFromMeasurements(
       series: [{ name: 'Current', color: COLORS[1], points: kclPoints }],
       metadata: { source: 'measurements', labels: kclLabels },
     });
-  } else {
-    graphs.push(
-      emptyCatalogGraph(
-        'current_signals',
-        'KCL (I1, I2, I3, ΣI)',
-        { label: 'Signal', unit: '' },
-        { label: 'Current', unit: 'A' },
-        'bar',
-      ),
-    );
   }
 
-  if (Number.isFinite(measurements.totalVoltage)) {
+  if (Number.isFinite(measurements.totalVoltage) && drops.length > 0) {
     const sumV = drops.reduce((s, cm) => s + cm.voltage, 0);
     const kvlPoints: GraphPoint[] = [
       { x: 1, y: measurements.totalVoltage },
@@ -590,16 +567,6 @@ export function generateGraphsFromMeasurements(
       series: [{ name: 'Voltage', color: COLORS[0], points: kvlPoints }],
       metadata: { source: 'measurements', labels: kvlLabels },
     });
-  } else {
-    graphs.push(
-      emptyCatalogGraph(
-        'voltage_signals',
-        'KVL (Vs, VR1, VR2, ΣV)',
-        { label: 'Signal', unit: '' },
-        { label: 'Voltage', unit: 'V' },
-        'bar',
-      ),
-    );
   }
 
   const powerPoints =
@@ -623,15 +590,6 @@ export function generateGraphsFromMeasurements(
       series: [{ name: 'Power', color: COLORS[2], points: powerPoints }],
       metadata: { source: 'measurements', timeSeries: true },
     });
-  } else {
-    graphs.push(
-      emptyCatalogGraph(
-        'power_time',
-        'Power vs Time',
-        { label: 'Time', unit: 's' },
-        { label: 'Power', unit: 'W' },
-      ),
-    );
   }
 
   if (drops.length === 0) return graphs;
