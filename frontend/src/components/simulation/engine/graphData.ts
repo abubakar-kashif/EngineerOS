@@ -79,6 +79,22 @@ function isPassiveDrop(cm: Measurements['componentMeasurements'][number]): boole
   return isPhysicalMeasurement(cm) && cm.type !== 'voltage_source' && cm.type !== 'current_source';
 }
 
+/** True when a catalog/custom graph has real plottable points from this SimulationRun. */
+export function graphHasRenderableData(graph: GraphData): boolean {
+  if (graph.unavailableReason) return false;
+  return Boolean(graph.series?.some((s) => s.points.length > 0));
+}
+
+/**
+ * Graph options backed by real measurement data only.
+ * Empty catalog placeholders (RC with no time series, divider without R2, …) are omitted.
+ */
+export function selectAvailableGraphs(
+  graphs: GraphData[] | null | undefined,
+): GraphData[] {
+  return (graphs ?? []).filter(graphHasRenderableData);
+}
+
 function emptyCatalogGraph(
   id: string,
   title: string,
@@ -176,6 +192,8 @@ export function listAvailableSignals(
   ];
 
   for (const cm of m.componentMeasurements) {
+    // Instruments / synthetic rows are not user graph axes.
+    if (!isPhysicalMeasurement(cm)) continue;
     const name = labelForComponent(circuit, cm.componentId, cm.type);
     signals.push({
       id: `V_${cm.componentId}`,
@@ -412,8 +430,8 @@ export function buildGraphFromSignals(
 
 /**
  * Default graphs attached to a SimulationResult — all derived from measurements.
- * Required catalog slots (Ohm's Law, divider, RC, KCL, KVL, power vs time) are
- * always listed; missing data is an empty slot, never a synthetic series.
+ * Catalog slots that lack real data are still produced as empty placeholders for
+ * validation; UI should use selectAvailableGraphs() so empty presets are not offered.
  */
 export function generateGraphsFromMeasurements(
   measurements: Measurements,

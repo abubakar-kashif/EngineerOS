@@ -8,6 +8,7 @@ import type { SimulationResult } from "./engine/types";
 import {
   buildGraphFromSignals,
   listAvailableSignals,
+  selectAvailableGraphs,
   NO_MEASUREMENT_DATA,
   type GraphData,
   type GraphPoint,
@@ -48,10 +49,10 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
     return [...idx, ...scalars, ...time];
   }, [available, signals]);
 
-  const presets = useMemo(
-    () => (presetGraphs?.length ? presetGraphs : result.graphs ?? []),
-    [presetGraphs, result.graphs],
-  );
+  const presets = useMemo(() => {
+    const raw = presetGraphs?.length ? presetGraphs : result.graphs ?? [];
+    return selectAvailableGraphs(raw);
+  }, [presetGraphs, result.graphs]);
 
   const [mode, setMode] = useState<"preset" | "custom">("preset");
   const [activeId, setActiveId] = useState(presets[0]?.id ?? "");
