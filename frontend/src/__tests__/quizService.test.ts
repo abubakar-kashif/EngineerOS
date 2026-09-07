@@ -3,11 +3,17 @@ import {
   clearQuizResult,
   getQuiz,
   loadQuizResult,
+  loadQuizSetup,
   NO_QUIZ_ERROR,
   saveQuizResult,
+  saveQuizSetup,
   submitQuiz,
 } from "../services/quiz/quizService";
-import { QUIZ_ATTEMPT_SIZE, QUIZ_BANK } from "../data/quiz/quizBank";
+import {
+  QUIZ_ATTEMPT_SIZE,
+  QUIZ_BANK,
+  seedQuestionDifficulty,
+} from "../data/quiz/quizBank";
 import { jsonResponse, mockApiRoutes } from "../test/apiMocks";
 import type { AnswerLetter, Quiz, QuizAnswers } from "../types/quiz";
 
@@ -132,6 +138,47 @@ describe("getQuiz", () => {
     mockApiRoutes({});
 
     await expect(getQuiz("does-not-exist")).rejects.toThrow(NO_QUIZ_ERROR);
+  });
+
+  it("samples Easy 10 and Medium 20 from the matching difficulty band", async () => {
+    mockApiRoutes({});
+    const easyBank = new Set(
+      QUIZ_BANK["ohms-law"]
+        .filter((entry) => seedQuestionDifficulty(entry) === "easy")
+        .map((entry) => entry.question),
+    );
+    const easy = await getQuiz("ohms-law", { difficulty: "easy", questionCount: 10 });
+    expect(easy.questions).toHaveLength(10);
+    expect(easy.difficulty).toBe("easy");
+    expect(easy.questions.every((question) => easyBank.has(question.question))).toBe(true);
+    expect(new Set(easy.questions.map((q) => q.question)).size).toBe(10);
+
+    const mediumBank = new Set(
+      QUIZ_BANK["ohms-law"]
+        .filter((entry) => seedQuestionDifficulty(entry) === "medium")
+        .map((entry) => entry.question),
+    );
+    const medium = await getQuiz("ohms-law", { difficulty: "medium", questionCount: 20 });
+    expect(medium.questions).toHaveLength(20);
+    expect(medium.difficulty).toBe("medium");
+    const mediumInAttempt = medium.questions.filter((question) => mediumBank.has(question.question));
+    expect(mediumInAttempt.length).toBe(Math.min(20, mediumBank.size));
+
+    const hard = await getQuiz("ohms-law", { difficulty: "hard", questionCount: 40 });
+    expect(hard.questions).toHaveLength(40);
+    const hardBank = new Set(
+      QUIZ_BANK["ohms-law"]
+        .filter((entry) => seedQuestionDifficulty(entry) === "hard")
+        .map((entry) => entry.question),
+    );
+    expect(hard.questions.filter((question) => hardBank.has(question.question)).length).toBe(
+      Math.min(40, hardBank.size),
+    );
+  });
+
+  it("restores quiz setup selections from session storage", () => {
+    saveQuizSetup("ohms-law", { difficulty: "hard", questionCount: 20 });
+    expect(loadQuizSetup("ohms-law")).toEqual({ difficulty: "hard", questionCount: 20 });
   });
 });
 

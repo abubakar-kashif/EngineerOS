@@ -1,12 +1,20 @@
 import { apiRequest } from "../api";
-import { QUIZ_ATTEMPT_SIZE, QUIZ_BANK } from "../../data/quiz/quizBank";
+import {
+  countSeedQuestionsByDifficulty,
+  QUIZ_ATTEMPT_SIZE,
+  QUIZ_BANK,
+  seedQuestionDifficulty,
+  supportedQuestionCounts,
+} from "../../data/quiz/quizBank";
 import { getExperimentById } from "../experimentService";
 import type { Experiment } from "../../types/experiment";
 import type {
   AnswerLetter,
   Quiz,
   QuizAnswers,
+  QuizAttemptDifficulty,
   QuizQuestion,
+  QuizQuestionCount,
   QuizResult,
   QuestionFeedback,
   QuizSource,
@@ -26,6 +34,12 @@ const QUIZ_DESCRIPTION = "Test your understanding before continuing.";
 const OPTION_LETTERS: AnswerLetter[] = ["A", "B", "C", "D"];
 
 const RESULT_STORAGE_PREFIX = "engineeros_quiz_result_";
+const SETUP_STORAGE_PREFIX = "engineeros.quiz.setup.v1_";
+
+export type QuizSetupState = {
+  difficulty: QuizAttemptDifficulty;
+  questionCount: QuizQuestionCount;
+};
 
 interface ApiQuizQuestion {
   id: number;
@@ -88,13 +102,13 @@ function shuffleInPlace<T>(items: T[]): T[] {
 }
 
 /**
- * Phase 2: sample up to QUIZ_ATTEMPT_SIZE questions, always randomizing order
- * so retries differ even when the bank size equals the attempt size.
+ * Sample up to `size` questions, always randomizing order so retries differ
+ * even when the bank size equals the attempt size.
  */
-function sampleAttemptQuestions<T>(questions: T[]): T[] {
+function sampleAttemptQuestions<T>(questions: T[], size: number): T[] {
   const shuffled = shuffleInPlace([...questions]);
-  if (shuffled.length <= QUIZ_ATTEMPT_SIZE) return shuffled;
-  return shuffled.slice(0, QUIZ_ATTEMPT_SIZE);
+  if (shuffled.length <= size) return shuffled;
+  return shuffled.slice(0, size);
 }
 
 /** Randomize A–D option order; grading remaps via option text. */
@@ -109,12 +123,57 @@ function shuffleQuestionOptions(question: QuizQuestion): QuizQuestion {
   };
 }
 
+export type QuizLoadOptions = {
+  difficulty?: QuizAttemptDifficulty;
+  questionCount?: number;
+};
+
+function difficultyForQuestion(experimentId: string, questionText: string): QuizAttemptDifficulty {
+  const entry = (QUIZ_BANK[experimentId] ?? []).find(
+    (item) => item.question.trim().toLowerCase() === questionText.trim().toLowerCase(),
+  );
+  return entry ? seedQuestionDifficulty(entry) : "easy";
+}
+
+function filterByDifficulty(
+  experimentId: string,
+  questions: QuizQuestion[],
+  difficulty: QuizAttemptDifficulty | undefined,
+): { preferred: QuizQuestion[]; rest: QuizQuestion[] } {
+  if (!difficulty) return { preferred: questions, rest: [] };
+  const preferred: QuizQuestion[] = [];
+  const rest: QuizQuestion[] = [];
+  for (const question of questions) {
+    if (difficultyForQuestion(experimentId, question.question) === difficulty) {
+      preferred.push(question);
+    } else {
+      rest.push(question);
+    }
+  }
+  return { preferred, rest };
+}
+
+function resolveAttemptSize(requested: number | undefined, poolSize: number): number {
+  if (poolSize <= 0) return 0;
+  const size = requested ?? QUIZ_ATTEMPT_SIZE;
+  if (size <= poolSize && size > 0) return size;
+  const supported = supportedQuestionCounts(poolSize);
+  return supported.length > 0 ? supported[supported.length - 1]! : poolSize;
+}
+
 function buildQuiz(
   experimentId: string,
   questions: QuizQuestion[],
   source: QuizSource,
+  options?: QuizLoadOptions,
 ): Quiz {
-  const attempt = sampleAttemptQuestions(questions).map(shuffleQuestionOptions);
+  const { preferred, rest } = filterByDifficulty(experimentId, questions, options?.difficulty);
+  const attemptSize = resolveAttemptSize(options?.questionCount, questions.length);
+  const ordered = [
+    ...sampleAttemptQuestions(preferred, preferred.length),
+    ...sampleAttemptQuestions(rest, rest.length),
+  ];
+  const attempt = ordered.slice(0, attemptSize).map(shuffleQuestionOptions);
   return {
     experiment_id: experimentId,
     title: QUIZ_TITLE,
@@ -124,10 +183,11 @@ function buildQuiz(
     attempt_size: attempt.length,
     bank_size: questions.length,
     source,
+    difficulty: options?.difficulty,
   };
 }
 
-function buildSeedQuiz(experimentId: string): Quiz | null {
+function buildSeedQuiz(experimentId: string, options?: QuizLoadOptions): Quiz | null {
   const bank = QUIZ_BANK[experimentId];
   if (!bank || bank.length === 0) return null;
 
@@ -140,16 +200,16 @@ function buildSeedQuiz(experimentId: string): Quiz | null {
       options: entry.options.map((text, i) => ({ key: OPTION_LETTERS[i], text })),
     })),
     "seed",
+    options,
   );
 }
 
 /**
- * Loads a quiz attempt for an experiment: a random QUIZ_ATTEMPT_SIZE sample
- * of the bank, taken from the backend API when available and from the
- * seeded mirror otherwise. Throws NO_QUIZ_ERROR when no assessment exists
- * for the experiment.
+ * Loads a quiz attempt for an experiment from the backend API when available
+ * and from the seeded mirror otherwise. Optional difficulty / length sample
+ * the bank; they never invent or duplicate questions.
  */
-export async function getQuiz(experimentId: string): Promise<Quiz> {
+export async function getQuiz(experimentId: string, options?: QuizLoadOptions): Promise<Quiz> {
   try {
     const response = await apiRequest<ApiQuizResponse>(
       `/quizzes/${encodeURIComponent(experimentId)}`,
@@ -159,13 +219,14 @@ export async function getQuiz(experimentId: string): Promise<Quiz> {
         experimentId,
         response.questions.map(normalizeQuestion),
         "api",
+        options,
       );
     }
   } catch {
     // Backend unavailable — fall through to the seeded bank.
   }
 
-  const seeded = buildSeedQuiz(experimentId);
+  const seeded = buildSeedQuiz(experimentId, options);
   if (!seeded) {
     throw new Error(NO_QUIZ_ERROR);
   }
@@ -179,6 +240,14 @@ export function getSeedQuizIds(): string[] {
 
 export function getSeedQuestionCount(experimentId: string): number {
   return QUIZ_BANK[experimentId]?.length ?? 0;
+}
+
+export function getSeedDifficultyCounts(experimentId: string) {
+  return countSeedQuestionsByDifficulty(experimentId);
+}
+
+export function getSupportedQuestionCounts(experimentId: string): QuizQuestionCount[] {
+  return supportedQuestionCounts(getSeedQuestionCount(experimentId));
 }
 
 export function hasSeedQuiz(experimentId: string): boolean {
@@ -345,6 +414,31 @@ export function clearQuizResult(experimentId: string): void {
     sessionStorage.removeItem(`${RESULT_STORAGE_PREFIX}${experimentId}`);
   } catch {
     // Ignore storage failures.
+  }
+}
+
+export function saveQuizSetup(experimentId: string, setup: QuizSetupState): void {
+  try {
+    sessionStorage.setItem(`${SETUP_STORAGE_PREFIX}${experimentId}`, JSON.stringify(setup));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+export function loadQuizSetup(experimentId: string): QuizSetupState | null {
+  try {
+    const raw = sessionStorage.getItem(`${SETUP_STORAGE_PREFIX}${experimentId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as QuizSetupState;
+    if (parsed.difficulty !== "easy" && parsed.difficulty !== "medium" && parsed.difficulty !== "hard") {
+      return null;
+    }
+    if (parsed.questionCount !== 10 && parsed.questionCount !== 20 && parsed.questionCount !== 40) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
   }
 }
 

@@ -10,7 +10,7 @@ from app.db.database import Base, SessionLocal, engine
 from app.db.seed import seed_quizzes
 from app.main import app
 from app.models.quiz import QuizQuestion
-from app.services.quiz_service import QUIZ_ATTEMPT_SIZE
+from app.services.quiz_service import MIN_QUIZ_ATTEMPT_SIZE, QUIZ_ATTEMPT_SIZE
 
 
 Base.metadata.drop_all(bind=engine)
@@ -145,9 +145,20 @@ def test_partial_submission_rejected():
     )
     assert response.status_code == 400
     assert (
-        f"at least {QUIZ_ATTEMPT_SIZE} of {EXPECTED_BANK_SIZE} questions"
+        f"at least {MIN_QUIZ_ATTEMPT_SIZE} of {EXPECTED_BANK_SIZE} questions"
         in response.json()["detail"]
     )
+
+
+def test_ten_question_attempt_is_graded():
+    key = seeded_answer_key()
+    questions = client.get("/api/quizzes/ohms-law").json()["questions"][:10]
+    answers = [{"question_id": q["id"], "answer": key[q["id"]]} for q in questions]
+    response = client.post("/api/quizzes/ohms-law/submit", json={"answers": answers})
+    assert response.status_code == 200
+    assert response.json()["total_questions"] == 10
+    assert response.json()["correct_answers"] == 10
+    assert response.json()["score"] == 100.0
 
 
 def test_attempt_size_submission_grades_over_attempt():

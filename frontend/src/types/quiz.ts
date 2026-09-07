@@ -26,6 +26,23 @@ export interface QuizQuestion {
 
 export type QuizSource = "api" | "seed";
 
+/** Learner-facing attempt difficulty (not experiment catalog Beginner/Intermediate/Advanced). */
+export type QuizAttemptDifficulty = "easy" | "medium" | "hard";
+
+export type QuizQuestionCount = 10 | 20 | 40;
+
+export const QUIZ_DIFFICULTY_LABELS: Record<QuizAttemptDifficulty, string> = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+};
+
+export const QUIZ_DIFFICULTY_DESCRIPTIONS: Record<QuizAttemptDifficulty, string> = {
+  easy: "Fundamental concepts and straightforward calculations.",
+  medium: "Conceptual understanding plus moderate calculations.",
+  hard: "More challenging engineering reasoning and multi-step problems.",
+};
+
 export interface Quiz {
   experiment_id: string;
   title: string;
@@ -33,10 +50,11 @@ export interface Quiz {
   estimated_minutes: number;
   questions: QuizQuestion[];
   source: QuizSource;
-  /** Phase 6: questions presented in this attempt (a random bank sample). */
+  /** Questions presented in this attempt (a random bank sample). */
   attempt_size?: number;
   /** Total questions available in the experiment's bank. */
   bank_size?: number;
+  difficulty?: QuizAttemptDifficulty;
 }
 
 /** Map of question id -> selected answer letter. */
