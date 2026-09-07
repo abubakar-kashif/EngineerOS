@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import LandingButton from "./LandingButton";
 import { HeroCircuitArt } from "./illustrations";
 import { EASE_OUT } from "./landingMotion";
+import { LANDING_CONTAINER } from "./landingLayout";
 
 const TRUST = [
   { icon: Globe, strong: "No installation", rest: "100% web based" },
@@ -22,8 +23,7 @@ function LandingHero() {
   };
 
   return (
-    <section id="product" className="relative scroll-mt-24 overflow-hidden">
-      {/* off-centre depth glows */}
+    <section id="product" className="relative scroll-mt-28 overflow-hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -left-40 top-[-120px] h-[520px] w-[520px] rounded-full blur-3xl"
@@ -35,10 +35,12 @@ function LandingHero() {
         style={{ background: "radial-gradient(circle, rgba(34,211,238,0.14), rgba(5,7,13,0) 70%)" }}
       />
 
-      <div className="relative mx-auto grid w-full max-w-[1280px] items-center gap-12 px-6 py-14 sm:px-8 sm:py-[72px] lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:py-[120px]">
-        <div>
+      <div
+        className={`${LANDING_CONTAINER} relative grid items-center gap-14 pb-20 pt-10 sm:gap-16 sm:pb-28 sm:pt-14 lg:grid-cols-[1fr_1fr] lg:gap-20 lg:pb-36 lg:pt-20`}
+      >
+        <div className="max-w-xl">
           <motion.span
-            className="inline-flex items-center gap-2 rounded-full border border-[#1F2937]/70 bg-[#0D1117]/70 px-3.5 py-1.5 text-xs font-medium text-[#93C5FD]"
+            className="inline-flex items-center gap-2 rounded-full border border-[#1F2937]/70 bg-[#0D1117]/70 px-4 py-2 text-xs font-medium text-[#93C5FD]"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE_OUT }}
@@ -48,7 +50,7 @@ function LandingHero() {
           </motion.span>
 
           <motion.h1
-            className="mt-6 text-4xl font-bold leading-[1.06] tracking-tight text-white sm:text-5xl lg:text-[58px]"
+            className="mt-7 text-[2.35rem] font-bold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.06, ease: EASE_OUT }}
@@ -58,7 +60,7 @@ function LandingHero() {
           </motion.h1>
 
           <motion.p
-            className="mt-6 max-w-xl text-base leading-relaxed text-[#9CA3AF] sm:text-lg"
+            className="mt-6 max-w-lg text-[15px] leading-[1.7] text-[#9CA3AF] sm:text-lg sm:leading-[1.7]"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.12, ease: EASE_OUT }}
@@ -68,7 +70,7 @@ function LandingHero() {
           </motion.p>
 
           <motion.div
-            className="mt-9 flex flex-wrap items-center gap-3"
+            className="mt-10 flex flex-wrap items-center gap-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.18, ease: EASE_OUT }}
@@ -87,17 +89,20 @@ function LandingHero() {
           </motion.div>
 
           <motion.ul
-            className="mt-10 flex flex-wrap gap-x-7 gap-y-3"
+            className="mt-12 grid gap-4 border-t border-[#1F2937]/60 pt-8 sm:grid-cols-3 sm:gap-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.26 }}
           >
             {TRUST.map(({ icon: Icon, strong, rest }) => (
-              <li key={strong} className="flex items-center gap-2 text-[13px] text-[#9CA3AF]">
-                <Icon size={15} className="text-[#3B82F6]" aria-hidden="true" />
-                <span className="font-semibold text-[#E5E7EB]">{strong}</span>
-                <span aria-hidden="true">—</span>
-                {rest}
+              <li key={strong} className="flex items-start gap-3">
+                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#1F2937] bg-[#0D1117] text-[#3B82F6]">
+                  <Icon size={14} aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-semibold text-[#E5E7EB]">{strong}</span>
+                  <span className="mt-0.5 block text-[12px] leading-snug text-[#9CA3AF]">{rest}</span>
+                </span>
               </li>
             ))}
           </motion.ul>
@@ -117,8 +122,8 @@ function LandingHero() {
             }}
           />
           <motion.div
-            className="relative w-full max-w-[640px]"
-            animate={reduced ? undefined : { y: [0, -14, 0] }}
+            className="relative w-full max-w-[560px]"
+            animate={reduced ? undefined : { y: [0, -12, 0] }}
             transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
           >
             <HeroCircuitArt />

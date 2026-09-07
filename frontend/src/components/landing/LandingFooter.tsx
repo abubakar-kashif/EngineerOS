@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Globe, Mail, MessageCircle, Send } from "lucide-react";
 import { BoltMark } from "./illustrations";
+import { LANDING_CONTAINER } from "./landingLayout";
 
 type FooterLink = { label: string; to?: string };
 
@@ -50,25 +51,25 @@ function LandingFooter() {
   const [subscribed, setSubscribed] = useState(false);
 
   return (
-    <footer id="about" className="scroll-mt-24 border-t border-[#1F2937]/50 bg-[#070A12]">
-      <div className="mx-auto w-full max-w-[1280px] px-6 py-14 sm:px-8 sm:py-16">
-        <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.4fr]">
-          <div>
-            <div className="flex items-center gap-2">
+    <footer id="about" className="scroll-mt-28 border-t border-[#1F2937]/50 bg-[#070A12]">
+      <div className={`${LANDING_CONTAINER} py-16 sm:py-20`}>
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1.5fr] lg:gap-10">
+          <div className="sm:col-span-2 lg:col-span-1">
+            <div className="flex items-center gap-2.5">
               <BoltMark size={20} />
               <span className="text-base font-bold tracking-tight text-white">EngineerOS</span>
             </div>
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-[#9CA3AF]">
+            <p className="mt-5 max-w-xs text-sm leading-relaxed text-[#9CA3AF]">
               The complete electrical engineering learning platform.
             </p>
           </div>
 
           {COLUMNS.map((column) => (
             <div key={column.title}>
-              <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#E5E7EB]">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#E5E7EB]">
                 {column.title}
               </h3>
-              <ul className="mt-4 space-y-2.5">
+              <ul className="mt-5 space-y-3">
                 {column.links.map((link) => (
                   <li key={link.label}>
                     {link.to ? (
@@ -90,11 +91,11 @@ function LandingFooter() {
           ))}
 
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#E5E7EB]">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#E5E7EB]">
               Stay Connected
             </h3>
             <form
-              className="mt-4 flex gap-2"
+              className="mt-5 flex gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!email.trim()) return;
@@ -122,14 +123,14 @@ function LandingFooter() {
               </button>
             </form>
             <p
-              className="mt-2 min-h-[18px] text-xs text-[#60A5FA]"
+              className="mt-2.5 min-h-[18px] text-xs text-[#60A5FA]"
               role="status"
               aria-live="polite"
             >
               {subscribed ? "Thanks — you're on the list." : ""}
             </p>
 
-            <ul className="mt-5 flex gap-3">
+            <ul className="mt-6 flex gap-3">
               {SOCIALS.map(({ icon: Icon, label }) => (
                 <li key={label}>
                   <span
@@ -146,7 +147,7 @@ function LandingFooter() {
           </div>
         </div>
 
-        <p className="mt-12 border-t border-[#1F2937]/50 pt-6 text-xs text-[#6B7280]">
+        <p className="mt-14 border-t border-[#1F2937]/50 pt-7 text-xs text-[#6B7280]">
           © 2026 EngineerOS. All rights reserved.
         </p>
       </div>

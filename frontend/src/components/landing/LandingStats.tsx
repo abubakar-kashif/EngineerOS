@@ -3,6 +3,7 @@
  */
 import CountUp from "./CountUp";
 import { RevealGroup, RevealItem } from "./Reveal";
+import { LANDING_CONTAINER } from "./landingLayout";
 
 type Stat = { value: number; suffix: string; label: string } | { text: string; label: string };
 
@@ -17,21 +18,23 @@ const STATS: Stat[] = [
 function LandingStats() {
   return (
     <section className="border-y border-[#1F2937]/40 bg-[#070A12]">
-      <div className="mx-auto w-full max-w-[1280px] px-6 py-14 sm:px-8 sm:py-16">
+      <div className={`${LANDING_CONTAINER} py-16 sm:py-20 lg:py-24`}>
         <RevealGroup
-          className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5"
+          className="grid grid-cols-2 gap-x-8 gap-y-12 sm:grid-cols-3 lg:grid-cols-5 lg:gap-x-10"
           stagger={0.1}
         >
           {STATS.map((stat) => (
             <RevealItem key={stat.label} className="text-center">
-              <p className="text-3xl font-bold tracking-tight text-white sm:text-[34px]">
+              <p className="text-3xl font-bold tracking-tight text-white sm:text-[2.15rem]">
                 {"value" in stat ? (
                   <CountUp value={stat.value} suffix={stat.suffix} />
                 ) : (
                   stat.text
                 )}
               </p>
-              <p className="mt-2 text-[13px] font-medium text-[#9CA3AF]">{stat.label}</p>
+              <p className="mt-3 text-[13px] font-medium tracking-wide text-[#9CA3AF]">
+                {stat.label}
+              </p>
             </RevealItem>
           ))}
         </RevealGroup>

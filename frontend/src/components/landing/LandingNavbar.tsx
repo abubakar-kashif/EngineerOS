@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import LandingButton from "./LandingButton";
 import { BoltMark } from "./illustrations";
+import { LANDING_CONTAINER } from "./landingLayout";
 
 const LINKS = [
   { label: "Product", id: "product" },
@@ -38,12 +39,12 @@ function LandingNavbar() {
     <header
       className={`sticky top-0 z-50 transition-colors duration-300 ${
         scrolled
-          ? "border-b border-[#1F2937]/60 bg-[#05070D]/75 backdrop-blur-xl"
+          ? "border-b border-[#1F2937]/70 bg-[#05070D]/80 backdrop-blur-xl"
           : "border-b border-transparent bg-transparent"
       }`}
     >
       <nav
-        className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-6 py-4 sm:px-8"
+        className={`${LANDING_CONTAINER} flex items-center justify-between gap-6 py-5`}
         aria-label="Main"
       >
         <a
@@ -52,13 +53,13 @@ function LandingNavbar() {
             e.preventDefault();
             goToSection("product");
           }}
-          className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
+          className="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
         >
           <BoltMark size={22} />
           <span className="text-[17px] font-bold tracking-tight text-white">EngineerOS</span>
         </a>
 
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-8 lg:flex">
           {LINKS.map((link) => (
             <a
               key={link.id}
@@ -67,15 +68,15 @@ function LandingNavbar() {
                 e.preventDefault();
                 goToSection(link.id);
               }}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-[#9CA3AF] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
+              className="text-[14px] font-medium text-[#9CA3AF] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] focus-visible:ring-offset-2 focus-visible:ring-offset-[#05070D]"
             >
               {link.label}
             </a>
           ))}
         </div>
 
-        <div className="hidden items-center gap-3 md:flex">
-          <LandingButton to="/login" variant="secondary">
+        <div className="hidden items-center gap-3 lg:flex">
+          <LandingButton to="/login" variant="ghost">
             Login
           </LandingButton>
           <LandingButton to="/register" variant="primary">
@@ -85,7 +86,7 @@ function LandingNavbar() {
 
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-lg border border-[#1F2937] p-2 text-[#E5E7EB] md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
+          className="inline-flex items-center justify-center rounded-xl border border-[#374151] p-2.5 text-[#E5E7EB] lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
           aria-expanded={menuOpen}
           aria-controls="landing-mobile-menu"
           aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -98,7 +99,7 @@ function LandingNavbar() {
       {menuOpen && (
         <div
           id="landing-mobile-menu"
-          className="border-t border-[#1F2937]/60 bg-[#05070D]/95 px-6 py-4 backdrop-blur-xl md:hidden"
+          className="border-t border-[#1F2937]/60 bg-[#05070D]/95 px-6 py-5 backdrop-blur-xl lg:hidden"
         >
           <div className="flex flex-col gap-1">
             {LINKS.map((link) => (
@@ -109,13 +110,13 @@ function LandingNavbar() {
                   e.preventDefault();
                   goToSection(link.id);
                 }}
-                className="rounded-lg px-2 py-3 text-sm font-medium text-[#D1D5DB] hover:bg-[#0D1117] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
+                className="rounded-lg px-3 py-3 text-sm font-medium text-[#D1D5DB] hover:bg-[#0D1117] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
               >
                 {link.label}
               </a>
             ))}
           </div>
-          <div className="mt-4 flex flex-col gap-3">
+          <div className="mt-5 flex flex-col gap-3">
             <LandingButton to="/login" variant="secondary" block>
               Login
             </LandingButton>
