@@ -116,11 +116,13 @@ describe("public landing page", () => {
     expect(screen.getByText("AI Engineering Mentor")).toBeInTheDocument();
     expect(screen.getByText("Available 24/7")).toBeInTheDocument();
 
-    // "Experiments" is both a stat label and a footer link.
     expect(screen.getAllByText("Experiments").length).toBeGreaterThan(0);
     expect(screen.getByText("Unlimited")).toBeInTheDocument();
     expect(screen.getByText("Real-time")).toBeInTheDocument();
     expect(screen.getByText("Components")).toBeInTheDocument();
+    // Inflated marketing stats must not appear.
+    expect(screen.queryByText("50+")).not.toBeInTheDocument();
+    expect(screen.queryByText("1000+")).not.toBeInTheDocument();
 
     expect(
       screen.getByRole("heading", { name: "Ready to start your engineering journey?" }),

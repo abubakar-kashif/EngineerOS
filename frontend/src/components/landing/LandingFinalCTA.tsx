@@ -5,37 +5,39 @@ import { ArrowRight } from "lucide-react";
 import LandingButton from "./LandingButton";
 import { Reveal } from "./Reveal";
 import { ChipTraceArt } from "./illustrations";
-import { LANDING_CONTAINER, LANDING_SECTION } from "./landingLayout";
 
 function LandingFinalCTA() {
   return (
-    <section className={`${LANDING_SECTION} overflow-hidden`}>
+    <section className="landing-section">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-0 h-[460px] w-[720px] -translate-x-1/2 blur-3xl"
+        className="landing-glow"
         style={{
-          background: "radial-gradient(ellipse at center, rgba(37,99,235,0.20), rgba(5,7,13,0) 70%)",
+          left: "50%",
+          top: 0,
+          width: 720,
+          height: 420,
+          transform: "translateX(-50%)",
+          background: "radial-gradient(ellipse at center, rgba(37,99,235,0.2), transparent 70%)",
         }}
       />
 
-      <div
-        className={`${LANDING_CONTAINER} relative grid items-center gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:gap-16`}
-      >
+      <div className="landing-container landing-cta-grid">
         <Reveal>
-          <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-[2.6rem] sm:leading-[1.15]">
+          <h2 className="landing-h2" style={{ maxWidth: 560 }}>
             Ready to start your engineering journey?
           </h2>
-          <p className="mt-6 max-w-xl text-base leading-[1.7] text-[#9CA3AF]">
+          <p className="landing-lead">
             Join thousands of students learning electrical engineering the right way.
           </p>
-          <div className="mt-10">
+          <div style={{ marginTop: 36 }}>
             <LandingButton to="/register" variant="primary" size="lg">
-              Get Started Now – It&apos;s Free <ArrowRight size={16} aria-hidden="true" />
+              Get Started Now – It&apos;s Free <ArrowRight size={18} aria-hidden="true" />
             </LandingButton>
           </div>
         </Reveal>
 
-        <Reveal className="flex justify-center lg:justify-end">
+        <Reveal className="landing-cta-art">
           <ChipTraceArt />
         </Reveal>
       </div>

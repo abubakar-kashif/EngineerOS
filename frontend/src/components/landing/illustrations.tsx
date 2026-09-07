@@ -1,7 +1,6 @@
 /**
  * Custom line-art illustrations for the landing page.
- * Hand-drawn SVG in the brand blue palette — no AI-generated raster art, no
- * external image requests, and no layout shift (every graphic is sized).
+ * Hand-drawn SVG in the brand blue palette — no AI-generated raster art.
  */
 import { useReducedMotion } from "framer-motion";
 import { BOLT_PATH, BOLT_VIEWBOX } from "./boltGeometry";
@@ -30,138 +29,175 @@ export function BoltMark({ size = 22, className }: { size?: number; className?: 
 }
 
 /**
- * Hero graphic: a schematic-style circuit board rendered as line art, with
- * current pulses travelling the traces. Only opacity/transform/offset animate.
+ * Proper series LED circuit schematic:
+ * V1 (DC source) → R1 (current-limiting resistor) → D1 (LED) → GND return.
+ * Orthogonal wires only, standard schematic symbols, voltmeter across the LED.
  */
 export function HeroCircuitArt() {
   const reduced = useReducedMotion();
 
+  const loop =
+    "M140 360 L140 170 L220 170 L300 170 L380 170 L460 170 L520 170 L520 360 L140 360";
+
   return (
     <svg
-      width={640}
-      height={520}
-      viewBox="0 0 640 520"
-      className="h-auto w-full max-w-[640px]"
+      width={560}
+      height={460}
+      viewBox="0 0 560 460"
+      className="landing-hero-art"
       role="img"
-      aria-label="Line-art illustration of a circuit board with a power source, resistors, an LED and measurement probes"
+      aria-label="Schematic of a series LED circuit with voltage source V1, resistor R1, LED D1, ground, and a voltmeter reading 2.0 V"
     >
       <defs>
-        <linearGradient id="eos-hero-trace" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#3B82F6" />
-          <stop offset="100%" stopColor="#22D3EE" />
-        </linearGradient>
         <radialGradient id="eos-hero-glow" cx="50%" cy="45%" r="55%">
-          <stop offset="0%" stopColor="#2563EB" stopOpacity="0.36" />
+          <stop offset="0%" stopColor="#2563EB" stopOpacity="0.32" />
           <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
         </radialGradient>
+        <filter id="eos-led-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
 
-      <rect x="0" y="0" width="640" height="520" fill="url(#eos-hero-glow)" />
+      <rect x="0" y="0" width="560" height="460" fill="url(#eos-hero-glow)" />
 
-      {/* board */}
       <rect
-        x="58"
-        y="52"
-        width="524"
-        height="416"
-        rx="24"
+        x="36"
+        y="36"
+        width="488"
+        height="388"
+        rx="22"
         fill="#0B1220"
         stroke="#1F2937"
-        strokeWidth="2"
-      />
-      <rect
-        x="86"
-        y="80"
-        width="468"
-        height="360"
-        rx="16"
-        fill="none"
-        stroke="#16233A"
         strokeWidth="1.5"
-        strokeDasharray="4 8"
       />
 
-      {/* traces */}
-      <g fill="none" stroke="url(#eos-hero-trace)" strokeWidth="2.5" strokeLinecap="round">
-        <path id="eos-trace-a" d="M136 380 L136 176 L268 176 L268 132 L448 132" />
-        <path id="eos-trace-b" d="M136 380 L332 380 L332 300 L500 300 L500 208" />
-        <path d="M332 300 L332 240 L404 240" opacity="0.65" />
-        <path d="M448 132 L504 132 L504 176" opacity="0.65" />
+      <text
+        x="56"
+        y="68"
+        fill="#6B7280"
+        fontSize="12"
+        fontFamily="Inter, sans-serif"
+        letterSpacing="1.5"
+      >
+        SERIES LED CIRCUIT
+      </text>
+
+      <g fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="square">
+        <path d="M140 300 L140 170" />
+        <path d="M140 170 L220 170" />
+        <path d="M300 170 L380 170" />
+        <path d="M460 170 L520 170 L520 360 L140 360" />
+        <path d="M140 360 L140 340" />
       </g>
 
-      {/* pads */}
-      {[
-        [136, 380],
-        [268, 176],
-        [448, 132],
-        [332, 300],
-        [500, 300],
-        [404, 240],
-      ].map(([cx, cy]) => (
-        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="6" fill="#0A0E17" stroke="#3B82F6" strokeWidth="2" />
-      ))}
-
-      {/* battery / source */}
+      {/* V1 battery */}
       <g stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" fill="none">
-        <path d="M104 380 L104 336" />
-        <path d="M168 380 L168 336" />
-        <path d="M92 336 L116 336" />
-        <path d="M156 344 L180 344" />
+        <path d="M116 300 L164 300" />
+        <path d="M126 320 L154 320" />
+        <path d="M116 340 L164 340" />
       </g>
-      <text x="120" y="410" fill="#9CA3AF" fontSize="15" fontFamily="Inter, sans-serif">
+      <text x="176" y="318" fill="#E5E7EB" fontSize="14" fontFamily="Inter, sans-serif" fontWeight="600">
         V1
       </text>
+      <text x="176" y="336" fill="#9CA3AF" fontSize="12" fontFamily="Inter, sans-serif">
+        5 V DC
+      </text>
+      <text x="98" y="304" fill="#60A5FA" fontSize="14" fontFamily="Inter, sans-serif">
+        +
+      </text>
+      <text x="100" y="346" fill="#9CA3AF" fontSize="14" fontFamily="Inter, sans-serif">
+        −
+      </text>
 
-      {/* resistors */}
-      <g fill="none" stroke="#22D3EE" strokeWidth="2.5" strokeLinejoin="round">
-        <path d="M240 176 L250 160 L262 192 L274 160 L286 192 L296 176" />
-        <path d="M472 300 L482 284 L494 316 L506 284 L518 316 L528 300" />
+      {/* R1 zigzag */}
+      <g fill="none" stroke="#22D3EE" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round">
+        <path d="M220 170 L232 170 L244 150 L256 190 L268 150 L280 190 L292 170 L300 170" />
       </g>
-      <text x="246" y="146" fill="#9CA3AF" fontSize="15" fontFamily="Inter, sans-serif">
+      <text x="244" y="130" fill="#E5E7EB" fontSize="14" fontFamily="Inter, sans-serif" fontWeight="600">
         R1
       </text>
-      <text x="478" y="346" fill="#9CA3AF" fontSize="15" fontFamily="Inter, sans-serif">
-        R2
+      <text x="236" y="216" fill="#9CA3AF" fontSize="12" fontFamily="Inter, sans-serif">
+        220 Ω
       </text>
 
-      {/* LED */}
-      <g>
-        <circle cx="448" cy="132" r="22" fill="#2563EB" opacity="0.18" />
-        <circle cx="448" cy="132" r="11" fill="#3B82F6" />
-        <g stroke="#93C5FD" strokeWidth="2" strokeLinecap="round">
-          <path d="M448 100 L448 90" />
-          <path d="M472 112 L480 104" />
-          <path d="M424 112 L416 104" />
+      {/* D1 LED */}
+      <g filter={reduced ? undefined : "url(#eos-led-glow)"}>
+        <path d="M380 170 L430 148 L430 192 Z" fill="#3B82F6" stroke="#93C5FD" strokeWidth="1.5" />
+        <path d="M430 148 L430 192" stroke="#93C5FD" strokeWidth="2.5" fill="none" />
+        <path d="M460 170 L430 170" stroke="#3B82F6" strokeWidth="2.5" fill="none" />
+        <g stroke="#67E8F9" strokeWidth="2" strokeLinecap="round">
+          <path d="M448 138 L462 124" />
+          <path d="M456 146 L472 136" />
         </g>
       </g>
+      <text x="392" y="130" fill="#E5E7EB" fontSize="14" fontFamily="Inter, sans-serif" fontWeight="600">
+        D1
+      </text>
+      <text x="392" y="216" fill="#9CA3AF" fontSize="12" fontFamily="Inter, sans-serif">
+        LED
+      </text>
 
-      {/* probe / meter */}
-      <g>
-        <rect x="368" y="216" width="72" height="48" rx="10" fill="#0D1117" stroke="#1F2937" strokeWidth="2" />
-        <text x="404" y="246" fill="#60A5FA" fontSize="17" textAnchor="middle" fontFamily="Inter, sans-serif">
-          5.0 V
-        </text>
+      {/* Ground */}
+      <g stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round">
+        <path d="M330 360 L330 378" />
+        <path d="M312 378 L348 378" />
+        <path d="M318 386 L342 386" />
+        <path d="M324 394 L336 394" />
       </g>
+      <text x="356" y="390" fill="#9CA3AF" fontSize="12" fontFamily="Inter, sans-serif">
+        GND
+      </text>
 
-      {/* travelling current */}
+      {/* Voltmeter across LED */}
+      <g fill="none" stroke="#4B5563" strokeWidth="1.5" strokeDasharray="4 4">
+        <path d="M380 170 L380 250" />
+        <path d="M460 170 L460 250" />
+        <path d="M380 250 L460 250" />
+      </g>
+      <circle cx="420" cy="250" r="22" fill="#0D1117" stroke="#3B82F6" strokeWidth="2" />
+      <text
+        x="420"
+        y="246"
+        fill="#60A5FA"
+        fontSize="13"
+        fontFamily="Inter, sans-serif"
+        fontWeight="700"
+        textAnchor="middle"
+      >
+        V
+      </text>
+      <text
+        x="420"
+        y="260"
+        fill="#93C5FD"
+        fontSize="10"
+        fontFamily="Inter, sans-serif"
+        textAnchor="middle"
+      >
+        2.0 V
+      </text>
+
+      {[
+        [140, 170],
+        [220, 170],
+        [300, 170],
+        [380, 170],
+        [460, 170],
+        [520, 170],
+        [520, 360],
+        [140, 360],
+      ].map(([cx, cy]) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="4" fill="#93C5FD" />
+      ))}
+
       {!reduced && (
-        <>
-          <circle r="4.5" fill="#93C5FD">
-            <animateMotion
-              dur="3.6s"
-              repeatCount="indefinite"
-              path="M136 380 L136 176 L268 176 L268 132 L448 132"
-            />
-          </circle>
-          <circle r="4.5" fill="#67E8F9">
-            <animateMotion
-              dur="4.4s"
-              begin="0.8s"
-              repeatCount="indefinite"
-              path="M136 380 L332 380 L332 300 L500 300 L500 208"
-            />
-          </circle>
-        </>
+        <circle r="4.5" fill="#67E8F9">
+          <animateMotion dur="4.2s" repeatCount="indefinite" path={loop} />
+        </circle>
       )}
     </svg>
   );
@@ -171,10 +207,10 @@ export function HeroCircuitArt() {
 export function MentorRobotArt() {
   return (
     <svg
-      width={260}
-      height={260}
+      width={220}
+      height={220}
       viewBox="0 0 260 260"
-      className="h-auto w-[180px] sm:w-[220px] lg:w-[260px]"
+      style={{ width: "100%", maxWidth: 220, height: "auto" }}
       role="img"
       aria-label="Line-art illustration of the EngineerOS AI mentor robot"
     >
@@ -185,13 +221,11 @@ export function MentorRobotArt() {
         </linearGradient>
       </defs>
 
-      {/* antenna */}
       <g stroke="#3B82F6" strokeWidth="3" strokeLinecap="round">
         <path d="M130 44 L130 26" />
       </g>
       <circle cx="130" cy="20" r="7" fill="#60A5FA" />
 
-      {/* head */}
       <rect
         x="64"
         y="46"
@@ -212,11 +246,9 @@ export function MentorRobotArt() {
         strokeLinecap="round"
       />
 
-      {/* ears */}
       <rect x="46" y="80" width="14" height="36" rx="7" fill="#1F2937" stroke="#3B82F6" strokeWidth="2" />
       <rect x="200" y="80" width="14" height="36" rx="7" fill="#1F2937" stroke="#3B82F6" strokeWidth="2" />
 
-      {/* body */}
       <rect
         x="80"
         y="164"
@@ -236,7 +268,6 @@ export function MentorRobotArt() {
         strokeLinejoin="round"
       />
 
-      {/* arms */}
       <g stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" fill="none">
         <path d="M80 182 L56 196" />
         <path d="M180 182 L204 196" />
@@ -252,15 +283,15 @@ export function ChipTraceArt() {
   return (
     <svg
       width={420}
-      height={320}
+      height={300}
       viewBox="0 0 420 320"
-      className="h-auto w-full max-w-[420px]"
+      style={{ width: "100%", maxWidth: 400, height: "auto" }}
       aria-hidden="true"
       focusable="false"
     >
-      <g fill="none" stroke="#1E40AF" strokeWidth="2" strokeLinecap="round" opacity="0.75">
-        <path id="eos-chip-trace-a" d="M14 60 L110 60 L110 128 L164 128" />
-        <path id="eos-chip-trace-b" d="M14 260 L110 260 L110 192 L164 192" />
+      <g fill="none" stroke="#1E40AF" strokeWidth="2" strokeLinecap="round" opacity="0.8">
+        <path d="M14 60 L110 60 L110 128 L164 128" />
+        <path d="M14 260 L110 260 L110 192 L164 192" />
         <path d="M256 128 L310 128 L310 60 L406 60" />
         <path d="M256 192 L310 192 L310 260 L406 260" />
       </g>

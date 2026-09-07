@@ -1,7 +1,5 @@
 /**
  * Public, pre-login marketing page served at "/".
- * Self-contained: it renders its own navbar/footer and never mounts the
- * authenticated app shell.
  */
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
@@ -15,21 +13,17 @@ import LandingStats from "../../components/landing/LandingStats";
 import LandingFinalCTA from "../../components/landing/LandingFinalCTA";
 import LandingFooter from "../../components/landing/LandingFooter";
 import { INTRO_SESSION_KEY } from "../../components/landing/landingMotion";
+import "../../components/landing/landing.css";
 
 type IntroMode = "full" | "short" | "none";
 
-/**
- * Decided once, synchronously, so the overlay never mounts and then vanishes:
- * reduced motion skips the intro entirely, and repeat visits in the same
- * session get a short fade instead of the full sequence.
- */
 function resolveIntroMode(): IntroMode {
   if (typeof window === "undefined") return "none";
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return "none";
   try {
     if (window.sessionStorage.getItem(INTRO_SESSION_KEY)) return "short";
   } catch {
-    /* sessionStorage unavailable (private mode) — fall through to the full intro */
+    /* sessionStorage unavailable */
   }
   return "full";
 }
@@ -42,7 +36,7 @@ function LandingPage() {
     try {
       window.sessionStorage.setItem(INTRO_SESSION_KEY, "1");
     } catch {
-      /* sessionStorage unavailable — the intro simply plays again next load */
+      /* sessionStorage unavailable */
     }
   }, []);
 
@@ -50,7 +44,7 @@ function LandingPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen bg-[linear-gradient(180deg,#05070D_0%,#0A0E17_45%,#05070D_100%)] text-white antialiased">
+      <div className="landing-page">
         <AnimatePresence>
           {introPlaying && <IntroOverlay key="intro" onFinish={handleIntroFinish} />}
         </AnimatePresence>

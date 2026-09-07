@@ -1,12 +1,10 @@
 /**
  * Marketing footer. Doubles as the "About" anchor target for the navbar.
- * Links without a live destination render as muted text rather than dead links.
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Globe, Mail, MessageCircle, Send } from "lucide-react";
 import { BoltMark } from "./illustrations";
-import { LANDING_CONTAINER } from "./landingLayout";
 
 type FooterLink = { label: string; to?: string };
 
@@ -51,38 +49,27 @@ function LandingFooter() {
   const [subscribed, setSubscribed] = useState(false);
 
   return (
-    <footer id="about" className="scroll-mt-28 border-t border-[#1F2937]/50 bg-[#070A12]">
-      <div className={`${LANDING_CONTAINER} py-16 sm:py-20`}>
-        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1.5fr] lg:gap-10">
-          <div className="sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-2.5">
-              <BoltMark size={20} />
-              <span className="text-base font-bold tracking-tight text-white">EngineerOS</span>
+    <footer id="about" className="landing-footer">
+      <div className="landing-container landing-footer-inner">
+        <div className="landing-footer-grid">
+          <div className="landing-footer-brand">
+            <div className="landing-brand">
+              <BoltMark size={24} />
+              <span className="landing-brand-name">EngineerOS</span>
             </div>
-            <p className="mt-5 max-w-xs text-sm leading-relaxed text-[#9CA3AF]">
-              The complete electrical engineering learning platform.
-            </p>
+            <p>The complete electrical engineering learning platform.</p>
           </div>
 
           {COLUMNS.map((column) => (
-            <div key={column.title}>
-              <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#E5E7EB]">
-                {column.title}
-              </h3>
-              <ul className="mt-5 space-y-3">
+            <div key={column.title} className="landing-footer-col">
+              <h3>{column.title}</h3>
+              <ul>
                 {column.links.map((link) => (
                   <li key={link.label}>
                     {link.to ? (
-                      <Link
-                        to={link.to}
-                        className="rounded text-sm text-[#9CA3AF] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
-                      >
-                        {link.label}
-                      </Link>
+                      <Link to={link.to}>{link.label}</Link>
                     ) : (
-                      <span className="text-sm text-[#6B7280]" title="Coming soon">
-                        {link.label}
-                      </span>
+                      <span title="Coming soon">{link.label}</span>
                     )}
                   </li>
                 ))}
@@ -90,12 +77,10 @@ function LandingFooter() {
             </div>
           ))}
 
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#E5E7EB]">
-              Stay Connected
-            </h3>
+          <div className="landing-footer-col">
+            <h3>Stay Connected</h3>
             <form
-              className="mt-5 flex gap-2"
+              className="landing-footer-form"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!email.trim()) return;
@@ -103,7 +88,7 @@ function LandingFooter() {
                 setEmail("");
               }}
             >
-              <label htmlFor="landing-newsletter" className="sr-only">
+              <label htmlFor="landing-newsletter" className="landing-sr-only">
                 Email address
               </label>
               <input
@@ -112,29 +97,23 @@ function LandingFooter() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="min-w-0 flex-1 rounded-xl border border-[#1F2937] bg-[#0D1117] px-3.5 py-2.5 text-sm text-white placeholder:text-[#6B7280] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
               />
-              <button
-                type="submit"
-                aria-label="Subscribe"
-                className="inline-flex items-center justify-center rounded-xl bg-[#2563EB] px-3.5 text-white transition-colors hover:bg-[#3B82F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
-              >
+              <button type="submit" aria-label="Subscribe">
                 <Send size={16} aria-hidden="true" />
               </button>
             </form>
             <p
-              className="mt-2.5 min-h-[18px] text-xs text-[#60A5FA]"
+              style={{ minHeight: 18, marginTop: 10, fontSize: 12, color: "#60A5FA" }}
               role="status"
               aria-live="polite"
             >
               {subscribed ? "Thanks — you're on the list." : ""}
             </p>
 
-            <ul className="mt-6 flex gap-3">
+            <ul className="landing-footer-social">
               {SOCIALS.map(({ icon: Icon, label }) => (
                 <li key={label}>
                   <span
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#1F2937] bg-[#0D1117] text-[#9CA3AF]"
                     title={`${label} — coming soon`}
                     aria-label={`${label} — coming soon`}
                     role="img"
@@ -147,9 +126,7 @@ function LandingFooter() {
           </div>
         </div>
 
-        <p className="mt-14 border-t border-[#1F2937]/50 pt-7 text-xs text-[#6B7280]">
-          © 2026 EngineerOS. All rights reserved.
-        </p>
+        <p className="landing-footer-copy">© 2026 EngineerOS. All rights reserved.</p>
       </div>
     </footer>
   );

@@ -1,12 +1,11 @@
 /**
- * Hero: value proposition, primary CTAs, trust badges and the circuit artwork.
+ * Hero: value proposition, primary CTAs, trust badges and the circuit schematic.
  */
 import { ArrowRight, Globe, GraduationCap, Play, Zap } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import LandingButton from "./LandingButton";
 import { HeroCircuitArt } from "./illustrations";
 import { EASE_OUT } from "./landingMotion";
-import { LANDING_CONTAINER } from "./landingLayout";
 
 const TRUST = [
   { icon: Globe, strong: "No installation", rest: "100% web based" },
@@ -23,44 +22,43 @@ function LandingHero() {
   };
 
   return (
-    <section id="product" className="relative scroll-mt-28 overflow-hidden">
+    <section id="product" className="landing-hero">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-40 top-[-120px] h-[520px] w-[520px] rounded-full blur-3xl"
-        style={{ background: "radial-gradient(circle, rgba(37,99,235,0.20), rgba(5,7,13,0) 70%)" }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-32 top-[220px] h-[460px] w-[460px] rounded-full blur-3xl"
-        style={{ background: "radial-gradient(circle, rgba(34,211,238,0.14), rgba(5,7,13,0) 70%)" }}
+        className="landing-glow"
+        style={{
+          left: "-120px",
+          top: "-80px",
+          width: 420,
+          height: 420,
+          background: "radial-gradient(circle, rgba(37,99,235,0.22), transparent 70%)",
+        }}
       />
 
-      <div
-        className={`${LANDING_CONTAINER} relative grid items-center gap-14 pb-20 pt-10 sm:gap-16 sm:pb-28 sm:pt-14 lg:grid-cols-[1fr_1fr] lg:gap-20 lg:pb-36 lg:pt-20`}
-      >
-        <div className="max-w-xl">
+      <div className="landing-container landing-hero-grid">
+        <div className="landing-hero-copy">
           <motion.span
-            className="inline-flex items-center gap-2 rounded-full border border-[#1F2937]/70 bg-[#0D1117]/70 px-4 py-2 text-xs font-medium text-[#93C5FD]"
+            className="landing-pill"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE_OUT }}
           >
-            <Zap size={13} aria-hidden="true" />
+            <Zap size={14} aria-hidden="true" />
             The Complete Electrical Engineering Learning Platform
           </motion.span>
 
           <motion.h1
-            className="mt-7 text-[2.35rem] font-bold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]"
+            className="landing-hero-title"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.06, ease: EASE_OUT }}
           >
             Learn Electrical Engineering by{" "}
-            <span className="text-[#3B82F6]">Building It.</span>
+            <span className="landing-hero-title-accent">Building It.</span>
           </motion.h1>
 
           <motion.p
-            className="mt-6 max-w-lg text-[15px] leading-[1.7] text-[#9CA3AF] sm:text-lg sm:leading-[1.7]"
+            className="landing-hero-sub"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.12, ease: EASE_OUT }}
@@ -70,13 +68,13 @@ function LandingHero() {
           </motion.p>
 
           <motion.div
-            className="mt-10 flex flex-wrap items-center gap-4"
+            className="landing-hero-ctas"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.18, ease: EASE_OUT }}
           >
             <LandingButton to="/register" variant="primary" size="lg">
-              Get Started Free <ArrowRight size={16} aria-hidden="true" />
+              Get Started Free <ArrowRight size={18} aria-hidden="true" />
             </LandingButton>
             <LandingButton
               href="#how-it-works"
@@ -84,24 +82,24 @@ function LandingHero() {
               size="lg"
               onClick={scrollToHowItWorks}
             >
-              <Play size={15} aria-hidden="true" /> See How It Works
+              <Play size={16} aria-hidden="true" /> See How It Works
             </LandingButton>
           </motion.div>
 
           <motion.ul
-            className="mt-12 grid gap-4 border-t border-[#1F2937]/60 pt-8 sm:grid-cols-3 sm:gap-6"
+            className="landing-trust"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.26 }}
           >
             {TRUST.map(({ icon: Icon, strong, rest }) => (
-              <li key={strong} className="flex items-start gap-3">
-                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#1F2937] bg-[#0D1117] text-[#3B82F6]">
-                  <Icon size={14} aria-hidden="true" />
+              <li key={strong} className="landing-trust-item">
+                <span className="landing-trust-icon">
+                  <Icon size={15} aria-hidden="true" />
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-[13px] font-semibold text-[#E5E7EB]">{strong}</span>
-                  <span className="mt-0.5 block text-[12px] leading-snug text-[#9CA3AF]">{rest}</span>
+                <span>
+                  <span className="landing-trust-strong">{strong}</span>
+                  <span className="landing-trust-rest">{rest}</span>
                 </span>
               </li>
             ))}
@@ -109,21 +107,14 @@ function LandingHero() {
         </div>
 
         <motion.div
-          className="relative flex justify-center lg:justify-end"
+          className="landing-hero-visual"
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.1, ease: EASE_OUT }}
         >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 translate-y-6 blur-3xl"
-            style={{
-              background: "radial-gradient(circle at 55% 45%, rgba(37,99,235,0.28), rgba(5,7,13,0) 65%)",
-            }}
-          />
+          <div className="landing-hero-glow" aria-hidden="true" />
           <motion.div
-            className="relative w-full max-w-[560px]"
-            animate={reduced ? undefined : { y: [0, -12, 0] }}
+            animate={reduced ? undefined : { y: [0, -10, 0] }}
             transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
           >
             <HeroCircuitArt />
