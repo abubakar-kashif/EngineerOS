@@ -55,6 +55,7 @@ function AppRoutes() {
       />
       <Route path="/verify" element={<VerifyPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
       {/* Protected app routes (with shell) */}

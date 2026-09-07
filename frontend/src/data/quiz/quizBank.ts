@@ -1,4 +1,5 @@
 import type { AnswerLetter, QuizCategory } from "../../types/quiz";
+import { QUIZ_BANK_EXTRA } from "./quizBankExtra";
 
 /**
  * Client-side mirror of the backend quiz seed (backend/app/data/quiz_bank.py).
@@ -14,10 +15,10 @@ export interface SeedQuizQuestion {
   category?: QuizCategory;
 }
 
-/** Phase 6: recommended attempt size — random 20 from the bank. */
-export const QUIZ_ATTEMPT_SIZE = 20;
+/** Phase 2: each attempt draws this many questions from the experiment bank. */
+export const QUIZ_ATTEMPT_SIZE = 40;
 
-export const QUIZ_BANK: Record<string, SeedQuizQuestion[]> = {
+const QUIZ_BANK_BASE: Record<string, SeedQuizQuestion[]> = {
   "ohms-law": [
     { question: "Ohm's law is:", options: ["V = IR", "V = I/R", "V = R/I", "V = I + R"], correct_answer: "A", explanation: "Ohm's law is V = IR." },
     { question: "12 V across 4 ohm gives current:", options: ["48 A", "3 A", "0.33 A", "16 A"], correct_answer: "B", explanation: "I = V/R = 3 A." },
@@ -439,3 +440,11 @@ export const QUIZ_BANK: Record<string, SeedQuizQuestion[]> = {
     { question: "The fastest safe first check of a non-working LED branch is to:", options: ["Verify LED polarity and the resistor value, then measure branch current", "Replace the battery with a higher voltage", "Bypass the resistor with a wire", "Reverse the supply"], correct_answer: "A", explanation: "Most LED faults come from wrong polarity or a missing/wrong resistor.", category: "troubleshooting" },
   ],
 };
+
+/** Phase 2: base bank + extras (backend quiz_bank_extra.py / quizBankExtra.ts). */
+export const QUIZ_BANK: Record<string, SeedQuizQuestion[]> = Object.fromEntries(
+  Object.entries(QUIZ_BANK_BASE).map(([experimentId, questions]) => [
+    experimentId,
+    [...questions, ...(QUIZ_BANK_EXTRA[experimentId] ?? [])],
+  ]),
+);

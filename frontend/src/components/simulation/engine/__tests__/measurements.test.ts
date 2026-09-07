@@ -70,6 +70,7 @@ describe('Measurements', () => {
       connections: [
         { id: 'W1', from: createTerminalId('V1', 'positive'), to: createTerminalId('R1', 'A') },
         { id: 'W2', from: createTerminalId('R1', 'B'), to: createTerminalId('GND1', 'ground') },
+        { id: 'W3', from: createTerminalId('V1', 'negative'), to: createTerminalId('GND1', 'ground') },
       ],
     };
 

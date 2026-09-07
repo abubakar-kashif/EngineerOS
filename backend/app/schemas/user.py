@@ -11,6 +11,24 @@ FeedbackValue = Literal["helpful", "not_helpful"]
 EMAIL_PATTERN = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
 
 
+def validate_email(value: str) -> str:
+    """Shared email-format check (does not prove the mailbox exists).
+
+    Requires local-part @ domain with at least one dot in the domain
+    (e.g. user@gmail.com). Rejects abc, abc@, abc@gmail, @gmail.com.
+    """
+    import re
+
+    normalized = (value or "").strip().lower()
+    if not normalized or not re.fullmatch(EMAIL_PATTERN, normalized):
+        raise ValueError("Enter a valid email address")
+    # Domain must contain a real label before the TLD (blocks "a@.com").
+    domain = normalized.rsplit("@", 1)[-1]
+    if domain.startswith(".") or domain.endswith(".") or ".." in domain:
+        raise ValueError("Enter a valid email address")
+    return normalized
+
+
 class PreferencesResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -83,12 +101,3 @@ class ProfileUpdateRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
-
-
-def validate_email(value: str) -> str:
-    """Shared email check (avoids the email-validator dependency)."""
-    import re
-
-    if not re.match(EMAIL_PATTERN, value):
-        raise ValueError("Enter a valid email address")
-    return value.strip().lower()

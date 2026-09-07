@@ -15,13 +15,24 @@ from app.services.email_service import (
 )
 
 
-def register_user(client, email, name="Ada Lovelace", password="supersecret1"):
+def register_user(client, email, name="Ada Lovelace", password="supersecret1", *, verify=False):
+    """Register a user. Pass verify=True to mark email verified (needed for login)."""
     response = client.post(
         "/api/auth/register",
         json={"name": name, "email": email, "password": password},
     )
     assert response.status_code == 201
-    return response.json()
+    data = response.json()
+    if verify:
+        code = data.get("dev_code")
+        assert isinstance(code, str)
+        verified = client.post(
+            "/api/auth/verify",
+            json={"email": email, "code": code},
+        )
+        assert verified.status_code == 200
+        data["user"]["email_verified"] = True
+    return data
 
 
 def bearer(token):
@@ -90,12 +101,18 @@ def test_register_short_password_rejected(phase9_client):
 def test_register_invalid_email_rejected(phase9_client):
     client, _ = phase9_client
 
-    response = client.post(
-        "/api/auth/register",
-        json={"name": "Bad", "email": "not-an-email", "password": "supersecret1"},
-    )
+    for bad in ("abc", "abc@", "abc@gmail", "@gmail.com", "not-an-email"):
+        response = client.post(
+            "/api/auth/register",
+            json={"name": "Bad", "email": bad, "password": "supersecret1"},
+        )
+        assert response.status_code == 422, f"expected rejection for {bad!r}"
 
-    assert response.status_code == 422
+    ok = client.post(
+        "/api/auth/register",
+        json={"name": "Good", "email": "abc@gmail.com", "password": "supersecret1"},
+    )
+    assert ok.status_code == 201
 
 
 # --- Login -------------------------------------------------------------------
@@ -103,7 +120,7 @@ def test_register_invalid_email_rejected(phase9_client):
 
 def test_login_returns_new_session(phase9_client):
     client, _ = phase9_client
-    registered = register_user(client, "login@example.com")
+    registered = register_user(client, "login@example.com", verify=True)
 
     response = client.post(
         "/api/auth/login",
@@ -119,7 +136,7 @@ def test_login_returns_new_session(phase9_client):
 
 def test_login_email_is_case_insensitive(phase9_client):
     client, _ = phase9_client
-    register_user(client, "case@example.com")
+    register_user(client, "case@example.com", verify=True)
 
     response = client.post(
         "/api/auth/login",
@@ -131,7 +148,7 @@ def test_login_email_is_case_insensitive(phase9_client):
 
 def test_login_wrong_password_rejected(phase9_client):
     client, _ = phase9_client
-    register_user(client, "wrongpw@example.com")
+    register_user(client, "wrongpw@example.com", verify=True)
 
     response = client.post(
         "/api/auth/login",
@@ -144,7 +161,7 @@ def test_login_wrong_password_rejected(phase9_client):
 
 def test_login_unknown_email_gives_same_error_as_wrong_password(phase9_client):
     client, _ = phase9_client
-    register_user(client, "known@example.com")
+    register_user(client, "known@example.com", verify=True)
 
     wrong_password = client.post(
         "/api/auth/login",
@@ -157,6 +174,19 @@ def test_login_unknown_email_gives_same_error_as_wrong_password(phase9_client):
 
     assert wrong_password.status_code == unknown_email.status_code == 401
     assert wrong_password.json()["detail"] == unknown_email.json()["detail"]
+
+
+def test_login_rejects_unverified_email(phase9_client):
+    client, _ = phase9_client
+    register_user(client, "unverified@example.com", verify=False)
+
+    response = client.post(
+        "/api/auth/login",
+        json={"email": "unverified@example.com", "password": "supersecret1"},
+    )
+
+    assert response.status_code == 403
+    assert "verify your email" in response.json()["detail"].lower()
 
 
 # --- /auth/me and sessions ----------------------------------------------------
@@ -276,8 +306,19 @@ def test_verify_unknown_email(phase9_client):
 
 
 def test_resend_verification_issues_new_code(phase9_client):
-    client, _ = phase9_client
-    register_user(client, "resend@example.com")
+    client, session_factory = phase9_client
+    registered = register_user(client, "resend@example.com")
+    old_code = registered["dev_code"]
+
+    # Expire the resend cooldown (server enforces EMAIL_RESEND_COOLDOWN_SECONDS).
+    from app.core.security import EMAIL_CODE_TTL_SECONDS
+
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "resend@example.com").one()
+        user.email_code_expires_at = datetime.utcnow() + timedelta(
+            seconds=EMAIL_CODE_TTL_SECONDS - 70
+        )
+        db.commit()
 
     response = client.post("/api/auth/resend", json={"email": "resend@example.com"})
 
@@ -285,13 +326,45 @@ def test_resend_verification_issues_new_code(phase9_client):
     assert response.json()["message"] == "Verification code sent."
     new_code = response.json()["dev_code"]
     assert isinstance(new_code, str)
+    assert new_code != old_code
 
-    # The new code completes verification.
+    # Old code must no longer work after resend invalidation.
+    stale = client.post(
+        "/api/auth/verify",
+        json={"email": "resend@example.com", "code": old_code},
+    )
+    assert stale.status_code == 400
+
     verify = client.post(
         "/api/auth/verify",
         json={"email": "resend@example.com", "code": new_code},
     )
     assert verify.status_code == 200
+
+
+def test_resend_cooldown_enforced(phase9_client):
+    client, _ = phase9_client
+    register_user(client, "cooldown@example.com")
+
+    response = client.post("/api/auth/resend", json={"email": "cooldown@example.com"})
+    assert response.status_code == 429
+
+
+def test_verify_rejects_expired_code(phase9_client):
+    client, session_factory = phase9_client
+    registered = register_user(client, "expire@example.com")
+
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "expire@example.com").one()
+        user.email_code_expires_at = datetime.utcnow() - timedelta(seconds=1)
+        db.commit()
+
+    response = client.post(
+        "/api/auth/verify",
+        json={"email": "expire@example.com", "code": registered["dev_code"]},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired verification code."
 
 
 def test_resend_after_verification_conflicts(phase9_client):
@@ -337,7 +410,7 @@ def test_forgot_password_does_not_reveal_account_existence(phase9_client):
 
 def test_reset_password_rotates_password_and_revokes_sessions(phase9_client):
     client, _ = phase9_client
-    registered = register_user(client, "reset@example.com")
+    registered = register_user(client, "reset@example.com", verify=True)
 
     # A second session that must also be revoked by the reset.
     second = client.post(
@@ -400,6 +473,301 @@ def test_reset_rejects_invalid_code(phase9_client):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid or expired reset code."
+
+
+def test_reset_rejects_expired_code(phase9_client):
+    client, session_factory = phase9_client
+    register_user(client, "expired-reset@example.com", verify=True)
+    reset_code = client.post(
+        "/api/auth/forgot", json={"email": "expired-reset@example.com"}
+    ).json()["dev_code"]
+
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "expired-reset@example.com").one()
+        user.reset_code_expires_at = datetime.utcnow() - timedelta(seconds=1)
+        db.commit()
+
+    response = client.post(
+        "/api/auth/reset",
+        json={
+            "token": reset_code,
+            "password": "brand-new-password",
+            "email": "expired-reset@example.com",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired reset code."
+
+
+def test_reset_rejects_reused_code(phase9_client):
+    client, _ = phase9_client
+    register_user(client, "reuse-reset@example.com", verify=True)
+    reset_code = client.post(
+        "/api/auth/forgot", json={"email": "reuse-reset@example.com"}
+    ).json()["dev_code"]
+
+    first = client.post(
+        "/api/auth/reset",
+        json={
+            "token": reset_code,
+            "password": "brand-new-password",
+            "email": "reuse-reset@example.com",
+        },
+    )
+    assert first.status_code == 200
+
+    reuse = client.post(
+        "/api/auth/reset",
+        json={
+            "token": reset_code,
+            "password": "another-new-password",
+            "email": "reuse-reset@example.com",
+        },
+    )
+    assert reuse.status_code == 400
+    assert reuse.json()["detail"] == "Invalid or expired reset code."
+
+
+def test_smtp_sender_requires_configuration():
+    from app.services.email_service import EmailDeliveryError, SmtpSender
+
+    sender = SmtpSender()
+    try:
+        sender.send("to@example.com", "Subject", "Body")
+        raise AssertionError("expected EmailDeliveryError")
+    except EmailDeliveryError as exc:
+        assert "SMTP" in str(exc)
+
+
+def test_smtp_sender_delivers_through_starttls_without_logging_secrets(monkeypatch, caplog):
+    import smtplib
+
+    from app.core.config import settings
+    from app.services.email_service import SmtpSender
+
+    previous = (
+        settings.SMTP_HOST,
+        settings.SMTP_FROM,
+        settings.SMTP_USERNAME,
+        settings.SMTP_PASSWORD,
+        settings.SMTP_PORT,
+        settings.SMTP_USE_TLS,
+        settings.SMTP_USE_SSL,
+    )
+    settings.SMTP_HOST = "smtp.gmail.com"
+    settings.SMTP_FROM = "sender@gmail.com"
+    settings.SMTP_USERNAME = "sender@gmail.com"
+    settings.SMTP_PASSWORD = "abcd efgh ijkl mnop"
+    settings.SMTP_PORT = 587
+    settings.SMTP_USE_TLS = True
+    settings.SMTP_USE_SSL = False
+
+    class FakeSMTP:
+        last = None
+
+        def __init__(self, host, port, timeout=None):
+            self.host = host
+            self.port = port
+            self.logged_in = None
+            self.sent = None
+            self.started_tls = False
+
+        def ehlo(self):
+            return None
+
+        def starttls(self):
+            self.started_tls = True
+
+        def login(self, user, password):
+            self.logged_in = (user, password)
+
+        def send_message(self, message):
+            self.sent = message
+            FakeSMTP.last = self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(smtplib, "SMTP", FakeSMTP)
+    try:
+        with caplog.at_level(logging.INFO, logger="engineeros.email"):
+            SmtpSender().send(
+                "inbox@gmail.com",
+                "Verify your EngineerOS account",
+                "Your verification code is: 654321",
+            )
+        session = FakeSMTP.last
+        assert session is not None
+        assert session.host == "smtp.gmail.com"
+        assert session.port == 587
+        assert session.started_tls is True
+        assert session.logged_in == ("sender@gmail.com", "abcdefghijklmnop")
+        assert session.sent["To"] == "inbox@gmail.com"
+        assert "EngineerOS" in str(session.sent["From"])
+        assert "654321" in session.sent.get_content()
+        assert "654321" not in caplog.text
+        assert "abcdefghijklmnop" not in caplog.text
+        assert "abcd efgh" not in caplog.text
+    finally:
+        (
+            settings.SMTP_HOST,
+            settings.SMTP_FROM,
+            settings.SMTP_USERNAME,
+            settings.SMTP_PASSWORD,
+            settings.SMTP_PORT,
+            settings.SMTP_USE_TLS,
+            settings.SMTP_USE_SSL,
+        ) = previous
+
+
+def test_gmail_smtp_requires_app_password():
+    from app.core.config import settings
+    from app.services.email_service import EmailDeliveryError, require_smtp_settings
+
+    previous = (
+        settings.SMTP_HOST,
+        settings.SMTP_FROM,
+        settings.SMTP_USERNAME,
+        settings.SMTP_PASSWORD,
+    )
+    settings.SMTP_HOST = "smtp.gmail.com"
+    settings.SMTP_FROM = "sender@gmail.com"
+    settings.SMTP_USERNAME = "sender@gmail.com"
+    settings.SMTP_PASSWORD = ""
+    try:
+        try:
+            require_smtp_settings()
+            raise AssertionError("expected EmailDeliveryError")
+        except EmailDeliveryError as exc:
+            assert "App Password" in str(exc)
+    finally:
+        (
+            settings.SMTP_HOST,
+            settings.SMTP_FROM,
+            settings.SMTP_USERNAME,
+            settings.SMTP_PASSWORD,
+        ) = previous
+
+
+def test_dev_code_hidden_when_debug_false(phase9_client, monkeypatch):
+    from app.core.config import settings
+    from app.services import email_service
+
+    client, _ = phase9_client
+    previous = settings.DEBUG
+    previous_delivery = settings.EMAIL_DELIVERY
+    settings.DEBUG = False
+    settings.EMAIL_DELIVERY = "smtp"
+    monkeypatch.setattr(
+        email_service,
+        "send_verification_email",
+        lambda to, code: None,
+    )
+    try:
+        response = client.post(
+            "/api/auth/register",
+            json={
+                "name": "Prod Mode",
+                "email": "prod-mode@example.com",
+                "password": "supersecret1",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json().get("dev_code") is None
+    finally:
+        settings.DEBUG = previous
+        settings.EMAIL_DELIVERY = previous_delivery
+
+
+def test_console_delivery_rejected_when_debug_false():
+    from app.core.config import settings
+    from app.services.email_service import EmailDeliveryError, _sender
+
+    previous_debug = settings.DEBUG
+    previous_delivery = settings.EMAIL_DELIVERY
+    settings.DEBUG = False
+    settings.EMAIL_DELIVERY = "console"
+    try:
+        try:
+            _sender()
+            raise AssertionError("expected EmailDeliveryError")
+        except EmailDeliveryError as exc:
+            assert "not allowed when DEBUG=false" in str(exc)
+    finally:
+        settings.DEBUG = previous_debug
+        settings.EMAIL_DELIVERY = previous_delivery
+
+
+def test_dev_code_hidden_when_smtp_delivery(phase9_client, monkeypatch):
+    from app.core.config import settings
+    from app.services import email_service
+
+    client, _ = phase9_client
+    previous_delivery = settings.EMAIL_DELIVERY
+    previous_debug = settings.DEBUG
+    settings.DEBUG = True
+    settings.EMAIL_DELIVERY = "smtp"
+    monkeypatch.setattr(
+        email_service,
+        "send_verification_email",
+        lambda to, code: None,
+    )
+    try:
+        response = client.post(
+            "/api/auth/register",
+            json={
+                "name": "Smtp User",
+                "email": "smtp-user@example.com",
+                "password": "supersecret1",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json().get("dev_code") is None
+    finally:
+        settings.EMAIL_DELIVERY = previous_delivery
+        settings.DEBUG = previous_debug
+
+
+def test_unknown_email_delivery_raises_outside_debug():
+    from app.core.config import settings
+    from app.services.email_service import EmailDeliveryError, _sender
+
+    previous_debug = settings.DEBUG
+    previous_delivery = settings.EMAIL_DELIVERY
+    settings.DEBUG = False
+    settings.EMAIL_DELIVERY = "not-a-real-provider"
+    try:
+        try:
+            _sender()
+            raise AssertionError("expected EmailDeliveryError")
+        except EmailDeliveryError as exc:
+            assert "Unknown EMAIL_DELIVERY" in str(exc)
+    finally:
+        settings.DEBUG = previous_debug
+        settings.EMAIL_DELIVERY = previous_delivery
+
+
+def test_verified_user_login_and_me_report_verified(phase9_client):
+    client, _ = phase9_client
+    registered = register_user(client, "verified-reload@example.com", verify=True)
+
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "verified-reload@example.com", "password": "supersecret1"},
+    )
+    assert login.status_code == 200
+    assert login.json()["user"]["email_verified"] is True
+
+    me = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {login.json()['token']}"},
+    )
+    assert me.status_code == 200
+    assert me.json()["user"]["email_verified"] is True
+    assert me.json()["user"]["id"] == registered["user"]["id"]
 
 
 # --- Unauthenticated access to protected endpoints -----------------------------

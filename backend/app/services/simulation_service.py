@@ -163,30 +163,42 @@ def validate_simulation(db: Session, simulation_id: str, user_id: str):
     # Return only the validation part (matches ValidationResponse schema)
     return validation
 
-def run_simulation(db: Session, simulation_id: str, user_id: str):
+def run_simulation(
+    db: Session,
+    simulation_id: str,
+    user_id: str,
+    circuit_definition: Dict[str, Any] | None = None,
+):
     """
     Run a simulation using the engine.
     Returns the full result, persists it (results, measurements, validation_errors, status, completed_at).
+    Optionally updates circuit_definition before solving (rerun with new configuration).
+
+    Always creates a new SimulationRun so Mentor can load the latest run by ID
+    (closed loop: modify → rerun → new context, no stale facts).
     """
     simulation = get_simulation(db, simulation_id, user_id)
     if not simulation:
         return None
+
+    if circuit_definition is not None:
+        simulation.circuit_definition = circuit_definition
+        simulation.updated_at = datetime.now()
+
     if not simulation.circuit_definition:
         return {"status": "failed", "error": "No circuit definition"}
     
     # Execute the engine
     result = run_engine(simulation.circuit_definition)
     
-    # Persist the full result
-    db_simulation = simulation  # alias for clarity
+    # Persist the full result on the session Simulation row
+    db_simulation = simulation
     db_simulation.results = result
     db_simulation.measurements = result.get("measurements", {})
     
-    # Extract validation errors from the new nested structure
     validation = result.get("validation", {})
     db_simulation.validation_errors = validation.get("errors", [])
     
-    # Map engine status to our enum
     engine_status = result.get("status")
     if engine_status == "completed":
         db_simulation.status = SimulationStatus.COMPLETED
@@ -196,7 +208,34 @@ def run_simulation(db: Session, simulation_id: str, user_id: str):
     elif engine_status == "failed":
         db_simulation.status = SimulationStatus.FAILED
     else:
-        db_simulation.status = SimulationStatus.READY  # fallback
+        db_simulation.status = SimulationStatus.READY
+
+    # Fresh SimulationRun per solve — Mentor must load this ID, not an older run
+    from app.models.simulation import SimulationRun
+    experiment_key = simulation.experiment_id or "freeform"
+    run = SimulationRun(
+        user_id=user_id,
+        experiment_id=experiment_key,
+        name=simulation.name,
+        configuration={
+            "source_simulation_id": simulation.id,
+            "run_generation": "closed_loop",
+        },
+        circuit_definition=simulation.circuit_definition,
+        validation_errors=db_simulation.validation_errors,
+        results=result,
+        measurements=result.get("measurements", {}),
+        status=engine_status or "failed",
+    )
+    db.add(run)
+    db.flush()  # assign run.id before commit
+
+    meta = dict(result.get("metadata") or {})
+    meta["simulation_id"] = simulation.id
+    meta["simulation_run_id"] = run.id
+    result["metadata"] = meta
+    db_simulation.results = result
+    run.results = result
     
     db.commit()
     

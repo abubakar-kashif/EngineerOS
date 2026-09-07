@@ -19,7 +19,7 @@ function ErrorState({
       {description && <p className="state-description">{description}</p>}
       {retryAction && (
         <div className="state-action">
-          <button className="ui-button ui-button-primary" onClick={retryAction}>
+          <button type="button" className="ui-button ui-button-primary" onClick={retryAction}>
             {retryLabel}
           </button>
         </div>

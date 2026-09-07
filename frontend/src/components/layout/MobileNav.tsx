@@ -1,17 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { X, FlaskConical, Bot, ChartNoAxesCombined, Wrench, FileText, Info, Settings, Sparkles } from "lucide-react";
+import { X } from "lucide-react";
 import EngineerOSMark from "../branding/EngineerOSMark";
-
-const mobileItems = [
-  { path: "/dashboard", label: "Dashboard", icon: ChartNoAxesCombined },
-  { path: "/experiments", label: "Experiments", icon: FlaskConical },
-  { path: "/reports", label: "Reports", icon: FileText },
-  { path: "/simulation", label: "Simulation", icon: Sparkles },
-  { path: "/mentor", label: "AI Mentor", icon: Bot },
-  { path: "/tools", label: "Tools", icon: Wrench },
-  { path: "/settings", label: "Settings", icon: Settings },
-  { path: "/about", label: "About", icon: Info },
-];
+import { isActiveRoute, menuGroups } from "./navConfig";
 
 type MobileNavProps = {
   open: boolean;
@@ -43,22 +33,27 @@ function MobileNav({ open, onClose }: MobileNavProps) {
         </div>
 
         <nav className="mobile-nav-list" aria-label="Mobile navigation">
-          {mobileItems.map((item) => {
-            const Icon = item.icon;
-            const active = location.pathname === item.path ||
-              (item.path !== "/" && location.pathname.startsWith(item.path));
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={`mobile-nav-item${active ? " mobile-nav-item-active" : ""}`}
-                onClick={onClose}
-              >
-                <Icon size={20} strokeWidth={2} />
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
+          {menuGroups.map((group) => (
+            <div key={group.title} className="mobile-nav-group">
+              <div className="mobile-nav-group-title">{group.title}</div>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActiveRoute(item.path, location.pathname);
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.path === "/"}
+                    className={`mobile-nav-item${active ? " mobile-nav-item-active" : ""}`}
+                    onClick={onClose}
+                  >
+                    <Icon size={20} strokeWidth={2} />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
         </nav>
       </div>
     </div>

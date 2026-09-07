@@ -1,0 +1,316 @@
+"""Phase 3 runtime-path tests for Mentor ask/stream persistence and config."""
+
+from unittest.mock import Mock, PropertyMock, patch
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.api.routes.auth import router as auth_router
+from app.api.routes.conversations import router as conversations_router
+from app.api.routes.mentor import router as mentor_router
+from app.core.config import settings
+from app.core.security import hash_password
+from app.db.database import Base, get_db
+from app.models.conversation import ConversationMessage
+from app.models.user import User
+from app.services.ai.providers.gemini_provider import GeminiProvider
+from app.services.user_service import ensure_preferences
+
+
+@pytest.fixture()
+def mentor_runtime_client(tmp_path):
+    db_path = tmp_path / "mentor_runtime.db"
+    engine = create_engine(
+        f"sqlite:///{db_path}",
+        connect_args={"check_same_thread": False},
+    )
+    TestingSessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=engine,
+    )
+    Base.metadata.create_all(bind=engine)
+
+    with TestingSessionLocal() as db:
+        user = User(
+            name="Demo User",
+            email="demo@engineeros.dev",
+            password_hash=hash_password("demo1234"),
+            email_verified=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        ensure_preferences(db, user)
+
+    app = FastAPI(title="EngineerOS Mentor Runtime Test API")
+    app.include_router(auth_router)
+    app.include_router(conversations_router)
+    app.include_router(mentor_router)
+
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    with TestClient(app) as client:
+        yield client, TestingSessionLocal
+
+    app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
+
+
+def _login(client):
+    response = client.post(
+        "/api/auth/login",
+        json={"email": "demo@engineeros.dev", "password": "demo1234"},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["token"]
+
+
+def _auth_headers(token: str):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_stream_without_api_key_errors_and_persists_nothing(mentor_runtime_client):
+    client, session_factory = mentor_runtime_client
+    token = _login(client)
+    created = client.post("/api/conversations", headers=_auth_headers(token), json={})
+    assert created.status_code == 201
+    conversation_id = created.json()["id"]
+
+    # Ensure the live settings path has no key for this assertion.
+    previous = settings.AI_API_KEY
+    settings.AI_API_KEY = None
+    try:
+        response = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={"content": "Explain Ohm's Law."},
+        )
+    finally:
+        settings.AI_API_KEY = previous
+
+    assert response.status_code == 200
+    body = response.text
+    assert '"type": "error"' in body or '"type":"error"' in body
+    assert "API key" in body
+    assert '"type": "complete"' not in body and '"type":"complete"' not in body
+
+    with session_factory() as db:
+        count = (
+            db.query(ConversationMessage)
+            .filter(ConversationMessage.conversation_id == conversation_id)
+            .count()
+        )
+    assert count == 0
+
+
+def test_stream_success_persists_user_and_assistant(mentor_runtime_client):
+    client, session_factory = mentor_runtime_client
+    token = _login(client)
+    created = client.post("/api/conversations", headers=_auth_headers(token), json={})
+    conversation_id = created.json()["id"]
+
+    chunk1 = Mock()
+    chunk1.text = "Ohm"
+    chunk1.candidates = [Mock(finish_reason=None, content=Mock(parts=[Mock(text="Ohm")]))]
+    chunk1.usage_metadata = None
+
+    chunk2 = Mock()
+    chunk2.text = "'s law is V = IR."
+    chunk2.candidates = [Mock(finish_reason="STOP", content=Mock(parts=[Mock(text="'s law is V = IR.")]))]
+    chunk2.usage_metadata = None
+
+    mock_client = Mock()
+    mock_client.models.generate_content_stream.return_value = iter([chunk1, chunk2])
+
+    with patch.object(
+        GeminiProvider, "client", new_callable=PropertyMock
+    ) as client_prop:
+        client_prop.return_value = mock_client
+        response = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={"content": "Explain Ohm's Law."},
+        )
+
+    assert response.status_code == 200
+    assert "delta" in response.text
+    assert "complete" in response.text
+
+    detail = client.get(
+        f"/api/conversations/{conversation_id}",
+        headers=_auth_headers(token),
+    ).json()
+    roles = [m["role"] for m in detail["messages"]]
+    assert roles == ["user", "assistant"]
+    assert detail["messages"][0]["content"] == "Explain Ohm's Law."
+    assert "V = IR" in detail["messages"][1]["content"]
+
+
+def test_stream_empty_gemini_errors_without_persisting(mentor_runtime_client):
+    client, session_factory = mentor_runtime_client
+    token = _login(client)
+    created = client.post("/api/conversations", headers=_auth_headers(token), json={})
+    conversation_id = created.json()["id"]
+
+    empty = Mock()
+    empty.text = ""
+    empty.candidates = [Mock(finish_reason="STOP", content=Mock(parts=[Mock(text="")]))]
+    empty.usage_metadata = None
+    mock_client = Mock()
+    mock_client.models.generate_content_stream.return_value = iter([empty])
+
+    with patch.object(
+        GeminiProvider, "client", new_callable=PropertyMock
+    ) as client_prop:
+        client_prop.return_value = mock_client
+        response = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={"content": "Explain Ohm's Law."},
+        )
+
+    assert response.status_code == 200
+    assert "start" in response.text
+    assert "empty response" in response.text.lower()
+    assert '"type": "complete"' not in response.text and '"type":"complete"' not in response.text
+
+    with session_factory() as db:
+        count = (
+            db.query(ConversationMessage)
+            .filter(ConversationMessage.conversation_id == conversation_id)
+            .count()
+        )
+    assert count == 0
+
+
+def test_stream_emits_start_before_provider_deltas(mentor_runtime_client):
+    client, _session_factory = mentor_runtime_client
+    token = _login(client)
+    created = client.post("/api/conversations", headers=_auth_headers(token), json={})
+    conversation_id = created.json()["id"]
+
+    chunk = Mock()
+    chunk.text = "Hi"
+    chunk.candidates = [Mock(finish_reason="STOP", content=Mock(parts=[Mock(text="Hi")]))]
+    chunk.usage_metadata = None
+    mock_client = Mock()
+    mock_client.models.generate_content_stream.return_value = iter([chunk])
+
+    with patch.object(
+        GeminiProvider, "client", new_callable=PropertyMock
+    ) as client_prop:
+        client_prop.return_value = mock_client
+        response = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={"content": "Hi"},
+        )
+
+    assert response.status_code == 200
+    start_at = response.text.find('"type": "start"')
+    if start_at < 0:
+        start_at = response.text.find('"type":"start"')
+    delta_at = response.text.find('"type": "delta"')
+    if delta_at < 0:
+        delta_at = response.text.find('"type":"delta"')
+    assert start_at >= 0
+    assert delta_at > start_at
+
+
+def test_regenerate_skips_duplicate_user_turn(mentor_runtime_client):
+    client, _session_factory = mentor_runtime_client
+    token = _login(client)
+    created = client.post("/api/conversations", headers=_auth_headers(token), json={})
+    conversation_id = created.json()["id"]
+
+    def _stream_chunks(text: str):
+        chunk = Mock()
+        chunk.text = text
+        chunk.candidates = [Mock(finish_reason="STOP", content=Mock(parts=[Mock(text=text)]))]
+        chunk.usage_metadata = None
+        return iter([chunk])
+
+    mock_client = Mock()
+    mock_client.models.generate_content_stream.side_effect = [
+        _stream_chunks("First answer"),
+        _stream_chunks("Second answer"),
+    ]
+
+    with patch.object(
+        GeminiProvider, "client", new_callable=PropertyMock
+    ) as client_prop:
+        client_prop.return_value = mock_client
+        first = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={"content": "Explain Voltage Divider.", "persist_user": True},
+        )
+        assert first.status_code == 200
+        second = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={"content": "Explain Voltage Divider.", "persist_user": False},
+        )
+        assert second.status_code == 200
+
+    detail = client.get(
+        f"/api/conversations/{conversation_id}",
+        headers=_auth_headers(token),
+    ).json()
+    roles = [m["role"] for m in detail["messages"]]
+    assert roles == ["user", "assistant", "assistant"]
+    assert detail["messages"][0]["content"] == "Explain Voltage Divider."
+
+
+def test_retry_persists_user_when_first_attempt_never_saved(mentor_runtime_client):
+    """Retry with persist_user=false still stores the missing user turn."""
+    client, _session_factory = mentor_runtime_client
+    token = _login(client)
+    created = client.post("/api/conversations", headers=_auth_headers(token), json={})
+    conversation_id = created.json()["id"]
+
+    chunk = Mock()
+    chunk.text = "KCL says current into a node equals current out."
+    chunk.candidates = [
+        Mock(
+            finish_reason="STOP",
+            content=Mock(parts=[Mock(text=chunk.text)]),
+        )
+    ]
+    chunk.usage_metadata = None
+    mock_client = Mock()
+    mock_client.models.generate_content_stream.return_value = iter([chunk])
+
+    with patch.object(
+        GeminiProvider, "client", new_callable=PropertyMock
+    ) as client_prop:
+        client_prop.return_value = mock_client
+        response = client.post(
+            f"/api/conversations/{conversation_id}/ask/stream",
+            headers=_auth_headers(token),
+            json={
+                "content": "What is Kirchhoff's Current Law?",
+                "persist_user": False,
+            },
+        )
+        assert response.status_code == 200
+
+    detail = client.get(
+        f"/api/conversations/{conversation_id}",
+        headers=_auth_headers(token),
+    ).json()
+    roles = [m["role"] for m in detail["messages"]]
+    assert roles == ["user", "assistant"]
+    assert detail["messages"][0]["content"] == "What is Kirchhoff's Current Law?"

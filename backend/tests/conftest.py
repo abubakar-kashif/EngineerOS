@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.core.config import settings
+
 from app.api.routes.experiments import router as experiments_router
 from app.api.routes.simulations import router as simulations_router
 from app.api.routes.auth import router as auth_router
@@ -18,6 +20,17 @@ from app.db.database import Base, get_db
 from app.models.experiment import Experiment
 from app.models.progress import Progress
 from app.models.quiz import QuizQuestion
+
+@pytest.fixture(autouse=True)
+def _email_console_during_tests(monkeypatch):
+    """Keep tests off live SMTP even when backend/.env is configured for Gmail."""
+    monkeypatch.setattr(settings, "EMAIL_DELIVERY", "console")
+    monkeypatch.setattr(settings, "DEBUG", True)
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
+    monkeypatch.setattr(settings, "SMTP_FROM", "")
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "")
+
 
 EXPERIMENT_IDS = [
     "ohms-law",

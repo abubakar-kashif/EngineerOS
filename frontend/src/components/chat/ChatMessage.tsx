@@ -77,8 +77,8 @@ function ChatMessage({
           <span className="chat-msg-sender">{isUser ? "You" : "AI Mentor"}</span>
           <span className="chat-msg-time">{formatTime(message.created_at)}</span>
           {message.is_simulated && (
-            <span className="chat-msg-simulated" title="No AI model is connected — this reply comes from the built-in placeholder responder.">
-              Simulated
+            <span className="chat-msg-simulated" title="This reply was produced by an older placeholder responder.">
+              Legacy
             </span>
           )}
         </div>

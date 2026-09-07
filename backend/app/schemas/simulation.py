@@ -5,6 +5,7 @@ from app.models.simulation import SimulationStatus
 
 # === Validation sub-schemas ===
 class ValidationError(BaseModel):
+    model_config = ConfigDict(extra="allow")
     code: str
     severity: str
     message: str
@@ -37,9 +38,18 @@ class Measurements(BaseModel):
     componentMeasurements: List[ComponentMeasurement]
 
 class GraphData(BaseModel):
-    # adjust based on engine's graphData.ts
-    nodes: List[Dict[str, Any]]
-    edges: List[Dict[str, Any]]
+    """Engine graph payload (series / axes) — accept full solver shape."""
+    model_config = ConfigDict(extra="allow")
+    id: Optional[str] = None
+    type: Optional[str] = None
+    title: Optional[str] = None
+    xAxis: Optional[Dict[str, Any]] = None
+    yAxis: Optional[Dict[str, Any]] = None
+    series: Optional[List[Dict[str, Any]]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    # legacy / unused
+    nodes: Optional[List[Dict[str, Any]]] = None
+    edges: Optional[List[Dict[str, Any]]] = None
 
 # === Core simulation schemas ===
 class SimulationBase(BaseModel):
@@ -52,6 +62,7 @@ class SimulationCreate(SimulationBase):
 
 class SimulationUpdate(BaseModel):
     name: Optional[str] = None
+    experiment_id: Optional[str] = None
     circuit_definition: Optional[Dict[str, Any]] = None
     status: Optional[SimulationStatus] = None
 
@@ -81,12 +92,12 @@ class ValidationResponse(BaseModel):
 
 # === Simulation result (replaced with new structure) ===
 class SimulationResult(BaseModel):
-    status: SimulationStatus
+    status: str  # engine: completed | invalid | failed | ...
     validation: Optional[ValidationResult] = None
-    dcResult: Optional[DCResult] = None
+    dcResult: Optional[Dict[str, Any]] = None
     measurements: Optional[Measurements] = None
     graphs: Optional[List[GraphData]] = None
     error: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra="allow")

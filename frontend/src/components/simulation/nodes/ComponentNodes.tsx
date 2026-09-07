@@ -21,17 +21,27 @@ interface TerminalDotProps {
 
 function TerminalDot({ x, y, id, connected, active, onMouseDown, onMouseUp }: TerminalDotProps) {
   return (
-    <circle
-      cx={x} cy={y} r={active ? 6 : 4}
-      fill={active ? "var(--color-primary)" : connected ? "var(--color-text-muted)" : "var(--color-surface)"}
-      stroke={active ? "var(--color-primary)" : "var(--color-text-muted)"}
-      strokeWidth={1.5}
-      className="canvas-terminal"
-      data-terminal-id={id}
-      onMouseDown={(e) => onMouseDown?.(e, id)}
-      onMouseUp={(e) => onMouseUp?.(e, id)}
-      style={{ cursor: "crosshair" }}
-    />
+    <g className="canvas-terminal" data-terminal-id={id} style={{ cursor: "crosshair" }}>
+      {/* Invisible larger hit target for reliable pin picking */}
+      <circle
+        cx={x}
+        cy={y}
+        r={12}
+        fill="transparent"
+        stroke="none"
+        onMouseDown={(e) => onMouseDown?.(e, id)}
+        onMouseUp={(e) => onMouseUp?.(e, id)}
+      />
+      <circle
+        cx={x}
+        cy={y}
+        r={active ? 6 : 4}
+        fill={active ? "var(--color-primary)" : connected ? "var(--color-text-muted)" : "var(--color-surface)"}
+        stroke={active ? "var(--color-primary)" : "var(--color-text-muted)"}
+        strokeWidth={1.5}
+        pointerEvents="none"
+      />
+    </g>
   );
 }
 
@@ -49,7 +59,22 @@ interface NodeProps {
 
 function NodeWrapper({ label, selected, terminals, activeTerminal, onTerminalMouseDown, onTerminalMouseUp, children }: NodeProps) {
   return (
-    <g>
+    <g className={selected ? "canvas-component--selected" : undefined}>
+      {selected && (
+        <rect
+          x={-36}
+          y={-36}
+          width={72}
+          height={72}
+          rx={6}
+          fill="none"
+          stroke="var(--color-primary)"
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
+          opacity={0.85}
+          pointerEvents="none"
+        />
+      )}
       {children}
       {/* Reference designator label */}
       <text x={0} y={-28} textAnchor="middle" fontSize={11} fontWeight={600}

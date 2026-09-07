@@ -276,11 +276,21 @@ class RetryController:
         # Only retry if error is retryable
         if isinstance(error, AIError):
             return error.is_retryable()
-        
-        # Network/connection errors are retryable
-        if "connection" in str(error).lower() or "timeout" in str(error).lower():
+
+        lower = str(error).lower()
+        if "api key" in lower or "authentication" in lower:
+            return False
+
+        # Network/connection/timeout/rate-limit errors are retryable
+        if (
+            "connection" in lower
+            or "timeout" in lower
+            or "timed out" in lower
+            or "rate limit" in lower
+            or "network" in lower
+        ):
             return True
-        
+
         return False
     
     def get_retry_delay(self, attempt: int) -> float:

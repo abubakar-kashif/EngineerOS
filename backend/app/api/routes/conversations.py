@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -85,6 +85,12 @@ def add_message(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Clients may only append user turns — assistant/system messages come from Mentor.
+    if payload.role != "user":
+        raise HTTPException(
+            status_code=403,
+            detail="Clients may only post user messages.",
+        )
     return conversation_service.add_message(db, user.id, conversation_id, payload)
 
 

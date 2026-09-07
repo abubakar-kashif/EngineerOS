@@ -78,11 +78,35 @@ function normalizeQuestion(raw: ApiQuizQuestion): QuizQuestion {
   };
 }
 
-/** Phase 6: an attempt presents a random sample of the bank (all of it when small). */
+/** Fisher–Yates shuffle (in place) for attempt sampling / option order. */
+function shuffleInPlace<T>(items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
+/**
+ * Phase 2: sample up to QUIZ_ATTEMPT_SIZE questions, always randomizing order
+ * so retries differ even when the bank size equals the attempt size.
+ */
 function sampleAttemptQuestions<T>(questions: T[]): T[] {
-  if (questions.length <= QUIZ_ATTEMPT_SIZE) return questions;
-  const shuffled = [...questions].sort(() => Math.random() - 0.5);
+  const shuffled = shuffleInPlace([...questions]);
+  if (shuffled.length <= QUIZ_ATTEMPT_SIZE) return shuffled;
   return shuffled.slice(0, QUIZ_ATTEMPT_SIZE);
+}
+
+/** Randomize A–D option order; grading remaps via option text. */
+function shuffleQuestionOptions(question: QuizQuestion): QuizQuestion {
+  const texts = shuffleInPlace(question.options.map((option) => option.text));
+  return {
+    ...question,
+    options: texts.map((text, index) => ({
+      key: OPTION_LETTERS[index],
+      text,
+    })),
+  };
 }
 
 function buildQuiz(
@@ -90,7 +114,7 @@ function buildQuiz(
   questions: QuizQuestion[],
   source: QuizSource,
 ): Quiz {
-  const attempt = sampleAttemptQuestions(questions);
+  const attempt = sampleAttemptQuestions(questions).map(shuffleQuestionOptions);
   return {
     experiment_id: experimentId,
     title: QUIZ_TITLE,
@@ -161,15 +185,45 @@ export function hasSeedQuiz(experimentId: string): boolean {
   return getSeedQuestionCount(experimentId) > 0;
 }
 
-function answerKeyFor(experimentId: string): Map<string, { correct: AnswerLetter; explanation: string }> {
-  const map = new Map<string, { correct: AnswerLetter; explanation: string }>();
+function answerKeyFor(experimentId: string): Map<string, { correct: AnswerLetter; explanation: string; options: string[] }> {
+  const map = new Map<string, { correct: AnswerLetter; explanation: string; options: string[] }>();
   for (const entry of QUIZ_BANK[experimentId] ?? []) {
     map.set(entry.question.trim().toLowerCase(), {
       correct: entry.correct_answer,
       explanation: entry.explanation,
+      options: [...entry.options],
     });
   }
   return map;
+}
+
+function letterIndex(letter: AnswerLetter): number {
+  return OPTION_LETTERS.indexOf(letter);
+}
+
+/** Map a displayed answer letter back to the bank's canonical A–D letter. */
+function toBankAnswer(
+  question: QuizQuestion,
+  displayAnswer: AnswerLetter | null,
+  bankOptions: string[] | undefined,
+): AnswerLetter | null {
+  if (displayAnswer === null || !bankOptions) return displayAnswer;
+  const selectedText = question.options.find((option) => option.key === displayAnswer)?.text;
+  if (selectedText === undefined) return displayAnswer;
+  const index = bankOptions.indexOf(selectedText);
+  if (index < 0) return displayAnswer;
+  return OPTION_LETTERS[index];
+}
+
+/** Display letter for the bank's correct option after option shuffling. */
+function toDisplayCorrect(
+  question: QuizQuestion,
+  bankCorrect: AnswerLetter,
+  bankOptions: string[],
+): AnswerLetter {
+  const correctText = bankOptions[letterIndex(bankCorrect)];
+  const match = question.options.find((option) => option.text === correctText);
+  return match?.key ?? bankCorrect;
 }
 
 function statusFor(score: number, unanswered: number, total: number): QuizStatus {
@@ -196,14 +250,19 @@ export async function submitQuiz(
   const feedback: QuestionFeedback[] = quiz.questions.map((question, index) => {
     const entry = key.get(question.question.trim().toLowerCase()) ?? null;
     const yourAnswer = answers[question.id] ?? null;
-    const isCorrect = yourAnswer !== null && entry !== null && yourAnswer === entry.correct;
+    const bankAnswer = toBankAnswer(question, yourAnswer, entry?.options);
+    const isCorrect =
+      bankAnswer !== null && entry !== null && bankAnswer === entry.correct;
+    const displayCorrect = entry
+      ? toDisplayCorrect(question, entry.correct, entry.options)
+      : null;
     return {
       question_id: question.id,
       question_number: index + 1,
       question: question.question,
       options: question.options,
       your_answer: yourAnswer,
-      correct_answer: entry ? entry.correct : null,
+      correct_answer: displayCorrect,
       is_correct: isCorrect,
       explanation: entry
         ? entry.explanation
@@ -225,10 +284,14 @@ export async function submitQuiz(
         {
           method: "POST",
           body: JSON.stringify({
-            answers: quiz.questions.map((question) => ({
-              question_id: question.id,
-              answer: answers[question.id],
-            })),
+            answers: quiz.questions.map((question) => {
+              const display = answers[question.id];
+              const entry = key.get(question.question.trim().toLowerCase());
+              return {
+                question_id: question.id,
+                answer: toBankAnswer(question, display ?? null, entry?.options) ?? display,
+              };
+            }),
           }),
         },
       );

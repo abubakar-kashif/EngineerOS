@@ -49,7 +49,8 @@ function RegisterPage() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Enter a valid email address.";
     if (!password) errors.password = "Password is required.";
     else if (checks.filter((c) => c.met).length < 3) errors.password = "Password does not meet minimum requirements.";
-    if (password !== confirmPassword) errors.confirmPassword = "Passwords do not match.";
+    if (!confirmPassword) errors.confirmPassword = "Please confirm your password.";
+    else if (password !== confirmPassword) errors.confirmPassword = "Passwords do not match.";
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -78,7 +79,9 @@ function RegisterPage() {
         </div>
 
         <h1 className="auth-title">Create Account</h1>
-        <p className="auth-subtitle">Start your engineering learning experience</p>
+        <p className="auth-subtitle">
+          Create your EngineerOS account. We&apos;ll email a 6-digit verification code before you can sign in.
+        </p>
 
         {error && (
           <div className="auth-error" role="alert">{error}</div>
@@ -191,8 +194,6 @@ function RegisterPage() {
           <Link to="/login" className="auth-link">Sign in</Link>
         </p>
       </div>
-
-      <p className="auth-dev-notice">Development authentication — not for production use.</p>
     </div>
   );
 }

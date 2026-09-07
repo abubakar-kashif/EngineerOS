@@ -11,6 +11,7 @@ const testUser: User = {
   id: "u1",
   name: "Ada Lovelace",
   email: "ada@example.com",
+  email_verified: true,
   preferences: {
     theme: "dark",
     preferred_difficulty: "Beginner",
@@ -43,6 +44,10 @@ function renderProtectedRoute(path: string) {
         <Routes>
           <Route path="/login" element={<LoginLanding />} />
           <Route
+            path="/verify"
+            element={<div data-testid="verify-page">Verify email</div>}
+          />
+          <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
@@ -68,7 +73,7 @@ describe("ProtectedRoute", () => {
     );
   });
 
-  it("renders nothing while the cached session is still being validated", () => {
+  it("shows loading screen while the cached session is still being validated", () => {
     localStorage.setItem("engineeros_auth_token", "token-abc");
     localStorage.setItem(USER_CACHE_KEY, JSON.stringify(testUser));
     // /auth/me never settles → the provider stays in the loading state.
@@ -78,9 +83,10 @@ describe("ProtectedRoute", () => {
 
     expect(screen.queryByTestId("dashboard-content")).not.toBeInTheDocument();
     expect(screen.queryByTestId("login-page")).not.toBeInTheDocument();
+    expect(screen.getByText(/Preparing your workspace/i)).toBeInTheDocument();
   });
 
-  it("renders the protected content once /auth/me confirms the session", async () => {
+  it("renders the protected content once /auth/me confirms a verified session", async () => {
     localStorage.setItem("engineeros_auth_token", "token-abc");
     localStorage.setItem(USER_CACHE_KEY, JSON.stringify(testUser));
     mockApiRoutes({
@@ -93,5 +99,22 @@ describe("ProtectedRoute", () => {
       expect(screen.getByTestId("dashboard-content")).toBeInTheDocument(),
     );
     expect(screen.queryByTestId("login-page")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("verify-page")).not.toBeInTheDocument();
+  });
+
+  it("sends unverified sessions to /verify instead of the dashboard", async () => {
+    const unverified = { ...testUser, email_verified: false };
+    localStorage.setItem("engineeros_auth_token", "token-abc");
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(unverified));
+    mockApiRoutes({
+      "GET /auth/me": jsonResponse({ user: unverified, token: "token-abc" }),
+    });
+
+    renderProtectedRoute("/dashboard");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("verify-page")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("dashboard-content")).not.toBeInTheDocument();
   });
 });

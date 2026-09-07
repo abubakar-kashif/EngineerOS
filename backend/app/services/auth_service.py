@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import (
     EMAIL_CODE_TTL_SECONDS,
+    EMAIL_RESEND_COOLDOWN_SECONDS,
     RESET_CODE_TTL_SECONDS,
     SESSION_TTL_SECONDS,
     generate_code,
@@ -21,6 +22,7 @@ from app.schemas.auth import RegisterRequest
 from app.services import email_service
 from app.services import notification_service
 from app.services import user_service
+from app.services.email_service import EmailDeliveryError
 
 
 def get_user_by_email(db: Session, email: str) -> User | None:
@@ -29,6 +31,17 @@ def get_user_by_email(db: Session, email: str) -> User | None:
         .scalars()
         .one_or_none()
     )
+
+
+def _require_email_delivery(action) -> None:
+    """Run an email send; map delivery failures to HTTP 503 (no false success)."""
+    try:
+        action()
+    except EmailDeliveryError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to send email right now. Please try again shortly.",
+        ) from exc
 
 
 def create_user(db: Session, payload: RegisterRequest) -> tuple[User, str]:
@@ -46,7 +59,7 @@ def create_user(db: Session, payload: RegisterRequest) -> tuple[User, str]:
     db.flush()  # assign user.id before creating related rows
 
     code = issue_email_code(db, user)
-    email_service.send_verification_email(user.email, code)
+    _require_email_delivery(lambda: email_service.send_verification_email(user.email, code))
 
     user_service.ensure_preferences(db, user)
     notification_service.create_notification(
@@ -67,6 +80,12 @@ def authenticate(db: Session, email: str, password: str) -> User:
     # Same error for unknown email and wrong password (no account enumeration).
     if user is None or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
+
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Please verify your email before signing in.",
+        )
 
     return user
 
@@ -157,8 +176,8 @@ def verify_email_code(db: Session, email: str, code: str) -> User:
 def resend_email_code(db: Session, email: str) -> tuple[User, str]:
     """Regenerate the verification code. Returns (user, new code).
 
-    Raises 404 for unknown emails (the caller decides how much of that to
-    reveal — this endpoint is user-initiated from the verify screen).
+    Enforces a server-side cooldown between codes. Invalidates the previous
+    code by overwriting it. Raises 404 for unknown emails / 409 if verified.
     """
     user = get_user_by_email(db, email)
 
@@ -168,8 +187,17 @@ def resend_email_code(db: Session, email: str) -> tuple[User, str]:
     if user.email_verified:
         raise HTTPException(status_code=409, detail="Email is already verified.")
 
+    if user.email_code_expires_at is not None:
+        issued_at = user.email_code_expires_at - timedelta(seconds=EMAIL_CODE_TTL_SECONDS)
+        cooldown_until = issued_at + timedelta(seconds=EMAIL_RESEND_COOLDOWN_SECONDS)
+        if datetime.utcnow() < cooldown_until:
+            raise HTTPException(
+                status_code=429,
+                detail="Please wait before requesting another verification code.",
+            )
+
     code = issue_email_code(db, user)
-    email_service.send_verification_email(user.email, code)
+    _require_email_delivery(lambda: email_service.send_verification_email(user.email, code))
     return user, code
 
 
@@ -178,6 +206,8 @@ def request_password_reset(db: Session, email: str) -> tuple[User | None, str | 
 
     Returns (user, code); (None, None) when the email is unknown so the
     endpoint can answer identically either way (no account enumeration).
+    Delivery failures for known accounts surface as HTTP 503 — never claim
+    a reset email was sent when SMTP/console delivery failed.
     """
     user = get_user_by_email(db, email)
     if user is None:
@@ -189,7 +219,7 @@ def request_password_reset(db: Session, email: str) -> tuple[User | None, str | 
         seconds=RESET_CODE_TTL_SECONDS
     )
     db.commit()
-    email_service.send_password_reset_email(user.email, code)
+    _require_email_delivery(lambda: email_service.send_password_reset_email(user.email, code))
     return user, code
 
 

@@ -51,7 +51,7 @@ function SimulationResults({ result }: SimulationResultsProps) {
 
       <h5 style={{ marginTop: 16 }}>Component Details</h5>
       <div className="sim-component-results">
-        {measurements.componentMeasurements.map((comp: any) => (
+        {measurements.componentMeasurements.map((comp) => (
           <div key={comp.componentId} className="sim-comp-result-row">
             <span className="sim-comp-name">{comp.componentId}</span>
             <span className="sim-comp-details">

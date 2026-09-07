@@ -18,9 +18,9 @@ from app.services.progress_service import upsert_progress
 
 PASSING_SCORE = 70.0
 
-# Phase 6: an attempt presents a random sample of this many questions from
+# Phase 2: an attempt presents a random sample of this many questions from
 # the experiment's bank (the whole bank when it is smaller).
-QUIZ_ATTEMPT_SIZE = 20
+QUIZ_ATTEMPT_SIZE = 40
 
 
 def get_quiz_questions(db: Session, experiment_id: str) -> QuizResponse:
@@ -50,7 +50,7 @@ def submit_quiz(
 ) -> QuizSubmitResponse:
     """Grade a quiz submission.
 
-    Phase 6: clients submit a random QUIZ_ATTEMPT_SIZE sample of the bank
+    Phase 2: clients submit a random QUIZ_ATTEMPT_SIZE sample of the bank
     (legacy clients may still submit the full bank), so the score is
     computed over the submitted answers. Authenticated submissions are
     persisted as a QuizAttempt (answers plus grade), fire a notification,
@@ -92,7 +92,7 @@ def submit_quiz(
             detail=f"Invalid question ID(s): {invalid_ids}",
         )
 
-    # Phase 6: the submission must cover a complete attempt — at least
+    # Phase 2: the submission must cover a complete attempt — at least
     # QUIZ_ATTEMPT_SIZE questions (the whole bank when it is smaller).
     # Full-bank submissions from older clients remain valid.
     min_answers = min(len(all_questions), QUIZ_ATTEMPT_SIZE)

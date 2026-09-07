@@ -123,8 +123,8 @@ function MentorWelcome({
       )}
 
       <p className="mentor-welcome-note">
-        Responses are produced by a placeholder responder while the AI engine is being
-        connected — simulated replies are always labeled.
+        Mentor explains engineering concepts and your simulator results. It never invents
+        measurements — only the EngineerOS simulator is authoritative.
       </p>
     </div>
   );

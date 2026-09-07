@@ -7,15 +7,27 @@ progress/report scoping, and the anonymous (legacy) behaviour.
 
 from app.data.quiz_bank import iter_questions
 from app.models.quiz import QuizAttempt
+from app.models.user import User
 
 
-def register_user(client, email, name="Ada Lovelace", password="supersecret1"):
+def register_user(client, email, name="Ada Lovelace", password="supersecret1", *, verify=True):
+    """Register a user. Verifies email by default so login/session tests work."""
     response = client.post(
         "/api/auth/register",
         json={"name": name, "email": email, "password": password},
     )
     assert response.status_code == 201
-    return response.json()
+    data = response.json()
+    if verify:
+        code = data.get("dev_code")
+        assert isinstance(code, str)
+        verified = client.post(
+            "/api/auth/verify",
+            json={"email": email, "code": code},
+        )
+        assert verified.status_code == 200
+        data["user"]["email_verified"] = True
+    return data
 
 
 def bearer(token):
@@ -485,6 +497,7 @@ def test_add_message_and_read_conversation(phase9_client):
     assert message.json()["role"] == "user"
     assert message.json()["content"] == "What is Ohm's law?"
 
+    # Clients must not invent assistant turns (Mentor service writes those).
     reply = client.post(
         f"/api/conversations/{conversation['id']}/messages",
         headers=headers,
@@ -494,23 +507,22 @@ def test_add_message_and_read_conversation(phase9_client):
             "metadata": {"is_simulated": True},
         },
     )
-    assert reply.status_code == 201
-    assert reply.json()["metadata"] == {"is_simulated": True}
+    assert reply.status_code == 403
 
     detail = client.get(
         f"/api/conversations/{conversation['id']}", headers=headers
     )
     assert detail.status_code == 200
-    assert len(detail.json()["messages"]) == 2
+    assert len(detail.json()["messages"]) == 1
 
     listed = client.get(
         f"/api/conversations/{conversation['id']}/messages", headers=headers
     )
-    assert [item["role"] for item in listed.json()] == ["user", "assistant"]
+    assert [item["role"] for item in listed.json()] == ["user"]
 
     # The message count shows up in the sidebar summary.
     summaries = client.get("/api/conversations", headers=headers).json()
-    assert summaries[0]["message_count"] == 2
+    assert summaries[0]["message_count"] == 1
 
 
 def test_rename_conversation(phase9_client):
@@ -548,17 +560,26 @@ def test_delete_conversation(phase9_client):
 
 
 def test_message_feedback_set_and_cleared(phase9_client):
-    client, _ = phase9_client
+    client, session_factory = phase9_client
     headers = register_headers(client, "feedback@example.com")
     conversation = create_conversation(client, headers)
-    message = client.post(
-        f"/api/conversations/{conversation['id']}/messages",
-        headers=headers,
-        json={"role": "assistant", "content": "An answer"},
-    ).json()
+
+    # Assistant rows are written by Mentor (service), not the public POST route.
+    from app.schemas.conversation import MessageCreateRequest
+    from app.services import conversation_service
+
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "feedback@example.com").one()
+        message = conversation_service.add_message(
+            db,
+            user.id,
+            conversation["id"],
+            MessageCreateRequest(role="assistant", content="An answer"),
+        )
+        message_id = message.id
 
     set_response = client.patch(
-        f"/api/conversations/{conversation['id']}/messages/{message['id']}",
+        f"/api/conversations/{conversation['id']}/messages/{message_id}",
         headers=headers,
         json={"feedback": "helpful"},
     )
@@ -566,7 +587,7 @@ def test_message_feedback_set_and_cleared(phase9_client):
     assert set_response.json()["feedback"] == "helpful"
 
     cleared = client.patch(
-        f"/api/conversations/{conversation['id']}/messages/{message['id']}",
+        f"/api/conversations/{conversation['id']}/messages/{message_id}",
         headers=headers,
         json={"feedback": None},
     )
@@ -680,8 +701,8 @@ def test_quiz_submission_records_attempt_progress_and_notification(phase9_client
     assert submission.status_code == 200
     assert submission.json() == {
         "score": 100.0,
-        "total_questions": 40,
-        "correct_answers": 40,
+        "total_questions": 55,
+        "correct_answers": 55,
         "passed": True,
     }
 
@@ -692,7 +713,7 @@ def test_quiz_submission_records_attempt_progress_and_notification(phase9_client
         assert attempt.experiment_id == "ohms-law"
         assert attempt.score == 100.0
         assert attempt.passed is True
-        assert len(attempt.answers) == 40
+        assert len(attempt.answers) == 55
 
     # Passing completes the experiment for this user.
     progress_rows = client.get("/api/progress/me", headers=headers).json()

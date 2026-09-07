@@ -19,12 +19,20 @@ export interface ComponentMeasurement {
   resistance?: number;
 }
 
+/** One sample from a real SimulationRun time series (never invented for DC). */
+export interface TimeSeriesSample {
+  t: number;
+  values: Record<string, number>;
+}
+
 export interface Measurements {
   totalVoltage: number;
   totalCurrent: number;
   totalPower: number;
   equivalentResistance: number;
   componentMeasurements: ComponentMeasurement[];
+  /** Present only when the run actually recorded time-domain samples. */
+  timeSeries?: TimeSeriesSample[];
 }
 
 export interface SimulationResult {
@@ -34,5 +42,5 @@ export interface SimulationResult {
   measurements?: Measurements;
   graphs?: GraphData[];
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

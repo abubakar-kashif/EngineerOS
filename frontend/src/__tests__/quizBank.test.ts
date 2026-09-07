@@ -15,17 +15,20 @@ const CATEGORIES: QuizCategory[] = [
   "common_mistakes",
 ];
 
-describe("quiz bank shape (Phase 6)", () => {
+describe("quiz bank shape (Phase 2)", () => {
   const experiments = Object.entries(QUIZ_BANK);
+  const totalQuestions = experiments.reduce(
+    (total, [, questions]) => total + questions.length,
+    0,
+  );
 
-  it("gives every experiment a 40-question bank", () => {
+  it("gives every experiment at least 40 questions (prefer 50–60)", () => {
     expect(experiments).toHaveLength(10);
     for (const [experimentId, questions] of experiments) {
-      expect(questions, experimentId).toHaveLength(40);
+      expect(questions.length, experimentId).toBeGreaterThanOrEqual(40);
+      expect(questions.length, experimentId).toBeGreaterThanOrEqual(50);
+      expect(questions.length, experimentId).toBeLessThanOrEqual(60);
     }
-    expect(
-      experiments.reduce((total, [, questions]) => total + questions.length, 0),
-    ).toBe(400);
   });
 
   it("stores only well-formed questions", () => {
@@ -51,11 +54,11 @@ describe("quiz bank shape (Phase 6)", () => {
     const all = experiments.flatMap(([, questions]) =>
       questions.map((entry) => entry.question),
     );
-    expect(new Set(all).size).toBe(400);
+    expect(new Set(all).size).toBe(totalQuestions);
   });
 
-  it("defines the Phase 6 attempt size", () => {
-    expect(QUIZ_ATTEMPT_SIZE).toBe(20);
+  it("defines a 40-question attempt smaller than each bank", () => {
+    expect(QUIZ_ATTEMPT_SIZE).toBe(40);
     for (const [, questions] of experiments) {
       expect(QUIZ_ATTEMPT_SIZE).toBeLessThan(questions.length);
     }

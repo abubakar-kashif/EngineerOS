@@ -116,7 +116,12 @@ def run_simulation_route(
     current_user: User = Depends(get_current_user)
 ):
     """Run a simulation using the Person 1 engine"""
-    result = run_simulation(db, simulation_id, current_user.id)
+    result = run_simulation(
+        db,
+        simulation_id,
+        current_user.id,
+        circuit_definition=request.circuit_definition,
+    )
     if result is None:
         raise HTTPException(status_code=404, detail="Simulation not found")
     return result

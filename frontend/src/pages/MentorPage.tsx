@@ -16,14 +16,35 @@ import Input from "../components/ui/Input";
 
 import { useAuth } from "../contexts/AuthContext";
 import { getExperimentById } from "../services/experimentService";
-import { mockExperiments } from "../data/mockExperiments";
 import * as mentorService from "../services/mentor/mentorService";
 
-import type { ChatMessage as ChatMessageType, ConversationSummary, MessageFeedback } from "../types/chat";
+import type { ChatMessage as ChatMessageType, Conversation, ConversationSummary, MessageFeedback } from "../types/chat";
 import type { MentorContext } from "../types/mentor";
 import { emptyMentorContext, experimentPrompts } from "../types/mentor";
 import type { SimulationStatus } from "../types/mentor";
 import type { Experiment } from "../types/experiment";
+
+function toSummary(conv: Conversation, messageCount = conv.messages.length): ConversationSummary {
+  return {
+    id: conv.id,
+    title: conv.title,
+    experiment_id: conv.experiment_id,
+    created_at: conv.created_at,
+    updated_at: conv.updated_at,
+    message_count: messageCount,
+  };
+}
+
+/** Keep the newest conversation first in the sidebar. */
+function upsertConversation(
+  list: ConversationSummary[],
+  summary: ConversationSummary,
+): ConversationSummary[] {
+  const next = [summary, ...list.filter((c) => c.id !== summary.id)];
+  return next.sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+  );
+}
 
 function MentorPage() {
   const { user } = useAuth();
@@ -48,17 +69,23 @@ function MentorPage() {
   const [renameValue, setRenameValue] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  /* ── experiment context (from ?experiment=&stage=) ── */
+  /* ── experiment context (from ?experiment=&stage=&simulation=) ── */
   const experimentParam = searchParams.get("experiment");
   const stageParam = searchParams.get("stage");
+  const simulationParam = searchParams.get("simulation");
   const simStatusParam = searchParams.get("sim") as SimulationStatus | null;
   const quizParam = searchParams.get("quiz");
   const [contextExperiment, setContextExperiment] = useState<Experiment | null>(null);
 
   const cancelSendRef = useRef<(() => void) | null>(null);
   const openRequestRef = useRef(0);
+  const activeIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   const userId = user?.id ?? "";
   const userInitials = useMemo(() => {
@@ -79,6 +106,7 @@ function MentorPage() {
             experimentTitle: contextExperiment.title,
             difficulty: contextExperiment.difficulty,
             stage: stageParam ? stageParam.replace(/_/g, " ") : null,
+            simulationId: simulationParam,
             simulationStatus: simStatusParam ?? "idle",
             circuit: null, // populated from simulation workspace
             measurements: null, // populated from simulation workspace
@@ -86,10 +114,12 @@ function MentorPage() {
           }
         : {
             ...emptyMentorContext,
+            stage: stageParam ? stageParam.replace(/_/g, " ") : null,
+            simulationId: simulationParam,
             simulationStatus: simStatusParam ?? "idle",
             quizQuestion: quizParam,
           },
-    [contextExperiment, stageParam, simStatusParam, quizParam],
+    [contextExperiment, stageParam, simulationParam, simStatusParam, quizParam],
   );
 
   const activeConversation = conversations.find((c) => c.id === activeId) ?? null;
@@ -110,10 +140,10 @@ function MentorPage() {
       try {
         const data = await getExperimentById(experimentParam);
         if (cancelled) return;
-        setContextExperiment(data ?? mockExperiments.find((m) => m.id === experimentParam) ?? null);
+        setContextExperiment(data ?? null);
       } catch {
         if (cancelled) return;
-        setContextExperiment(mockExperiments.find((m) => m.id === experimentParam) ?? null);
+        setContextExperiment(null);
       }
     }
 
@@ -197,37 +227,83 @@ function MentorPage() {
     setMessages([]);
     setActiveId(null);
     setDrawerOpen(false);
+    // Sync sidebar immediately so the chat you just left is visible.
+    void refreshConversations();
     // Keep the experiment context param only when present.
     if (!experimentParam) setSearchParams({}, { replace: true });
   }
 
   /* ── send ── */
-  function performSend(text: string, conversationId: string) {
+  function performSend(
+    text: string,
+    conversationId: string,
+    options: { emitUserMessage?: boolean } = {},
+  ) {
     if (!userId) return;
     setBusy(true);
     setSendError(null);
     setStreamingText(null);
 
-    const cancel = mentorService.sendMessage(conversationId, text, mentorContext.experimentTitle, {
-      onUserMessage: (message) => {
-        setMessages((prev) => [...prev, message]);
+    const cancel = mentorService.sendMessage(
+      conversationId,
+      text,
+      {
+        experimentId: mentorContext.experimentId,
+        simulationId: mentorContext.simulationId,
+        stage: mentorContext.stage,
+        emitUserMessage: options.emitUserMessage,
       },
-      onToken: (accumulated) => {
-        setStreamingText(accumulated);
+      {
+        onUserMessage: (message) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "user" && last.content === message.content) return prev;
+            if (prev.some((m) => m.id === message.id)) return prev;
+            return [...prev, message];
+          });
+          // Bump sidebar entry as soon as the user turn lands.
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conversationId
+                ? {
+                    ...c,
+                    message_count: Math.max(c.message_count, 0) + 1,
+                    updated_at: message.created_at,
+                  }
+                : c,
+            ),
+          );
+        },
+        onStart: () => {
+          setStreamingText((prev) => prev ?? "");
+        },
+        onToken: (accumulated) => {
+          setStreamingText(accumulated);
+        },
+        onComplete: (message) => {
+          setStreamingText(null);
+          setBusy(false);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === message.id)) return prev;
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last.content === message.content) return prev;
+            return [...prev, message];
+          });
+          void mentorService.getConversation(conversationId).then((conv) => {
+            if (conv && activeIdRef.current === conversationId) {
+              setMessages(conv.messages);
+            }
+          }).catch(() => undefined);
+          void refreshConversations();
+        },
+        onError: (error) => {
+          setStreamingText(null);
+          setBusy(false);
+          setSendError(error.message || "AI Mentor could not generate a response. Please try again.");
+          lastFailedRef.current = text;
+        },
       },
-      onComplete: (message) => {
-        setStreamingText(null);
-        setBusy(false);
-        setMessages((prev) => [...prev, message]);
-        void refreshConversations();
-      },
-      onError: () => {
-        setStreamingText(null);
-        setBusy(false);
-        setSendError("Unable to send message. Your conversation is safe — please try again.");
-        lastFailedRef.current = text;
-      },
-    });
+    );
 
     cancelSendRef.current = cancel;
   }
@@ -236,23 +312,44 @@ function MentorPage() {
     const text = draft.trim();
     if (!text || busy || !userId) return;
 
+    const pendingId = `local-user-${Date.now()}`;
+    setDraft("");
+    setBusy(true);
+    setSendError(null);
+    setStreamingText(null);
+    lastFailedRef.current = null;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: pendingId,
+        conversation_id: activeId ?? "pending",
+        role: "user",
+        content: text,
+        created_at: new Date().toISOString(),
+        status: "complete",
+        feedback: null,
+      },
+    ]);
+
     let conversationId = activeId;
     if (!conversationId) {
-      setBusy(true);
       try {
         const conv = await mentorService.createConversation(mentorContext.experimentId);
         conversationId = conv.id;
         setActiveId(conv.id);
+        // Show the new conversation in history immediately (don't wait for leave/remount).
+        setConversations((prev) => upsertConversation(prev, toSummary(conv)));
+        void refreshConversations();
       } catch {
         setBusy(false);
         setSendError("Unable to start a new conversation. Please try again.");
+        setDraft(text);
+        setMessages((prev) => prev.filter((m) => m.id !== pendingId));
         return;
       }
     }
 
-    setDraft("");
-    lastFailedRef.current = null;
-    performSend(text, conversationId);
+    performSend(text, conversationId, { emitUserMessage: false });
   }
 
   function handleRetry() {
@@ -260,7 +357,9 @@ function MentorPage() {
     if (!text || !activeId) return;
     lastFailedRef.current = null;
     setSendError(null);
-    performSend(text, activeId);
+    const last = messages[messages.length - 1];
+    const alreadyShown = last?.role === "user" && last.content === text;
+    performSend(text, activeId, { emitUserMessage: !alreadyShown });
   }
 
   /* ── message actions ── */
@@ -277,23 +376,34 @@ function MentorPage() {
       return last?.role === "assistant" ? prev.slice(0, -1) : prev;
     });
 
-    const cancel = mentorService.regenerateMessage(activeId, mentorContext.experimentTitle, {
-      onUserMessage: (message) => {
-        setMessages((prev) => [...prev, message]);
+    const cancel = mentorService.regenerateMessage(
+      activeId,
+      {
+        experimentId: mentorContext.experimentId,
+        simulationId: mentorContext.simulationId,
+        stage: mentorContext.stage,
       },
-      onToken: (accumulated) => setStreamingText(accumulated),
-      onComplete: (message) => {
-        setStreamingText(null);
-        setBusy(false);
-        setMessages((prev) => [...prev, message]);
-        void refreshConversations();
+      {
+        onStart: () => setStreamingText((prev) => prev ?? ""),
+        onToken: (accumulated) => setStreamingText(accumulated),
+        onComplete: (message) => {
+          setStreamingText(null);
+          setBusy(false);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === message.id)) return prev;
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last.content === message.content) return prev;
+            return [...prev, message];
+          });
+          void refreshConversations();
+        },
+        onError: (error) => {
+          setStreamingText(null);
+          setBusy(false);
+          setSendError(error.message || "AI Mentor could not generate a response. Please try again.");
+        },
       },
-      onError: () => {
-        setStreamingText(null);
-        setBusy(false);
-        setSendError("Unable to regenerate the response. Please try again.");
-      },
-    });
+    );
     cancelSendRef.current = cancel;
   }
 
@@ -488,7 +598,7 @@ function MentorPage() {
                   <div className="chat-msg-body">
                     <div className="chat-msg-meta">
                       <span className="chat-msg-sender">AI Mentor</span>
-                      <span className="chat-msg-simulated">Simulated</span>
+                      <span className="chat-msg-time">Streaming</span>
                     </div>
                     <div className="chat-msg-content chat-msg-content--streaming">
                       <MarkdownLite content={streamingText} />

@@ -553,6 +553,29 @@ export const UNIT_CATEGORIES: UnitCategory[] = [
     ],
   },
   {
+    id: "capacitance",
+    label: "Capacitance",
+    base_unit: "F",
+    units: [
+      { id: "pf", label: "Picofarad", symbol: "pF", factor: 1e-12 },
+      { id: "nf", label: "Nanofarad", symbol: "nF", factor: 1e-9 },
+      { id: "uf", label: "Microfarad", symbol: "µF", factor: 1e-6 },
+      { id: "mf", label: "Millifarad", symbol: "mF", factor: 0.001 },
+      { id: "f", label: "Farad", symbol: "F", factor: 1 },
+    ],
+  },
+  {
+    id: "inductance",
+    label: "Inductance",
+    base_unit: "H",
+    units: [
+      { id: "uh", label: "Microhenry", symbol: "µH", factor: 1e-6 },
+      { id: "mh", label: "Millihenry", symbol: "mH", factor: 0.001 },
+      { id: "h", label: "Henry", symbol: "H", factor: 1 },
+      { id: "kh", label: "Kilohenry", symbol: "kH", factor: 1000 },
+    ],
+  },
+  {
     id: "temperature",
     label: "Temperature",
     base_unit: "°C",
@@ -599,7 +622,7 @@ function fromCelsius(value: number, unitId: string): number {
   }
 }
 
-/** Two-way unit conversion inside one category. Throws on unknown ids. */
+/** Two-way unit conversion inside one category. Throws on unknown / cross-category ids. */
 export function convertUnit(
   value: number,
   categoryId: string,
@@ -611,7 +634,9 @@ export function convertUnit(
 
   const from = category.units.find((unit) => unit.id === fromUnitId);
   const to = category.units.find((unit) => unit.id === toUnitId);
-  if (!from || !to) throw new Error("Unknown unit");
+  if (!from || !to) {
+    throw new Error("Incompatible units: both units must belong to the selected category");
+  }
 
   if (from.factor === null || to.factor === null) {
     return fromCelsius(toCelsius(value, from.id), to.id);
@@ -634,6 +659,22 @@ export function formatResult(value: number): string {
   return String(rounded);
 }
 
+/**
+ * Re-enter a numeric result into a new expression (after "=" + operator).
+ * Always produces tokenizer-safe scientific form when needed (1e-10), never display-only text.
+ */
+export function numberToExpression(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  if (Object.is(value, -0) || value === 0) return "0";
+  // toExponential is re-parsed as one number token after scientific-notation support.
+  const abs = Math.abs(value);
+  if (abs >= 1e16 || (abs !== 0 && abs < 1e-6)) {
+    return value.toExponential(15);
+  }
+  // Avoid binary float noise like 0.30000000000000004
+  return String(Number(value.toPrecision(15)));
+}
+
 /* ── Calculator expression evaluator ──────────────────── */
 
 export type AngleMode = "deg" | "rad";
@@ -645,13 +686,41 @@ type Token =
   | { kind: "lparen" }
   | { kind: "rparen" };
 
+/** Collapse float noise near exact zeros (e.g. cos(90°)). */
+function snapNearZero(value: number): number {
+  return Math.abs(value) < 1e-12 ? 0 : value;
+}
+
 const FUNCTIONS: Record<string, (x: number, mode: AngleMode) => number> = {
-  sin: (x, mode) => Math.sin(mode === "deg" ? (x * Math.PI) / 180 : x),
-  cos: (x, mode) => Math.cos(mode === "deg" ? (x * Math.PI) / 180 : x),
-  tan: (x, mode) => Math.tan(mode === "deg" ? (x * Math.PI) / 180 : x),
-  sqrt: (x) => Math.sqrt(x),
-  log: (x) => Math.log10(x),
-  ln: (x) => Math.log(x),
+  sin: (x, mode) => snapNearZero(Math.sin(mode === "deg" ? (x * Math.PI) / 180 : x)),
+  cos: (x, mode) => snapNearZero(Math.cos(mode === "deg" ? (x * Math.PI) / 180 : x)),
+  tan: (x, mode) => {
+    if (mode === "deg") {
+      const mod = ((x % 180) + 180) % 180;
+      if (Math.abs(mod - 90) < 1e-9) throw new Error("Invalid domain");
+    } else {
+      const halfPi = Math.PI / 2;
+      const k = Math.round(x / halfPi);
+      if (Math.abs(k) % 2 === 1 && Math.abs(x - k * halfPi) < 1e-12) {
+        throw new Error("Invalid domain");
+      }
+    }
+    const rad = mode === "deg" ? (x * Math.PI) / 180 : x;
+    return snapNearZero(Math.tan(rad));
+  },
+  sqrt: (x) => {
+    if (x < 0) throw new Error("Negative sqrt");
+    return Math.sqrt(x);
+  },
+  abs: (x) => Math.abs(x),
+  log: (x) => {
+    if (x <= 0) throw new Error("Invalid log");
+    return Math.log10(x);
+  },
+  ln: (x) => {
+    if (x <= 0) throw new Error("Invalid log");
+    return Math.log(x);
+  },
   neg: (x) => -x,
 };
 
@@ -660,8 +729,9 @@ const PRECEDENCE: Record<string, number> = {
   "-": 1,
   "*": 2,
   "/": 2,
+  // Below ^ so -2^2 → -(2^2) = -4 (Python/JS math). Use 2^(-3) for negative exponents.
+  "u-": 2.5,
   "^": 3,
-  "u-": 4,
 };
 
 function tokenize(input: string): Token[] {
@@ -681,6 +751,25 @@ function tokenize(input: string): Token[] {
       while (i < input.length && /[0-9.]/.test(input[i])) {
         number += input[i];
         i += 1;
+      }
+      // JS-style scientific notation: 1e-10, 3E+4 (must not become Euler × e)
+      if (i < input.length && (input[i] === "e" || input[i] === "E")) {
+        const next = input[i + 1];
+        if (next === "+" || next === "-" || (next !== undefined && /[0-9]/.test(next))) {
+          number += input[i];
+          i += 1;
+          if (i < input.length && (input[i] === "+" || input[i] === "-")) {
+            number += input[i];
+            i += 1;
+          }
+          if (i >= input.length || !/[0-9]/.test(input[i])) {
+            throw new Error("Invalid number");
+          }
+          while (i < input.length && /[0-9]/.test(input[i])) {
+            number += input[i];
+            i += 1;
+          }
+        }
       }
       const value = Number(number);
       if (Number.isNaN(value)) throw new Error("Invalid number");
@@ -707,7 +796,7 @@ function tokenize(input: string): Token[] {
       } else if (name in FUNCTIONS && name !== "neg") {
         tokens.push({ kind: "function", value: name });
       } else {
-        throw new Error(`Unknown name: ${name}`);
+        throw new Error(`Unknown function: ${name}`);
       }
       continue;
     }
@@ -758,6 +847,34 @@ function tokenize(input: string): Token[] {
   }
 
   return tokens;
+}
+
+/** Close any unclosed "(" so keypad sequences like sin(90)= still evaluate. */
+function autoCloseParentheses(expression: string): string {
+  let depth = 0;
+  for (const char of expression) {
+    if (char === "(") depth += 1;
+    else if (char === ")") depth = Math.max(0, depth - 1);
+  }
+  return depth > 0 ? expression + ")".repeat(depth) : expression;
+}
+
+/** Insert × between adjacent values: 2π, 2sin(30), (1+2)(3+4). */
+function withImplicitMultiplication(tokens: Token[]): Token[] {
+  const output: Token[] = [];
+  for (const token of tokens) {
+    const prev = output[output.length - 1];
+    if (prev) {
+      const prevAtom = prev.kind === "number" || prev.kind === "rparen";
+      const nextAtom =
+        token.kind === "number" || token.kind === "lparen" || token.kind === "function";
+      if (prevAtom && nextAtom) {
+        output.push({ kind: "operator", value: "*" });
+      }
+    }
+    output.push(token);
+  }
+  return output;
 }
 
 function toRpn(tokens: Token[]): Token[] {
@@ -820,7 +937,7 @@ function toRpn(tokens: Token[]): Token[] {
           }
           output.push(top);
         }
-        if (!foundParen) throw new Error("Mismatched parentheses");
+        if (!foundParen) throw new Error("Unmatched parentheses");
         if (stack.length > 0 && stack[stack.length - 1].kind === "function") {
           output.push(stack.pop() as Token);
         }
@@ -830,9 +947,17 @@ function toRpn(tokens: Token[]): Token[] {
     if (token.kind !== "rparen") previous = token;
   }
 
+  // Auto-close leftover "(" from incomplete keypad entry (e.g. sin(90)
+  while (stack.length > 0 && stack[stack.length - 1].kind === "lparen") {
+    stack.pop();
+    if (stack.length > 0 && stack[stack.length - 1].kind === "function") {
+      output.push(stack.pop() as Token);
+    }
+  }
+
   while (stack.length > 0) {
     const top = stack.pop() as Token;
-    if (top.kind === "lparen") throw new Error("Mismatched parentheses");
+    if (top.kind === "lparen") throw new Error("Unmatched parentheses");
     output.push(top);
   }
 
@@ -870,6 +995,7 @@ function evaluateRpn(rpn: Token[], mode: AngleMode): number {
           stack.push(a * b);
           break;
         case "/":
+          if (b === 0) throw new Error("Division by zero");
           stack.push(a / b);
           break;
         case "^":
@@ -886,227 +1012,76 @@ function evaluateRpn(rpn: Token[], mode: AngleMode): number {
 export function evaluateExpression(expression: string, mode: AngleMode = "deg"): number {
   const trimmed = expression.trim();
   if (!trimmed) throw new Error("Empty expression");
-  const result = evaluateRpn(toRpn(tokenize(trimmed)), mode);
+  const closed = autoCloseParentheses(trimmed);
+  const tokens = withImplicitMultiplication(tokenize(closed));
+  if (tokens.length === 0) throw new Error("Invalid expression");
+  const result = evaluateRpn(toRpn(tokens), mode);
   if (Number.isNaN(result)) throw new Error("Invalid expression");
+  if (!Number.isFinite(result)) throw new Error("Division by zero");
   return result;
 }
 
-/* =========================================================
-   ENGINEERING CALCULATORS
-   ========================================================= */
-
-export interface CalcField {
-  id: string;
-  label: string;
-  symbol: string;
-  unit: string;
+/** True when a leading display "0" should be replaced (not kept as a literal digit). */
+function replacesLeadingZero(token: string): boolean {
+  if (/^[0-9.]/.test(token)) return true;
+  if (token === "(") return true;
+  if (token === "π" || token === "e") return true;
+  if (token.startsWith("√")) return true;
+  // Function keys: sin(, cos(, tan(, log(, ln(
+  if (/^[a-zA-Z]/.test(token)) return true;
+  return false;
 }
 
-export interface CalculatorDef {
-  id: string;
-  name: string;
-  category: string;
-  formula: string;
-  fields: CalcField[];
-  solvableFor: string[];
-  compute: (known: Record<string, number>, solveFor: string) => number;
+function endsWithValueAtom(expression: string): boolean {
+  if (!expression) return false;
+  const last = expression[expression.length - 1];
+  return /[0-9.)πe]/.test(last);
 }
 
-export const CALCULATORS: CalculatorDef[] = [
-  {
-    id: "ohms-law",
-    name: "Ohm's Law",
-    category: "Circuits",
-    formula: "V = I × R",
-    fields: [
-      { id: "V", label: "Voltage", symbol: "V", unit: "V" },
-      { id: "I", label: "Current", symbol: "I", unit: "A" },
-      { id: "R", label: "Resistance", symbol: "R", unit: "Ω" },
-    ],
-    solvableFor: ["V", "I", "R"],
-    compute: (k, solveFor) => {
-      if (solveFor === "V") return k.I * k.R;
-      if (solveFor === "I") return k.V / k.R;
-      return k.V / k.I;
-    },
-  },
-  {
-    id: "voltage-divider",
-    name: "Voltage Divider",
-    category: "Circuits",
-    formula: "V_out = V_in × R2 / (R1 + R2)",
-    fields: [
-      { id: "Vin", label: "Input voltage", symbol: "V_in", unit: "V" },
-      { id: "R1", label: "R1", symbol: "R1", unit: "Ω" },
-      { id: "R2", label: "R2", symbol: "R2", unit: "Ω" },
-      { id: "Vout", label: "Output voltage", symbol: "V_out", unit: "V" },
-    ],
-    solvableFor: ["Vout", "Vin", "R1", "R2"],
-    compute: (k, solveFor) => {
-      if (solveFor === "Vout") return (k.Vin * k.R2) / (k.R1 + k.R2);
-      if (solveFor === "Vin") return (k.Vout * (k.R1 + k.R2)) / k.R2;
-      if (solveFor === "R1") return (k.R2 * (k.Vin - k.Vout)) / k.Vout;
-      return (k.Vout * k.R1) / (k.Vin - k.Vout);
-    },
-  },
-  {
-    id: "current-divider",
-    name: "Current Divider",
-    category: "Circuits",
-    formula: "I1 = I_total × R2 / (R1 + R2)",
-    fields: [
-      { id: "Itotal", label: "Total current", symbol: "I_total", unit: "A" },
-      { id: "R1", label: "R1", symbol: "R1", unit: "Ω" },
-      { id: "R2", label: "R2", symbol: "R2", unit: "Ω" },
-      { id: "I1", label: "Current through R1", symbol: "I1", unit: "A" },
-    ],
-    solvableFor: ["I1", "Itotal", "R1", "R2"],
-    compute: (k, solveFor) => {
-      if (solveFor === "I1") return (k.Itotal * k.R2) / (k.R1 + k.R2);
-      if (solveFor === "Itotal") return (k.I1 * (k.R1 + k.R2)) / k.R2;
-      if (solveFor === "R2") return (k.I1 * k.R1) / (k.Itotal - k.I1);
-      return (k.R2 * (k.Itotal - k.I1)) / k.I1;
-    },
-  },
-  {
-    id: "power",
-    name: "Power",
-    category: "DC",
-    formula: "P = V × I",
-    fields: [
-      { id: "V", label: "Voltage", symbol: "V", unit: "V" },
-      { id: "I", label: "Current", symbol: "I", unit: "A" },
-      { id: "P", label: "Power", symbol: "P", unit: "W" },
-    ],
-    solvableFor: ["P", "V", "I"],
-    compute: (k, solveFor) => {
-      if (solveFor === "P") return k.V * k.I;
-      if (solveFor === "V") return k.P / k.I;
-      return k.P / k.V;
-    },
-  },
-  {
-    id: "energy",
-    name: "Energy",
-    category: "DC",
-    formula: "E = P × t",
-    fields: [
-      { id: "P", label: "Power", symbol: "P", unit: "W" },
-      { id: "t", label: "Time", symbol: "t", unit: "h" },
-      { id: "E", label: "Energy", symbol: "E", unit: "Wh" },
-    ],
-    solvableFor: ["E", "P", "t"],
-    compute: (k, solveFor) => {
-      if (solveFor === "E") return k.P * k.t;
-      if (solveFor === "P") return k.E / k.t;
-      return k.E / k.P;
-    },
-  },
-  {
-    id: "rc-time-constant",
-    name: "RC Time Constant",
-    category: "Signals",
-    formula: "τ = R × C",
-    fields: [
-      { id: "R", label: "Resistance", symbol: "R", unit: "Ω" },
-      { id: "C", label: "Capacitance", symbol: "C", unit: "F" },
-      { id: "tau", label: "Time constant", symbol: "τ", unit: "s" },
-    ],
-    solvableFor: ["tau", "R", "C"],
-    compute: (k, solveFor) => {
-      if (solveFor === "tau") return k.R * k.C;
-      if (solveFor === "R") return k.tau / k.C;
-      return k.tau / k.R;
-    },
-  },
-  {
-    id: "rl-time-constant",
-    name: "RL Time Constant",
-    category: "Signals",
-    formula: "τ = L / R",
-    fields: [
-      { id: "L", label: "Inductance", symbol: "L", unit: "H" },
-      { id: "R", label: "Resistance", symbol: "R", unit: "Ω" },
-      { id: "tau", label: "Time constant", symbol: "τ", unit: "s" },
-    ],
-    solvableFor: ["tau", "L", "R"],
-    compute: (k, solveFor) => {
-      if (solveFor === "tau") return k.L / k.R;
-      if (solveFor === "L") return k.tau * k.R;
-      return k.L / k.tau;
-    },
-  },
-  {
-    id: "resonance",
-    name: "Resonant Frequency",
-    category: "AC",
-    formula: "f₀ = 1 / (2π√(LC))",
-    fields: [
-      { id: "L", label: "Inductance", symbol: "L", unit: "H" },
-      { id: "C", label: "Capacitance", symbol: "C", unit: "F" },
-      { id: "f0", label: "Resonant frequency", symbol: "f₀", unit: "Hz" },
-    ],
-    solvableFor: ["f0", "L", "C"],
-    compute: (k, solveFor) => {
-      if (solveFor === "f0") return 1 / (2 * Math.PI * Math.sqrt(k.L * k.C));
-      if (solveFor === "L") return 1 / (k.C * Math.pow(2 * Math.PI * k.f0, 2));
-      return 1 / (k.L * Math.pow(2 * Math.PI * k.f0, 2));
-    },
-  },
-  {
-    id: "power-factor",
-    name: "Power Factor",
-    category: "Power",
-    formula: "PF = P / S",
-    fields: [
-      { id: "P", label: "Real power", symbol: "P", unit: "W" },
-      { id: "S", label: "Apparent power", symbol: "S", unit: "VA" },
-      { id: "PF", label: "Power factor", symbol: "PF", unit: "" },
-    ],
-    solvableFor: ["PF", "P", "S"],
-    compute: (k, solveFor) => {
-      if (solveFor === "PF") return k.P / k.S;
-      if (solveFor === "P") return k.PF * k.S;
-      return k.P / k.PF;
-    },
-  },
-  {
-    id: "three-phase-power",
-    name: "Three-Phase Power",
-    category: "Power",
-    formula: "P = √3 × V_L × I_L × PF",
-    fields: [
-      { id: "VL", label: "Line voltage", symbol: "V_L", unit: "V" },
-      { id: "IL", label: "Line current", symbol: "I_L", unit: "A" },
-      { id: "PF", label: "Power factor", symbol: "PF", unit: "" },
-      { id: "P", label: "Real power", symbol: "P", unit: "W" },
-    ],
-    solvableFor: ["P", "VL", "IL", "PF"],
-    compute: (k, solveFor) => {
-      const root3 = Math.sqrt(3);
-      if (solveFor === "P") return root3 * k.VL * k.IL * k.PF;
-      if (solveFor === "VL") return k.P / (root3 * k.IL * k.PF);
-      if (solveFor === "IL") return k.P / (root3 * k.VL * k.PF);
-      return k.P / (root3 * k.VL * k.IL);
-    },
-  },
-  {
-    id: "transformer-ratio",
-    name: "Transformer Turns Ratio",
-    category: "Machines",
-    formula: "V1 / V2 = N1 / N2",
-    fields: [
-      { id: "V1", label: "Primary voltage", symbol: "V1", unit: "V" },
-      { id: "V2", label: "Secondary voltage", symbol: "V2", unit: "V" },
-      { id: "N1", label: "Primary turns", symbol: "N1", unit: "turns" },
-      { id: "N2", label: "Secondary turns", symbol: "N2", unit: "turns" },
-    ],
-    solvableFor: ["V1", "V2", "N1", "N2"],
-    compute: (k, solveFor) => {
-      if (solveFor === "V1") return (k.V2 * k.N1) / k.N2;
-      if (solveFor === "V2") return (k.V1 * k.N2) / k.N1;
-      if (solveFor === "N1") return (k.V1 * k.N2) / k.V2;
-      return (k.V2 * k.N1) / k.V1;
-    },
-  },
-];
+/**
+ * Implicit × only between complete values — never between digits of one number.
+ * Examples: 2π → 2×π, 2sin( → 2×sin(, )( → )×(
+ * Not: sin(9 + 0 → sin(90
+ */
+function shouldInsertImplicitMultiply(current: string, token: string): boolean {
+  if (!current || !endsWithValueAtom(current)) return false;
+
+  const last = current[current.length - 1];
+
+  // Digit / decimal keys continue the current number (or start an arg after "(").
+  if (/^[0-9.]$/.test(token)) {
+    //  π2, e2, )2  → multiply;  92, 9.2, sin(2  → append
+    return /[)πe]/.test(last);
+  }
+
+  // Function / constant / group after a value: 2sin(, 2π, 2(, )sin(
+  if (token === "(") return true;
+  if (token === "π" || token === "e") return true;
+  if (token.startsWith("√")) return true;
+  if (/^[a-zA-Z]/.test(token)) return true;
+
+  return false;
+}
+
+/**
+ * Append a calculator key token to the current display expression.
+ * Replaces the placeholder "0" for digits, constants, and functions so
+ * pressing sin does not produce "0sin(".
+ * Inserts × only between separate values (never between digits).
+ */
+export function appendCalculatorToken(current: string, token: string): string {
+  if (current === "0" && replacesLeadingZero(token)) {
+    return token;
+  }
+  if (shouldInsertImplicitMultiply(current, token)) {
+    return `${current}×${token}`;
+  }
+  return current + token;
+}
+
+/* Engineering calculators - single source of truth */
+export {
+  CALCULATORS,
+  type CalcField,
+  type CalculatorDef,
+} from "../../data/engineeringCalculators";

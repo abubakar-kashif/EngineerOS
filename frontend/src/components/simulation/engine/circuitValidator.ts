@@ -22,6 +22,8 @@ import {
   hasGround,
 } from './circuitGraphBuilder';
 
+import { buildNetlist, sourceLoopIsWired } from './netlist';
+
 import type {
   ValidationResult,
   SimulationError,
@@ -31,6 +33,8 @@ import {
   createErrorWithDetails,
   ErrorMessages,
 } from './errors';
+
+import type { GraphBuilderResult } from './circuitGraphBuilder';
 
 export interface ValidatorOptions {
   strictMode?: boolean;
@@ -337,7 +341,7 @@ function checkLEDCurrentLimit(circuit: CircuitDefinition, led: Component): boole
 
 function validateElectricalRules(
   circuit: CircuitDefinition,
-  graphResult: { nodes: any[]; errors: string[] },
+  graphResult: GraphBuilderResult,
   errors: SimulationError[],
   warnings: SimulationError[]
 ): void {
@@ -369,6 +373,7 @@ function validateElectricalRules(
   }
 
   validateSources(circuit, errors, warnings);
+  validateSourceTopology(circuit, graphResult, errors);
 
   for (const error of graphResult.errors) {
     warnings.push(createErrorWithDetails('DANGLING_TERMINAL',
@@ -417,5 +422,39 @@ function validateSources(
         }
       ));
     }
+  }
+}
+
+function validateSourceTopology(
+  circuit: CircuitDefinition,
+  graphResult: GraphBuilderResult,
+  errors: SimulationError[],
+): void {
+  const sources = circuit.components.filter(
+    (c) => c.type === 'voltage_source' || c.type === 'current_source',
+  );
+  if (sources.length === 0) return;
+  if (!hasGround(graphResult.nodes)) return;
+
+  const netlist = buildNetlist(circuit, graphResult.nodes);
+  const loop = sourceLoopIsWired(netlist);
+  if (loop.shorted) {
+    errors.push(createErrorWithDetails('SHORT_CIRCUIT',
+      `Short circuit: source ${loop.sourceId} has both terminals on the same electrical net`,
+      {
+        affectedComponents: loop.sourceId ? [loop.sourceId] : undefined,
+        suggestedFix: 'Remove the short across the source. Crossing wires are not a connection unless you place a junction.',
+      }
+    ));
+    return;
+  }
+  if (!loop.wired) {
+    errors.push(createErrorWithDetails('OPEN_CIRCUIT',
+      `Open circuit: source ${loop.sourceId ?? sources[0].id} has no wired loop through other components`,
+      {
+        affectedComponents: loop.sourceId ? [loop.sourceId] : sources.map((s) => s.id),
+        suggestedFix: 'Connect both source terminals into a closed loop (wire the negative terminal to ground).',
+      }
+    ));
   }
 }

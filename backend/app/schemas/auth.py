@@ -65,6 +65,13 @@ class ResetPasswordRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     email: str | None = Field(default=None, max_length=320)
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str | None) -> str | None:
+        if value is None or value.strip() == "":
+            return None
+        return validate_email(value)
+
 
 class MessageResponse(BaseModel):
     message: str
@@ -74,9 +81,9 @@ class MessageResponse(BaseModel):
 class AuthResponse(BaseModel):
     """Register/login response.
 
-    `dev_code` carries the email-verification code in development (DEBUG)
-    mode only, because no mail server is wired up yet. It is never included
-    in production responses.
+    `dev_code` carries the email-verification or reset code in development
+    (DEBUG) builds when console delivery is used. It is never included when
+    DEBUG is false.
     """
 
     user: UserResponse

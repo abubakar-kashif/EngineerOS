@@ -13,6 +13,11 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+backend/.env
+frontend/.env
+
+# Local Phase 14 helper scripts (may print mailbox codes; never commit)
+backend/_p14_*
 
 
 # ==========================================

@@ -1,5 +1,4 @@
 import { apiRequest } from "../api";
-import { mockExperiments } from "../../data/mockExperiments";
 import type {
   Report,
   ReportCalculatedRow,
@@ -40,8 +39,8 @@ interface CreateReportRequest {
   conclusion: string;
 }
 
-function experimentTitle(experimentId: string): string {
-  return mockExperiments.find((e) => e.id === experimentId)?.title ?? experimentId;
+function experimentTitle(experimentId: string, apiTitle?: string | null): string {
+  return apiTitle?.trim() || experimentId;
 }
 
 function mapApiStatus(status: string): ReportStatus {
@@ -63,7 +62,7 @@ function normalizeApiReport(raw: ApiReport): Report {
   return {
     id: String(raw.id),
     experiment_id: raw.experiment_id,
-    experiment_title: raw.experiment_title || experimentTitle(raw.experiment_id),
+    experiment_title: raw.experiment_title || experimentTitle(raw.experiment_id, raw.experiment_title),
     student_name: raw.student_name ?? null,
     title: raw.title,
     type: "Lab Report",

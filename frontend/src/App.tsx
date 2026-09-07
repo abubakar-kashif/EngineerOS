@@ -7,11 +7,11 @@ import ToastProvider from "./components/ui/ToastProvider";
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <ToastProvider>
+      <ToastProvider>
+        <AuthProvider>
           <AppRoutes />
-        </ToastProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

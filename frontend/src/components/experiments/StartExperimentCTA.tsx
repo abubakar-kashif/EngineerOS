@@ -17,7 +17,7 @@ function StartExperimentCTA({ experimentId }: StartExperimentCTAProps) {
           run simulations, and validate your understanding.
         </p>
         <Button
-          to={`/experiments/${experimentId}/workspace`}
+          to={`/simulation?experiment=${encodeURIComponent(experimentId)}`}
           variant="primary"
           size="lg"
         >

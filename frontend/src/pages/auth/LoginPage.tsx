@@ -2,6 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { resendVerification } from "../../services/authService";
+import { ApiError } from "../../services/api";
 import EngineerOSMark from "../../components/branding/EngineerOSMark";
 
 function LoginPage() {
@@ -36,6 +38,16 @@ function LoginPage() {
       await login({ email, password });
       navigate(from, { replace: true });
     } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        const unverifiedEmail = email.trim().toLowerCase();
+        try {
+          await resendVerification(unverifiedEmail);
+        } catch {
+          // Cooldown or delivery errors still send the user to enter a code.
+        }
+        navigate("/verify", { replace: true, state: { email: unverifiedEmail } });
+        return;
+      }
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setLoading(false);
@@ -51,7 +63,9 @@ function LoginPage() {
         </div>
 
         <h1 className="auth-title">Welcome back</h1>
-        <p className="auth-subtitle">Continue your engineering journey</p>
+        <p className="auth-subtitle">
+          Sign in with your verified email. Unverified accounts go to email verification.
+        </p>
 
         {error && (
           <div className="auth-error" role="alert">
@@ -118,10 +132,6 @@ function LoginPage() {
           <Link to="/register" className="auth-link">Create one</Link>
         </p>
       </div>
-
-      <p className="auth-dev-notice">
-        Development authentication — not for production use.
-      </p>
     </div>
   );
 }

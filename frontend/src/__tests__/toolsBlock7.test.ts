@@ -1,0 +1,276 @@
+/**
+ * Block 7 — unit converter, scientific calculator, engineering calculators.
+ */
+import { describe, expect, it } from "vitest";
+import {
+  appendCalculatorToken,
+  convertUnit,
+  evaluateExpression,
+  numberToExpression,
+} from "../services/tools/toolsService";
+import { CALCULATORS } from "../data/engineeringCalculators";
+
+describe("Unit converter (both directions)", () => {
+  const cases: Array<{
+    category: string;
+    from: string;
+    to: string;
+    value: number;
+    expected: number;
+  }> = [
+    { category: "length", from: "m", to: "cm", value: 1, expected: 100 },
+    { category: "voltage", from: "v", to: "mv", value: 1, expected: 1000 },
+    { category: "current", from: "a", to: "ma", value: 1, expected: 1000 },
+    { category: "resistance", from: "kohm", to: "ohm", value: 1, expected: 1000 },
+    { category: "power", from: "kw", to: "w", value: 1, expected: 1000 },
+    { category: "energy", from: "kwh", to: "j", value: 1, expected: 3_600_000 },
+    { category: "frequency", from: "meghz", to: "hz", value: 1, expected: 1_000_000 },
+    { category: "capacitance", from: "uf", to: "f", value: 1, expected: 1e-6 },
+    { category: "inductance", from: "mh", to: "h", value: 1, expected: 0.001 },
+    { category: "temperature", from: "c", to: "f", value: 0, expected: 32 },
+    { category: "temperature", from: "c", to: "k", value: 0, expected: 273.15 },
+    { category: "time", from: "h", to: "s", value: 1, expected: 3600 },
+  ];
+
+  it.each(cases)("$value $from → $expected $to", ({ category, from, to, value, expected }) => {
+    expect(convertUnit(value, category, from, to)).toBeCloseTo(expected, 8);
+    expect(convertUnit(expected, category, to, from)).toBeCloseTo(value, 8);
+  });
+
+  it("rejects mixing incompatible categories", () => {
+    expect(() => convertUnit(1, "length", "m", "v")).toThrow(/incompatible/i);
+    expect(() => convertUnit(1, "voltage", "v", "ohm")).toThrow(/incompatible/i);
+    expect(() => convertUnit(1, "capacitance", "f", "h")).toThrow(/incompatible/i);
+  });
+
+  it("handles decimals, zero, negatives, and extreme magnitudes", () => {
+    expect(convertUnit(0, "length", "m", "cm")).toBe(0);
+    expect(convertUnit(2.5, "voltage", "v", "mv")).toBeCloseTo(2500, 8);
+    expect(convertUnit(-12, "voltage", "v", "mv")).toBeCloseTo(-12000, 8);
+    expect(convertUnit(1e-9, "current", "a", "ua")).toBeCloseTo(0.001, 8);
+    expect(convertUnit(1e6, "resistance", "ohm", "megohm")).toBeCloseTo(1, 8);
+    expect(convertUnit(-40, "temperature", "c", "f")).toBeCloseTo(-40, 8);
+  });
+});
+
+describe("Scientific calculator", () => {
+  it("evaluates arithmetic and functions", () => {
+    expect(evaluateExpression("2 + 3")).toBe(5);
+    expect(evaluateExpression("10 / 2")).toBe(5);
+    expect(evaluateExpression("2^3")).toBe(8);
+    expect(evaluateExpression("sqrt(16)")).toBe(4);
+    expect(evaluateExpression("abs(-7)")).toBe(7);
+    expect(evaluateExpression("2 + 3 * 4")).toBe(14);
+    expect(evaluateExpression("(2 + 3) * 4")).toBe(20);
+    expect(evaluateExpression("sin(90)", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("cos(0)", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("tan(45)", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("sin(pi/2)", "rad")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("ln(e)")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("log(100)")).toBeCloseTo(2, 10);
+    expect(evaluateExpression("-3 + 5")).toBe(2);
+    expect(evaluateExpression("-2^2")).toBe(-4);
+    expect(evaluateExpression("(-2)^2")).toBe(4);
+    expect(evaluateExpression("1e-10")).toBeCloseTo(1e-10, 20);
+    expect(evaluateExpression("1e-10+1")).toBeCloseTo(1 + 1e-10, 12);
+    expect(evaluateExpression("3e+2")).toBe(300);
+    expect(evaluateExpression("cos(90)", "deg")).toBe(0);
+    expect(evaluateExpression("pi", "rad")).toBeCloseTo(Math.PI, 10);
+  });
+
+  it("throws structured errors for invalid input", () => {
+    expect(() => evaluateExpression("")).toThrow(/empty/i);
+    expect(() => evaluateExpression("1 / 0")).toThrow(/division by zero/i);
+    expect(() => evaluateExpression("foo(1)")).toThrow(/unknown function/i);
+    expect(() => evaluateExpression("sqrt(-1)")).toThrow(/negative sqrt/i);
+    expect(() => evaluateExpression("log(0)")).toThrow(/invalid log/i);
+    expect(() => evaluateExpression("ln(-2)")).toThrow(/invalid log/i);
+    expect(() => evaluateExpression("sin(")).toThrow(/invalid expression/i);
+    expect(() => evaluateExpression(")")).toThrow(/unmatched parentheses/i);
+    expect(() => evaluateExpression("tan(90)", "deg")).toThrow(/invalid domain/i);
+  });
+
+  it("replaces leading zero when starting a function or constant", () => {
+    expect(appendCalculatorToken("0", "sin(")).toBe("sin(");
+    expect(appendCalculatorToken("0", "cos(")).toBe("cos(");
+    expect(appendCalculatorToken("0", "tan(")).toBe("tan(");
+    expect(appendCalculatorToken("0", "√(")).toBe("√(");
+    expect(appendCalculatorToken("0", "abs(")).toBe("abs(");
+    expect(appendCalculatorToken("0", "log(")).toBe("log(");
+    expect(appendCalculatorToken("0", "ln(")).toBe("ln(");
+    expect(appendCalculatorToken("0", "π")).toBe("π");
+    expect(appendCalculatorToken("0", "e")).toBe("e");
+    expect(appendCalculatorToken("0", "(")).toBe("(");
+    expect(appendCalculatorToken("0", "9")).toBe("9");
+    // Operators / square keep the zero as the left operand
+    expect(appendCalculatorToken("0", "+")).toBe("0+");
+    expect(appendCalculatorToken("0", "^2")).toBe("0^2");
+    // Implicit multiply between values — never between digits
+    expect(appendCalculatorToken("12", "sin(")).toBe("12×sin(");
+    expect(appendCalculatorToken("2", "π")).toBe("2×π");
+    expect(appendCalculatorToken("sin(9", "0")).toBe("sin(90");
+    expect(appendCalculatorToken("sin(90", "0")).toBe("sin(900");
+    expect(appendCalculatorToken("3", ".")).toBe("3.");
+    expect(appendCalculatorToken("3.", "1")).toBe("3.1");
+    expect(appendCalculatorToken("π", "2")).toBe("π×2");
+    expect(appendCalculatorToken(")", "sin(")).toBe(")×sin(");
+  });
+
+  it("builds multi-digit function args digit-by-digit like a real keypad", () => {
+    let display = "0";
+    for (const key of ["sin(", "9", "0"]) {
+      display = appendCalculatorToken(display, key);
+    }
+    expect(display).toBe("sin(90");
+    expect(evaluateExpression(display, "deg")).toBeCloseTo(1, 10);
+
+    display = "0";
+    for (const key of ["√(", "1", "6"]) {
+      display = appendCalculatorToken(display, key);
+    }
+    expect(display).toBe("√(16");
+    expect(evaluateExpression(display)).toBe(4);
+
+    display = "0";
+    for (const key of ["log(", "1", "0", "0"]) {
+      display = appendCalculatorToken(display, key);
+    }
+    expect(display).toBe("log(100");
+    expect(evaluateExpression(display)).toBeCloseTo(2, 10);
+
+    display = "0";
+    for (const key of ["abs(", "−", "7", ")"]) {
+      display = appendCalculatorToken(display, key);
+    }
+    expect(display).toBe("abs(−7)");
+    expect(evaluateExpression(display)).toBe(7);
+  });
+
+  it("evaluates keypad-style scientific sequences (including missing ')')", () => {
+    expect(evaluateExpression("sin(90", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("cos(0", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("tan(45", "deg")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("log(100")).toBeCloseTo(2, 10);
+    expect(evaluateExpression("ln(e")).toBeCloseTo(1, 10);
+    expect(evaluateExpression("√(16")).toBeCloseTo(4, 10);
+    expect(evaluateExpression("π")).toBeCloseTo(Math.PI, 10);
+    expect(evaluateExpression("e")).toBeCloseTo(Math.E, 10);
+    expect(evaluateExpression("2π")).toBeCloseTo(2 * Math.PI, 10);
+    expect(evaluateExpression("2×sin(30)", "deg")).toBeCloseTo(1, 10);
+
+    const sinExpr = appendCalculatorToken(
+      appendCalculatorToken(appendCalculatorToken("0", "sin("), "90"),
+      ")",
+    );
+    expect(sinExpr).toBe("sin(90)");
+    expect(evaluateExpression(sinExpr, "deg")).toBeCloseTo(1, 10);
+
+    // sin → 90 → = without pressing )
+    const openSin = appendCalculatorToken(appendCalculatorToken("0", "sin("), "90");
+    expect(openSin).toBe("sin(90");
+    expect(evaluateExpression(openSin, "deg")).toBeCloseTo(1, 10);
+  });
+});
+
+describe("Engineering calculators — all solve directions", () => {
+  const required = [
+    "ohms-law",
+    "voltage-divider",
+    "current-divider",
+    "power",
+    "energy",
+    "rc-time-constant",
+    "rl-time-constant",
+    "resonance",
+    "power-factor",
+    "three-phase-power",
+  ];
+
+  it("exposes every required calculator", () => {
+    for (const id of required) {
+      expect(CALCULATORS.find((c) => c.id === id)).toBeTruthy();
+    }
+  });
+
+  it("Ohm's Law all directions", () => {
+    const calc = CALCULATORS.find((c) => c.id === "ohms-law")!;
+    expect(calc.compute({ I: 0.01, R: 1000 }, "V")).toBeCloseTo(10);
+    expect(calc.compute({ V: 10, R: 1000 }, "I")).toBeCloseTo(0.01);
+    expect(calc.compute({ V: 10, I: 0.01 }, "R")).toBeCloseTo(1000);
+  });
+
+  it("Voltage divider all directions", () => {
+    const calc = CALCULATORS.find((c) => c.id === "voltage-divider")!;
+    expect(calc.compute({ Vin: 12, R1: 1000, R2: 2000 }, "Vout")).toBeCloseTo(8);
+    expect(calc.compute({ Vout: 8, R1: 1000, R2: 2000 }, "Vin")).toBeCloseTo(12);
+    expect(calc.compute({ Vin: 12, Vout: 8, R2: 2000 }, "R1")).toBeCloseTo(1000);
+    expect(calc.compute({ Vin: 12, Vout: 8, R1: 1000 }, "R2")).toBeCloseTo(2000);
+  });
+
+  it("Current divider all directions", () => {
+    const calc = CALCULATORS.find((c) => c.id === "current-divider")!;
+    // I1 = Itotal * R2 / (R1+R2)
+    expect(calc.compute({ Itotal: 0.03, R1: 1000, R2: 2000 }, "I1")).toBeCloseTo(0.02);
+    expect(calc.compute({ I1: 0.02, R1: 1000, R2: 2000 }, "Itotal")).toBeCloseTo(0.03);
+    expect(calc.compute({ Itotal: 0.03, I1: 0.02, R1: 1000 }, "R2")).toBeCloseTo(2000);
+    expect(calc.compute({ Itotal: 0.03, I1: 0.02, R2: 2000 }, "R1")).toBeCloseTo(1000);
+  });
+
+  it("Power / Energy / RC / RL / Resonance / PF / 3-phase one solve each direction", () => {
+    const power = CALCULATORS.find((c) => c.id === "power")!;
+    expect(power.compute({ V: 10, I: 2 }, "P")).toBeCloseTo(20);
+    expect(power.compute({ P: 20, I: 2 }, "V")).toBeCloseTo(10);
+    expect(power.compute({ P: 20, V: 10 }, "I")).toBeCloseTo(2);
+
+    const energy = CALCULATORS.find((c) => c.id === "energy")!;
+    expect(energy.compute({ P: 10, t: 5 }, "E")).toBeCloseTo(50);
+    expect(energy.compute({ E: 50, t: 5 }, "P")).toBeCloseTo(10);
+    expect(energy.compute({ E: 50, P: 10 }, "t")).toBeCloseTo(5);
+
+    const rc = CALCULATORS.find((c) => c.id === "rc-time-constant")!;
+    expect(rc.compute({ R: 1000, C: 1e-6 }, "tau")).toBeCloseTo(0.001);
+    expect(rc.compute({ tau: 0.001, C: 1e-6 }, "R")).toBeCloseTo(1000);
+    expect(rc.compute({ tau: 0.001, R: 1000 }, "C")).toBeCloseTo(1e-6);
+
+    const rl = CALCULATORS.find((c) => c.id === "rl-time-constant")!;
+    expect(rl.compute({ L: 0.01, R: 10 }, "tau")).toBeCloseTo(0.001);
+    expect(rl.compute({ tau: 0.001, R: 10 }, "L")).toBeCloseTo(0.01);
+    expect(rl.compute({ tau: 0.001, L: 0.01 }, "R")).toBeCloseTo(10);
+
+    const res = CALCULATORS.find((c) => c.id === "resonance")!;
+    const f0 = res.compute({ L: 1e-3, C: 1e-6 }, "f0");
+    expect(f0).toBeCloseTo(1 / (2 * Math.PI * Math.sqrt(1e-3 * 1e-6)), 6);
+    expect(res.compute({ f0, C: 1e-6 }, "L")).toBeCloseTo(1e-3, 6);
+    expect(res.compute({ f0, L: 1e-3 }, "C")).toBeCloseTo(1e-6, 6);
+
+    const pf = CALCULATORS.find((c) => c.id === "power-factor")!;
+    expect(pf.compute({ P: 80, S: 100 }, "PF")).toBeCloseTo(0.8);
+    expect(pf.compute({ PF: 0.8, S: 100 }, "P")).toBeCloseTo(80);
+    expect(pf.compute({ PF: 0.8, P: 80 }, "S")).toBeCloseTo(100);
+
+    const tp = CALCULATORS.find((c) => c.id === "three-phase-power")!;
+    // P = √3 * VL * IL * PF
+    const P = tp.compute({ VL: 400, IL: 10, PF: 0.8 }, "P");
+    expect(P).toBeCloseTo(Math.sqrt(3) * 400 * 10 * 0.8, 6);
+    expect(tp.compute({ P, IL: 10, PF: 0.8 }, "VL")).toBeCloseTo(400, 4);
+    expect(tp.compute({ P, VL: 400, PF: 0.8 }, "IL")).toBeCloseTo(10, 4);
+    expect(tp.compute({ P, VL: 400, IL: 10 }, "PF")).toBeCloseTo(0.8, 4);
+  });
+
+  it("rejects division by zero instead of returning Infinity", () => {
+    const ohms = CALCULATORS.find((c) => c.id === "ohms-law")!;
+    expect(() => ohms.compute({ V: 10, R: 0 }, "I")).toThrow(/zero/i);
+    expect(() => ohms.compute({ V: 10, I: 0 }, "R")).toThrow(/zero/i);
+    const power = CALCULATORS.find((c) => c.id === "power")!;
+    expect(() => power.compute({ P: 10, I: 0 }, "V")).toThrow(/zero/i);
+  });
+});
+
+describe("numberToExpression (post-equals continuation)", () => {
+  it("round-trips tiny and huge values through the safe evaluator", () => {
+    const tiny = numberToExpression(1e-10);
+    expect(evaluateExpression(`${tiny}+1`)).toBeCloseTo(1 + 1e-10, 12);
+    const huge = numberToExpression(1e21);
+    expect(evaluateExpression(`${huge}/1e20`)).toBeCloseTo(10, 8);
+  });
+});

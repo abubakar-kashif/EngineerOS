@@ -16,13 +16,23 @@ from app.schemas.auth import (
     VerifyEmailRequest,
 )
 from app.services import auth_service, user_service
+from app.services.email_service import is_console_delivery
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 
 def _dev_code(code: str | None) -> str | None:
-    """Codes are only exposed in DEBUG builds (no mail server in dev)."""
-    return code if settings.DEBUG else None
+    """Expose codes in API responses only for explicit development console delivery.
+
+    Production (DEBUG=false) and SMTP delivery never return codes to the client.
+    """
+    if not code:
+        return None
+    if not settings.DEBUG:
+        return None
+    if not is_console_delivery():
+        return None
+    return code
 
 
 @router.post("/register", response_model=AuthResponse, status_code=201)

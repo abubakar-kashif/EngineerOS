@@ -1,7 +1,9 @@
 # Quiz content is kept separate from the service layer.
 # The seed process imports this bank and inserts it into SQLite.
 
-QUIZ_BANK = {
+from app.data.quiz_bank_extra import merge_quiz_bank
+
+_QUIZ_BANK_BASE = {
     "ohms-law": [
         {"question":"Ohm's law is:", "option_a":"V = IR", "option_b":"V = I/R", "option_c":"V = R/I", "option_d":"V = I + R", "correct_answer":"A", "explanation":"Ohm's law is V = IR."},
         {"question":"12 V across 4 ohm gives current:", "option_a":"48 A", "option_b":"3 A", "option_c":"0.33 A", "option_d":"16 A", "correct_answer":"B", "explanation":"I = V/R = 3 A."},
@@ -423,6 +425,9 @@ QUIZ_BANK = {
         {"question":"The fastest safe first check of a non-working LED branch is to:", "option_a":"Verify LED polarity and the resistor value, then measure branch current", "option_b":"Replace the battery with a higher voltage", "option_c":"Bypass the resistor with a wire", "option_d":"Reverse the supply", "correct_answer":"A", "explanation":"Most LED faults come from wrong polarity or a missing/wrong resistor."},
     ],
 }
+
+# Phase 2: each experiment bank is base (40) + extras (≥15) → typically 55.
+QUIZ_BANK = merge_quiz_bank(_QUIZ_BANK_BASE)
 
 
 def iter_questions():

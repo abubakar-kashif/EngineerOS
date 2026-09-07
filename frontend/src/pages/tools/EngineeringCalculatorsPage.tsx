@@ -137,19 +137,26 @@ function CalculatorDetail({
   const inputFields = calculator.fields.filter((f) => f.id !== solveFor);
   const solveField = calculator.fields.find((f) => f.id === solveFor)!;
 
-  const result = useMemo(() => {
+  const { result, computeError } = useMemo(() => {
     const known: Record<string, number> = {};
     for (const field of inputFields) {
       const raw = values[field.id];
-      if (raw === undefined || raw.trim() === "") return null;
+      if (raw === undefined || raw.trim() === "") {
+        return { result: null as number | null, computeError: null as string | null };
+      }
       const num = Number(raw);
-      if (Number.isNaN(num)) return null;
+      if (Number.isNaN(num)) {
+        return { result: null, computeError: "Enter valid numbers" };
+      }
       known[field.id] = num;
     }
     try {
-      return calculator.compute(known, solveFor);
-    } catch {
-      return null;
+      return { result: calculator.compute(known, solveFor), computeError: null };
+    } catch (err) {
+      return {
+        result: null,
+        computeError: err instanceof Error ? err.message : "Invalid inputs",
+      };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values, solveFor, calculator]);
@@ -217,6 +224,11 @@ function CalculatorDetail({
             {result === null ? "—" : `${formatResult(result)} ${solveField.unit}`}
           </span>
         </div>
+        {computeError && (
+          <p className="ui-field-error" role="alert">
+            {computeError}
+          </p>
+        )}
       </div>
     </div>
   );

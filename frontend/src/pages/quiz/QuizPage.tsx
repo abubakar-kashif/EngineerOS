@@ -21,7 +21,7 @@ import {
   saveQuizResult,
   submitQuiz,
 } from "../../services/quiz/quizService";
-import { mockExperiments } from "../../data/mockExperiments";
+import { getExperiments } from "../../services/experimentService";
 import { QUIZ_ATTEMPT_SIZE } from "../../data/quiz/quizBank";
 import type { Experiment, ExperimentDifficulty } from "../../types/experiment";
 import type { AnswerLetter, Quiz, QuizAnswers } from "../../types/quiz";
@@ -34,12 +34,28 @@ function difficultyVariant(difficulty: ExperimentDifficulty): "success" | "warni
 
 /** Index shown for /quiz without an experiment — lists assessments to start. */
 function QuizIndex() {
-  const quizIds = getSeedQuizIds();
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  const experiments = useMemo(
-    () => mockExperiments.filter((experiment) => quizIds.includes(experiment.id)),
-    [quizIds],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    const ids = getSeedQuizIds();
+    getExperiments()
+      .then((res) => {
+        if (cancelled) return;
+        setExperiments(res.items.filter((experiment) => ids.includes(experiment.id)));
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="page quiz-page">
@@ -49,6 +65,23 @@ function QuizIndex() {
         description={`Pick an experiment to test your understanding. Each check draws a random sample of up to ${QUIZ_ATTEMPT_SIZE} questions from the experiment's bank.`}
       />
 
+      {loading && <QuizSkeleton />}
+      {!loading && error && (
+        <ErrorState
+          title="Unable to load quizzes"
+          description="Could not load the experiment catalog for assessments."
+          retryAction={() => window.location.reload()}
+        />
+      )}
+      {!loading && !error && experiments.length === 0 && (
+        <EmptyState
+          icon={<ClipboardList size={28} />}
+          title="No quizzes available"
+          description="Assessments appear once experiments with quiz banks are published."
+        />
+      )}
+
+      {!loading && !error && experiments.length > 0 && (
       <div className="quiz-index-grid">
         {experiments.map((experiment) => {
           const bankSize = getSeedQuestionCount(experiment.id);
@@ -89,6 +122,7 @@ function QuizIndex() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

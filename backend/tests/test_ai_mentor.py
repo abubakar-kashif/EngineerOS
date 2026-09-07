@@ -78,7 +78,7 @@ class TestPromptBuilder:
         assert builder.ENGINEEROS_RULES is not None
 
     def test_prompt_builder_build_prompt_minimal(self, db_session):
-        from app.services.ai.context_engine import ContextEngine, ContextResult
+        from app.services.ai.context_engine import ContextResult
         builder = PromptBuilder()
         context = ContextResult()
         context.current_message = "What is Ohm's law?"
@@ -86,6 +86,34 @@ class TestPromptBuilder:
         assert "EngineerOS Mentor" in prompt
         assert "GROUNDING RULES" in prompt
         assert "Ohm's law" in prompt
+        assert "GENERAL MENTOR MODE" in prompt
+        assert "simulation is NOT required" in prompt
+        assert "Do not say that you cannot answer because a simulation is missing" in prompt
+
+    def test_general_mentor_messages_include_user_turn(self, db_session):
+        from app.services.ai.context_engine import ContextResult
+        builder = PromptBuilder()
+        context = ContextResult()
+        messages = builder.build_messages(context, "What is Kirchhoff's Current Law?")
+        assert len(messages) == 2
+        assert messages[0].role == "system"
+        assert messages[1].role == "user"
+        assert messages[1].content == "What is Kirchhoff's Current Law?"
+        assert "GENERAL MENTOR MODE" in messages[0].content
+        assert "SIMULATION CONTEXT (authoritative simulator facts)" not in messages[0].content
+
+    def test_simulation_prompt_does_not_enter_general_mode(self, db_session):
+        from app.services.ai.context_engine import ContextResult
+        builder = PromptBuilder()
+        context = ContextResult()
+        context.simulation = {
+            "simulation_run_id": "run-1",
+            "status": "completed",
+            "dc_result": {"success": True, "total_current": 0.01},
+        }
+        prompt = builder.build_prompt(context, "Explain these measurements.")
+        assert "GENERAL MENTOR MODE" not in prompt
+        assert "run-1" in prompt
 
     def test_prompt_builder_build_prompt_with_context(self, db_session):
         from app.services.ai.context_engine import ContextResult

@@ -60,6 +60,7 @@ describe('Circuit Solver', () => {
         connections: [
           { id: 'W1', from: createTerminalId('V1', 'positive'), to: createTerminalId('R1', 'A') },
           { id: 'W2', from: createTerminalId('R1', 'B'), to: createTerminalId('GND1', 'ground') },
+          { id: 'W3', from: createTerminalId('V1', 'negative'), to: createTerminalId('GND1', 'ground') },
         ],
       };
 
@@ -128,6 +129,7 @@ describe('Circuit Solver', () => {
           { id: 'W1', from: createTerminalId('V1', 'positive'), to: createTerminalId('R1', 'A') },
           { id: 'W2', from: createTerminalId('R1', 'B'), to: createTerminalId('R2', 'A') },
           { id: 'W3', from: createTerminalId('R2', 'B'), to: createTerminalId('GND1', 'ground') },
+          { id: 'W4', from: createTerminalId('V1', 'negative'), to: createTerminalId('GND1', 'ground') },
         ],
       };
 
@@ -313,6 +315,7 @@ describe('Circuit Solver', () => {
           { id: 'W2', from: createTerminalId('V1', 'positive'), to: createTerminalId('R2', 'A') },
           { id: 'W3', from: createTerminalId('R1', 'B'), to: createTerminalId('GND1', 'ground') },
           { id: 'W4', from: createTerminalId('R2', 'B'), to: createTerminalId('GND1', 'ground') },
+          { id: 'W5', from: createTerminalId('V1', 'negative'), to: createTerminalId('GND1', 'ground') },
         ],
       };
 

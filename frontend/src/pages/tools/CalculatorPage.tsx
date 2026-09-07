@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import SectionHeading from "../../components/ui/SectionHeading";
 import {
+  appendCalculatorToken,
   evaluateExpression,
   formatResult,
+  numberToExpression,
   type AngleMode,
 } from "../../services/tools/toolsService";
 
@@ -44,6 +46,7 @@ const SCIENTIFIC: KeyDef[] = [
   { label: "cos", value: "cos(", kind: "fn" },
   { label: "tan", value: "tan(", kind: "fn" },
   { label: "√", value: "√(", kind: "fn", ariaLabel: "Square root" },
+  { label: "|x|", value: "abs(", kind: "fn", ariaLabel: "Absolute value" },
   { label: "log", value: "log(", kind: "fn" },
   { label: "ln", value: "ln(", kind: "fn" },
   { label: "π", value: "π", kind: "fn", ariaLabel: "Pi" },
@@ -55,7 +58,7 @@ const OPERATORS = ["+", "−", "×", "÷", "^"];
 
 function CalculatorPage() {
   const [display, setDisplay] = useState("0");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [justEvaluated, setJustEvaluated] = useState(false);
   const [lastValue, setLastValue] = useState<number | null>(null);
   const [mode, setMode] = useState<AngleMode>("deg");
@@ -71,7 +74,7 @@ function CalculatorPage() {
   })();
 
   const appendToken = useCallback((token: string) => {
-    setError(false);
+    setError(null);
 
     // After "=", digits start fresh while operators keep the answer.
     let base = display;
@@ -79,24 +82,24 @@ function CalculatorPage() {
       const isOperator = OPERATORS.includes(token);
       base = isOperator
         ? lastValue !== null && Number.isFinite(lastValue)
-          ? String(lastValue)
+          ? numberToExpression(lastValue)
           : display
         : "";
       setJustEvaluated(false);
     }
 
-    setDisplay(base === "0" && /[0-9.]/.test(token) ? token : base + token);
+    setDisplay(appendCalculatorToken(base, token));
   }, [display, justEvaluated, lastValue]);
 
   const clearAll = useCallback(() => {
     setDisplay("0");
-    setError(false);
+    setError(null);
     setJustEvaluated(false);
     setLastValue(null);
   }, []);
 
   const backspace = useCallback(() => {
-    setError(false);
+    setError(null);
     setJustEvaluated(false);
     setDisplay((current) => {
       if (current.length <= 1) return "0";
@@ -109,11 +112,11 @@ function CalculatorPage() {
     try {
       const value = evaluateExpression(display, mode);
       setLastValue(value);
-      setError(false);
+      setError(null);
       setDisplay(formatResult(value));
       setJustEvaluated(true);
-    } catch {
-      setError(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid expression");
     }
   }, [display, justEvaluated, mode]);
 
@@ -162,13 +165,13 @@ function CalculatorPage() {
       <SectionHeading
         eyebrow="TOOLBOX"
         title="Scientific Calculator"
-        description="Basic arithmetic plus trig, roots, logs and powers. The keyboard works too — Enter evaluates, Escape clears."
+        description="Basic arithmetic plus trig, roots, logs and powers. Press a function, enter the value, then = (closing ) is optional). Enter evaluates, Escape clears."
       />
 
       <div className="calc-shell">
         <div className="calc-display" aria-live="polite">
           <span className={`calc-expression${error ? " calc-expression-error" : ""}`}>
-            {error ? "Error" : display}
+            {error ?? display}
           </span>
           {preview !== null && <span className="calc-preview">= {preview}</span>}
         </div>

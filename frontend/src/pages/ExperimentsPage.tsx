@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Beaker } from "lucide-react";
 import SectionHeading from "../components/ui/SectionHeading";
 import ExperimentCard from "../components/experiments/ExperimentCard";
 import ExperimentFilters, { type SortOption } from "../components/experiments/ExperimentFilters";
 import ExperimentSkeleton from "../components/experiments/ExperimentSkeleton";
-import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import EmptyState from "../components/ui/EmptyState";
+import ErrorState from "../components/ui/ErrorState";
 import type { Experiment, ExperimentDifficulty } from "../types/experiment";
-import { mockExperiments } from "../data/mockExperiments";
 import { getExperiments } from "../services/experimentService";
 import { getStatusMap } from "../services/progressService";
 import { getAuthToken } from "../services/api";
@@ -21,8 +22,8 @@ function ExperimentsPage() {
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  // URL-synced filter state
   const search = searchParams.get("q") ?? "";
   const difficulty = (searchParams.get("difficulty") ?? "All") as "All" | ExperimentDifficulty;
   const status = (searchParams.get("status") ?? "All") as "All" | "not_started" | "in_progress" | "completed";
@@ -49,21 +50,22 @@ function ExperimentsPage() {
         setError(false);
         const response = await getExperiments();
         if (cancelled) return;
-        setExperiments(response.items.length > 0 ? response.items : mockExperiments);
+        setExperiments(response.items);
       } catch {
         if (cancelled) return;
-        setExperiments(mockExperiments);
+        setExperiments([]);
+        setError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    load();
-    return () => { cancelled = true; };
-  }, []);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
-  // Statuses are account-scoped: the signed-in user's server rows, or this
-  // device's local tracking for anonymous visitors.
   const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>(() =>
     getAuthToken() ? {} : getAllProgress(),
   );
@@ -75,10 +77,7 @@ function ExperimentsPage() {
       .then((map) => {
         if (!cancelled) setProgressMap(map);
       })
-      .catch(() => {
-        // Backend unavailable — statuses stay "not started" instead of
-        // showing another session's local history.
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -88,25 +87,18 @@ function ExperimentsPage() {
     const q = search.trim().toLowerCase();
 
     let result = experiments.filter((exp) => {
-      // Text search
       if (q) {
         const haystack = [exp.title, exp.short_description ?? "", exp.description ?? "", exp.category, exp.id].join(" ").toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-
-      // Difficulty filter
       if (difficulty !== "All" && exp.difficulty !== difficulty) return false;
-
-      // Status filter
       if (status !== "All") {
         const expStatus = progressMap[exp.id] ?? "not_started";
         if (expStatus !== status) return false;
       }
-
       return true;
     });
 
-    // Sort
     switch (sort) {
       case "title":
         result = [...result].sort((a, b) => a.title.localeCompare(b.title));
@@ -118,12 +110,13 @@ function ExperimentsPage() {
         result = [...result].sort((a, b) => (DIFFICULTY_ORDER[a.difficulty] ?? 9) - (DIFFICULTY_ORDER[b.difficulty] ?? 9));
         break;
       default:
-        // recommended — keep original order (beginner first from data)
         break;
     }
 
     return result;
   }, [experiments, search, difficulty, status, sort, progressMap]);
+
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   return (
     <div className="page">
@@ -154,27 +147,32 @@ function ExperimentsPage() {
       )}
 
       {!loading && error && (
-        <Card className="exp-error-state">
-          <h3>Unable to load experiments</h3>
-          <p>Something went wrong while loading the experiment library.</p>
-          <div className="exp-error-action">
-            <Button variant="secondary" onClick={() => window.location.reload()}>
-              Try Again
-            </Button>
-          </div>
-        </Card>
+        <ErrorState
+          title="Unable to load experiments"
+          description="Something went wrong while loading the experiment library."
+          retryAction={reload}
+        />
       )}
 
-      {!loading && !error && filtered.length === 0 && (
-        <Card className="exp-empty-state">
-          <h3>No experiments found</h3>
-          <p>We couldn&apos;t find an experiment matching your current search and filters.</p>
-          <div className="exp-empty-action">
+      {!loading && !error && experiments.length === 0 && (
+        <EmptyState
+          icon={<Beaker size={28} />}
+          title="No experiments yet"
+          description="The experiment catalog is empty. Check back after the library is seeded."
+        />
+      )}
+
+      {!loading && !error && experiments.length > 0 && filtered.length === 0 && (
+        <EmptyState
+          icon={<Beaker size={28} />}
+          title="No experiments found"
+          description="We couldn't find an experiment matching your current search and filters."
+          action={
             <Button variant="secondary" onClick={() => setSearchParams({})}>
               Clear Filters
             </Button>
-          </div>
-        </Card>
+          }
+        />
       )}
 
       {!loading && !error && filtered.length > 0 && (

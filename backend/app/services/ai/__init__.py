@@ -3,7 +3,7 @@ from .types import (
     StreamEvent, StreamEventType, StreamErrorType
 )
 from .provider import AIProvider
-from .providers.openai_provider import OpenAIProvider
+from .providers.gemini_provider import GeminiProvider
 from .provider_factory import ProviderFactory
 from .mentor_service import MentorService
 from .context_engine import ContextEngine, ContextResult
@@ -56,7 +56,7 @@ __all__ = [
     "StreamEvent",
     "StreamEventType",
     "StreamErrorType",
-    "OpenAIProvider",
+    "GeminiProvider",
     "ProviderFactory",
     "MentorService",
     "ContextEngine",

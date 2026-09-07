@@ -12,6 +12,12 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* Layout (shared across pages — media queries override these) */
+  --layout-sidebar-width: 236px;
+  --layout-navbar-height: 62px;
+  --layout-page-pad-x: 42px;
+  --layout-page-pad-y: 34px;
+
   /* Spacing */
   --space-xs: 4px;
   --space-sm: 8px;

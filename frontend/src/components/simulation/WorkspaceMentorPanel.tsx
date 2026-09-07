@@ -1,0 +1,461 @@
+/**
+ * Compact AI Mentor rail for the simulation lab closed loop.
+ * Always sends the latest simulation_run_id; never invents circuit state.
+ */
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Bot, ExternalLink, TriangleAlert, X } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+import * as mentorService from "../../services/mentor/mentorService";
+import ChatComposer from "../chat/ChatComposer";
+import MarkdownLite from "../chat/MarkdownLite";
+import TypingIndicator from "../chat/TypingIndicator";
+import type { ChatMessage } from "../../types/chat";
+import type { SimulationResult } from "./engine";
+import type { CircuitDefinition } from "./engine/circuitGraph";
+import { compactCircuitForMentor } from "./engine/electricalSnapshot";
+
+interface WorkspaceMentorPanelProps {
+  experimentId: string | null;
+  experimentTitle: string | null;
+  simResult: SimulationResult | null;
+  /** Fresh SimulationRun id after each solve — authoritative Mentor context. */
+  simulationRunId?: string | null;
+  /** Live canvas topology; sent with every ask so Mentor sees the current drawing. */
+  liveCircuit?: CircuitDefinition | null;
+  /** Close the mentor rail to enlarge the canvas. */
+  onClose?: () => void;
+}
+
+function formatCurrent(a: number): string {
+  if (Math.abs(a) < 1) return `${(a * 1000).toFixed(2)} mA`;
+  return `${a.toFixed(4)} A`;
+}
+
+function WorkspaceMentorPanel({
+  experimentId,
+  experimentTitle,
+  simResult,
+  simulationRunId = null,
+  liveCircuit = null,
+  onClose,
+}: WorkspaceMentorPanelProps) {
+  const { user } = useAuth();
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [streamingText, setStreamingText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [contextFlash, setContextFlash] = useState(false);
+  const cancelRef = useRef<(() => void) | null>(null);
+  const lastFailedRef = useRef<string | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
+  // Always read latest IDs at send-time (avoid stale closures mid-stream)
+  const runIdRef = useRef(simulationRunId);
+  const experimentIdRef = useRef(experimentId);
+  const simResultRef = useRef(simResult);
+  const liveCircuitRef = useRef(liveCircuit);
+
+  const storageKey = `engineeros.sim-mentor.conversation:${experimentId ?? "lab"}`;
+
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
+  useEffect(() => {
+    runIdRef.current = simulationRunId;
+  }, [simulationRunId]);
+  useEffect(() => {
+    experimentIdRef.current = experimentId;
+  }, [experimentId]);
+  useEffect(() => {
+    simResultRef.current = simResult;
+  }, [simResult]);
+  useEffect(() => {
+    liveCircuitRef.current = liveCircuit;
+  }, [liveCircuit]);
+
+  // Reload persisted Simulation Mentor thread when the panel remounts.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const savedId = sessionStorage.getItem(storageKey);
+    if (!savedId) return undefined;
+
+    void mentorService.getConversation(savedId).then((conv) => {
+      if (cancelled || !conv) return;
+      setConversationId(conv.id);
+      setMessages(conv.messages);
+    }).catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, storageKey]);
+
+  // Flash when a new authoritative run arrives (closed-loop freshness)
+  const contextKey = `${simulationRunId ?? ""}|${simResult?.status ?? ""}|${simResult?.measurements?.totalCurrent ?? ""}`;
+  const [flashKey, setFlashKey] = useState<string | null>(null);
+  if ((simulationRunId || simResult) && contextKey !== flashKey) {
+    setFlashKey(contextKey);
+    setContextFlash(true);
+  }
+
+  useEffect(() => {
+    if (!contextFlash) return;
+    const t = window.setTimeout(() => setContextFlash(false), 2200);
+    return () => window.clearTimeout(t);
+  }, [contextFlash, flashKey]);
+
+  const mentorLink = (() => {
+    const params = new URLSearchParams();
+    if (experimentId) params.set("experiment", experimentId);
+    params.set("stage", "simulation");
+    if (simResult?.status) params.set("sim", simResult.status);
+    if (simulationRunId) params.set("simulation", simulationRunId);
+    const qs = params.toString();
+    return qs ? `/mentor?${qs}` : "/mentor";
+  })();
+
+  const contextHint = useMemo(() => {
+    if (!simResult) {
+      return experimentTitle
+        ? `Guidance for ${experimentTitle}. Ask before you build — Mentor will not invent your circuit.`
+        : "Ask how to build (e.g. KVL). Mentor guides; only the simulator validates.";
+    }
+    if (simResult.status === "invalid") {
+      const code = simResult.validation?.errors?.[0]?.code;
+      return code
+        ? `Latest simulator error: ${code}. Ask what went wrong.`
+        : "Simulator reported an invalid circuit. Ask for an explanation.";
+    }
+    if (simResult.status === "completed" && simResult.measurements) {
+      const m = simResult.measurements;
+      return `Latest run: I=${formatCurrent(m.totalCurrent)}, V=${m.totalVoltage.toFixed(2)} V, Req=${m.equivalentResistance.toFixed(1)} Ω`;
+    }
+    if (simResult.status === "completed") {
+      return "Simulation completed. Ask about the authoritative results.";
+    }
+    return `Simulation status: ${simResult.status}.`;
+  }, [experimentTitle, simResult]);
+
+  const factChips = useMemo(() => {
+    if (!simResult?.measurements || simResult.status !== "completed") {
+      if (simResult?.status === "invalid") {
+        const err = simResult.validation?.errors?.[0];
+        return err ? [`${err.code}`] : [];
+      }
+      return [];
+    }
+    const chips: string[] = [];
+    const m = simResult.measurements;
+    chips.push(`I ${formatCurrent(m.totalCurrent)}`);
+    for (const c of m.componentMeasurements) {
+      if (c.componentId.startsWith("__")) continue;
+      if (["resistor", "diode", "led"].includes(c.type) || c.type === "resistor") {
+        chips.push(`${c.componentId} ${c.voltage.toFixed(2)} V`);
+      }
+    }
+    return chips.slice(0, 6);
+  }, [simResult]);
+
+  const suggestions = useMemo(() => {
+    if (!simResult) {
+      if (experimentTitle?.toLowerCase().includes("kvl") || experimentId === "kvl") {
+        return [
+          "I want to build KVL. What components do I need?",
+          "What does a loop mean, and what should I measure?",
+        ];
+      }
+      return [
+        experimentTitle
+          ? `How should I build this circuit?`
+          : "How should I build this circuit?",
+        "How should I wire a series loop with a source, resistor, and ground?",
+      ];
+    }
+    if (simResult.status === "invalid") {
+      return [
+        "Why isn't my circuit working?",
+        "What's wrong with my wiring?",
+        "How do I fix this circuit?",
+      ];
+    }
+    if (simResult.status === "completed") {
+      return [
+        "Explain what is happening in my circuit.",
+        "Why is my voltmeter showing this value?",
+        "Why is my current zero?",
+      ];
+    }
+    return ["Explain the latest simulation result."];
+  }, [simResult, experimentTitle, experimentId]);
+
+  async function handleSend(options: { emitUserMessage?: boolean; text?: string } = {}) {
+    const text = (options.text ?? draft).trim();
+    if (!text || busy || !user) return;
+
+    const emitUser = options.emitUserMessage !== false;
+    const pendingId = `local-user-${Date.now()}`;
+
+    setError(null);
+    setBusy(true);
+    setStreamingText(null);
+    setDraft("");
+    lastFailedRef.current = null;
+
+    if (emitUser) {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "user" && last.content === text) return prev;
+        return [
+          ...prev,
+          {
+            id: pendingId,
+            conversation_id: conversationId ?? "pending",
+            role: "user",
+            content: text,
+            created_at: new Date().toISOString(),
+            status: "complete",
+            feedback: null,
+          },
+        ];
+      });
+    }
+
+    let activeId = conversationId;
+    if (!activeId) {
+      try {
+        const conv = await mentorService.createConversation(experimentIdRef.current);
+        activeId = conv.id;
+        setConversationId(conv.id);
+        sessionStorage.setItem(storageKey, conv.id);
+      } catch {
+        setBusy(false);
+        setError("Unable to start Mentor conversation.");
+        setDraft(text);
+        if (emitUser) {
+          setMessages((prev) => prev.filter((m) => m.id !== pendingId));
+        }
+        return;
+      }
+    } else {
+      sessionStorage.setItem(storageKey, activeId);
+    }
+
+    const latestRunId = runIdRef.current;
+    const live = liveCircuitRef.current;
+    if (simResultRef.current && !latestRunId) {
+      setError(
+        "Simulation finished locally, but Mentor needs a saved run. Sign in and Run again so context stays fresh.",
+      );
+    }
+
+    cancelRef.current?.();
+    cancelRef.current = mentorService.sendMessage(
+      activeId,
+      text,
+      {
+        experimentId: experimentIdRef.current,
+        stage: "simulation",
+        simulationId: latestRunId,
+        circuitSnapshot: live ? compactCircuitForMentor(live) : null,
+        emitUserMessage: false,
+      },
+      {
+        onStart: () => setStreamingText((prev) => prev ?? ""),
+        onToken: (accumulated) => setStreamingText(accumulated),
+        onComplete: (message) => {
+          setStreamingText(null);
+          setBusy(false);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === message.id)) return prev;
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last.content === message.content) return prev;
+            return [...prev, message];
+          });
+          void mentorService.getConversation(activeId).then((conv) => {
+            if (conv && conversationIdRef.current === activeId) {
+              setMessages(conv.messages);
+            }
+          }).catch(() => undefined);
+        },
+        onError: (err) => {
+          setStreamingText(null);
+          setBusy(false);
+          lastFailedRef.current = text;
+          setDraft(text);
+          setError(err.message || "AI Mentor could not generate a response. Please try again.");
+        },
+      },
+    );
+  }
+
+  function handleRetry() {
+    const text = lastFailedRef.current || draft.trim();
+    if (!text) return;
+    const last = messages[messages.length - 1];
+    const alreadyShown = last?.role === "user" && last.content === text;
+    void handleSend({ text, emitUserMessage: !alreadyShown });
+  }
+
+  const headerActions = (
+    <div className="sim2-panel-header-actions">
+      <Link to={mentorLink} className="sim2-mentor-expand" title="Open full Mentor" aria-label="Open full Mentor">
+        <ExternalLink size={14} />
+      </Link>
+      {onClose && (
+        <button
+          type="button"
+          className="sim2-panel-close"
+          onClick={onClose}
+          title="Close AI Mentor"
+          aria-label="Close AI Mentor"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+
+  if (!user) {
+    return (
+      <aside className="sim2-mentor" aria-label="AI Mentor">
+        <div className="sim2-mentor-header">
+          <div className="sim2-mentor-header-id">
+            <Bot size={16} />
+            <span>AI Mentor</span>
+          </div>
+          {onClose && (
+            <button
+              type="button"
+              className="sim2-panel-close"
+              onClick={onClose}
+              title="Close AI Mentor"
+              aria-label="Close AI Mentor"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <div className="sim2-mentor-offline">
+          <TriangleAlert size={14} />
+          <p>Sign in to ask Mentor with live simulation context.</p>
+          <Link to="/login" className="sim2-mentor-link">
+            Sign in
+          </Link>
+        </div>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="sim2-mentor" aria-label="AI Mentor">
+      <div className="sim2-mentor-header">
+        <div className="sim2-mentor-header-id">
+          <Bot size={16} />
+          <span>AI Mentor</span>
+        </div>
+        {headerActions}
+      </div>
+
+      <div
+        className={`sim2-mentor-context-card ${contextFlash ? "sim2-mentor-context-card--fresh" : ""}`}
+        aria-live="polite"
+      >
+        <p className="sim2-mentor-context">{contextHint}</p>
+        {factChips.length > 0 && (
+          <div className="sim2-mentor-facts">
+            {factChips.map((chip) => (
+              <span key={chip} className="sim2-mentor-fact">
+                {chip}
+              </span>
+            ))}
+          </div>
+        )}
+        {simulationRunId && (
+          <p className="sim2-mentor-run-id">
+            Context run: {simulationRunId.slice(0, 8)}…
+            {contextFlash ? " · updated" : ""}
+          </p>
+        )}
+        {!simulationRunId && simResult && (
+          <p className="sim2-mentor-run-id sim2-mentor-run-id--warn">
+            Run again while signed in to bind Mentor to this result.
+          </p>
+        )}
+      </div>
+
+      <div
+        className="sim2-mentor-messages"
+        role="log"
+        aria-live="polite"
+        aria-busy={busy}
+        aria-relevant="additions text"
+      >
+        {messages.length === 0 && streamingText === null && !busy && (
+          <div className="sim2-mentor-empty">
+            <p>
+              Build → Run → Ask. Change the circuit and Run again — Mentor uses the newest
+              simulator facts only.
+            </p>
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className="sim2-mentor-suggestion"
+                onClick={() => setDraft(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={`sim2-mentor-bubble ${m.role === "user" ? "sim2-mentor-bubble--user" : "sim2-mentor-bubble--assistant"}`}
+          >
+            {m.role === "assistant" ? <MarkdownLite content={m.content} /> : m.content}
+          </div>
+        ))}
+
+        {streamingText !== null && (
+          <div
+            className="sim2-mentor-bubble sim2-mentor-bubble--assistant sim2-mentor-bubble--streaming"
+            aria-label="AI Mentor is streaming a response"
+          >
+            <MarkdownLite content={streamingText} />
+          </div>
+        )}
+        {busy && streamingText === null && <TypingIndicator />}
+      </div>
+
+      {error && (
+        <div className="sim2-mentor-error" role="alert">
+          <span>{error}</span>
+          <button
+            type="button"
+            className="sim2-mentor-retry"
+            onClick={handleRetry}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="sim2-mentor-composer">
+        <ChatComposer
+          value={draft}
+          onChange={setDraft}
+          onSend={handleSend}
+          busy={busy}
+        />
+      </div>
+    </aside>
+  );
+}
+
+export default WorkspaceMentorPanel;

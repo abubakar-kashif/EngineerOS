@@ -73,7 +73,7 @@ export function buildElectricalNodes(circuit: CircuitDefinition): GraphBuilderRe
         break;
       }
     }
-    if (!hasConnection && component.type !== 'ground') {
+    if (!hasConnection && component.type !== 'ground' && component.type !== 'voltmeter' && component.type !== 'ammeter') {
       errors.push(`Component ${component.id} has no connections`);
     }
   }
@@ -84,7 +84,7 @@ export function buildElectricalNodes(circuit: CircuitDefinition): GraphBuilderRe
       const term = findTerminal(circuit, terminalId);
       if (term) {
         const comp = findComponentByTerminal(circuit, terminalId);
-        if (comp?.type !== 'ground') {
+        if (comp?.type !== 'ground' && comp?.type !== 'voltmeter' && comp?.type !== 'ammeter') {
           const msg = `Dangling terminal: ${terminalId} (component: ${comp?.id || 'unknown'})`;
           if (!errors.includes(msg)) {
             errors.push(msg);
