@@ -52,6 +52,8 @@ function renderLanding() {
 
 beforeEach(() => {
   setReducedMotion(false);
+  // Most tests assert landing content — skip the pre-page intro gate.
+  window.sessionStorage.setItem(INTRO_SESSION_KEY, "1");
 });
 
 describe("public landing page", () => {
@@ -146,10 +148,13 @@ describe("public landing page", () => {
 });
 
 describe("landing intro animation", () => {
-  it("plays the full intro on the first visit of a session and records it", () => {
+  it("plays the full intro before the landing page on first visit", () => {
+    window.sessionStorage.removeItem(INTRO_SESSION_KEY);
     renderLanding();
 
     expect(screen.getByRole("button", { name: "Skip intro" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
     expect(window.sessionStorage.getItem(INTRO_SESSION_KEY)).toBe("1");
   });
 
@@ -162,6 +167,7 @@ describe("landing intro animation", () => {
   });
 
   it("skips the intro entirely when reduced motion is preferred", () => {
+    window.sessionStorage.removeItem(INTRO_SESSION_KEY);
     setReducedMotion(true);
     renderLanding();
 
@@ -169,14 +175,18 @@ describe("landing intro animation", () => {
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
   });
 
-  it("dismisses the intro when the skip control is used", async () => {
+  it("shows the landing page after the intro is skipped", async () => {
+    window.sessionStorage.removeItem(INTRO_SESSION_KEY);
     const user = userEvent.setup();
     renderLanding();
 
     await user.click(screen.getByRole("button", { name: "Skip intro" }));
 
     await waitFor(
-      () => expect(screen.queryByRole("button", { name: "Skip intro" })).not.toBeInTheDocument(),
+      () => {
+        expect(screen.queryByRole("button", { name: "Skip intro" })).not.toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+      },
       { timeout: 3000 },
     );
   });

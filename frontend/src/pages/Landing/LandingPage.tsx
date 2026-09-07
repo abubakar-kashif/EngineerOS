@@ -1,5 +1,9 @@
 /**
  * Public, pre-login marketing page served at "/".
+ *
+ * The cinematic intro is a pre-page gate: while it plays, the landing UI is
+ * not mounted. After skip/finish (or on repeat visits), only the landing page
+ * shows — the intro never lives inside the page content.
  */
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
@@ -45,29 +49,31 @@ function LandingPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="landing-page">
-        <AmbientBackground />
-        <AnimatePresence>
-          {introPlaying && <IntroOverlay key="intro" onFinish={handleIntroFinish} />}
-        </AnimatePresence>
-
-        <motion.div
-          initial={introMode === "short" ? { opacity: 0 } : false}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          <LandingNavbar />
-          <main>
-            <LandingHero />
-            <LandingFeatures />
-            <LandingHowItWorks />
-            <LandingMentor />
-            <LandingStats />
-            <LandingFinalCTA />
-          </main>
-          <LandingFooter />
-        </motion.div>
-      </div>
+      <AnimatePresence mode="wait">
+        {introPlaying ? (
+          <IntroOverlay key="intro" onFinish={handleIntroFinish} />
+        ) : (
+          <motion.div
+            key="landing"
+            className="landing-page"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: introMode === "full" ? 0.45 : 0.35 }}
+          >
+            <AmbientBackground />
+            <LandingNavbar />
+            <main>
+              <LandingHero />
+              <LandingFeatures />
+              <LandingHowItWorks />
+              <LandingMentor />
+              <LandingStats />
+              <LandingFinalCTA />
+            </main>
+            <LandingFooter />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </MotionConfig>
   );
 }
