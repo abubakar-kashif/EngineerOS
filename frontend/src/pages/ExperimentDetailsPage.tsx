@@ -280,7 +280,7 @@ function ExperimentDetailsPage() {
     <main className="page">
       {/* ── BREADCRUMB ── */}
       <nav className="detail-breadcrumb" aria-label="Breadcrumb">
-        <Link to="/">Home</Link>
+        <Link to="/home">Home</Link>
         <span className="detail-bc-sep">/</span>
         <Link to="/experiments">Experiments</Link>
         <span className="detail-bc-sep">/</span>
