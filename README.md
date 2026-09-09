@@ -2,7 +2,6 @@
 
 > **AI-Powered Electrical Engineering Learning Platform**
 
-🌐 Live Website: https://engineeros-project.vercel.app
 
 EngineerOS is an AI-powered electrical engineering learning platform designed to bridge the gap between **engineering theory and practical experimentation**.
 
