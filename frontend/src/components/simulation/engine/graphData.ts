@@ -854,6 +854,70 @@ export function generateGraphsFromMeasurements(
     });
   }
 
+  const ind = physical.find((cm) => cm.type === 'inductor');
+  const res = physical.find((cm) => cm.type === 'resistor');
+  const rlMeta = measurements.rl
+    ? {
+        mode: measurements.rl.mode,
+        R: measurements.rl.R,
+        L: measurements.rl.L,
+        Vin: measurements.rl.Vin,
+        I0: measurements.rl.I0,
+        Ifinal: measurements.rl.Ifinal,
+        tauTheoretical: measurements.rl.tauTheoretical,
+        tauSimulated: measurements.rl.tauSimulated,
+        tauErrorPercent: measurements.rl.tauErrorPercent,
+        iL: measurements.rl.iL,
+        vR: measurements.rl.vR,
+        time: measurements.rl.time,
+      }
+    : undefined;
+  const ilPoints =
+    ind && hasRunTimeSeries(measurements)
+      ? measurements.timeSeries!
+          .map((sample) => {
+            const i = sample.values[`I_${ind.componentId}`];
+            return Number.isFinite(sample.t) && Number.isFinite(i)
+              ? { x: sample.t, y: i as number }
+              : null;
+          })
+          .filter((p): p is GraphPoint => p !== null)
+      : [];
+  if (ilPoints.length > 0) {
+    graphs.push({
+      id: 'rl_current_time',
+      type: 'line',
+      title: 'Time vs Inductor Current',
+      xAxis: { label: 'Time', unit: 's' },
+      yAxis: { label: 'Inductor current', unit: 'A' },
+      series: [{ name: 'iL', color: COLORS[0], points: ilPoints }],
+      metadata: { source: 'measurements', timeSeries: true, ...rlMeta },
+    });
+  }
+
+  const vrPoints =
+    res && ind && hasRunTimeSeries(measurements)
+      ? measurements.timeSeries!
+          .map((sample) => {
+            const v = sample.values[`V_${res.componentId}`];
+            return Number.isFinite(sample.t) && Number.isFinite(v)
+              ? { x: sample.t, y: v as number }
+              : null;
+          })
+          .filter((p): p is GraphPoint => p !== null)
+      : [];
+  if (vrPoints.length > 0) {
+    graphs.push({
+      id: 'rl_resistor_voltage_time',
+      type: 'line',
+      title: 'Time vs Resistor Voltage',
+      xAxis: { label: 'Time', unit: 's' },
+      yAxis: { label: 'Resistor voltage', unit: 'V' },
+      series: [{ name: 'VR', color: COLORS[1], points: vrPoints }],
+      metadata: { source: 'measurements', timeSeries: true, ...rlMeta },
+    });
+  }
+
   if (drops.length > 0) {
     const kclPoints: GraphPoint[] = [
       ...drops.map((cm, i) => ({ x: i + 1, y: cm.current })),

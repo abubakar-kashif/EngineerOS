@@ -9,6 +9,7 @@ const KCLDiagram = lazy(() => import("./KCLDiagram"));
 const VoltageDividerDiagram = lazy(() => import("./VoltageDividerDiagram"));
 const CurrentDividerDiagram = lazy(() => import("./CurrentDividerDiagram"));
 const RCDiagram = lazy(() => import("./RCDiagram"));
+const RLDiagram = lazy(() => import("./RLDiagram"));
 const DiodeDiagram = lazy(() => import("./DiodeDiagram"));
 const LEDDiagram = lazy(() => import("./LEDDiagram"));
 const WheatstoneBridgeDiagram = lazy(() => import("./WheatstoneBridgeDiagram"));
@@ -28,6 +29,7 @@ const diagramMap: Record<string, ComponentType> = {
   "voltage-divider": VoltageDividerDiagram,
   "current-divider": CurrentDividerDiagram,
   "rc-circuit": RCDiagram,
+  "rl-circuit": RLDiagram,
   "diode-characteristics": DiodeDiagram,
   "led-circuit": LEDDiagram,
   "wheatstone-bridge": WheatstoneBridgeDiagram,

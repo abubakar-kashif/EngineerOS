@@ -50,6 +50,8 @@ const ANALYSIS_LABELS: Record<string, string> = {
   max_power_transfer: "Load resistance vs load power",
   rc_time: "Time vs Vc",
   rc_current_time: "Time vs Ic",
+  rl_current_time: "Time vs Inductor Current",
+  rl_resistor_voltage_time: "Time vs Resistor Voltage",
   power_time: "Power vs time",
   current_signals: "KCL currents",
   voltage_signals: "KVL voltages",

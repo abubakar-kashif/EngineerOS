@@ -84,6 +84,7 @@ function ResultsTab({
   ];
 
   const rc = measurements.rc;
+  const rl = measurements.rl;
 
   return (
     <div className="sim2-results-table">
@@ -119,6 +120,44 @@ function ResultsTab({
             ] as const
           ).map((r) => (
             <div key={r.label} className="sim2-result-row">
+              <span className="sim2-result-label">{r.label}</span>
+              <span className="sim2-result-value">{r.value}</span>
+            </div>
+          ))}
+        </>
+      )}
+      {rl && (
+        <>
+          <h4 className="sim2-results-heading">RL transient</h4>
+          {(
+            [
+              { label: "Mode", value: rl.mode },
+              { label: "R", value: formatWithPrefix(rl.R, "Ω") },
+              { label: "L", value: formatWithPrefix(rl.L, "H") },
+              { label: "Vin", value: `${rl.Vin.toFixed(3)} V` },
+              { label: "I0 (t=0)", value: formatWithPrefix(rl.I0, "A") },
+              { label: "final current", value: formatWithPrefix(rl.Ifinal, "A") },
+              { label: "time (last)", value: `${rl.time.toFixed(6)} s` },
+              { label: "i(t)", value: formatWithPrefix(rl.iL, "A") },
+              { label: "VR", value: `${Number.isFinite(rl.vR) ? rl.vR.toFixed(3) : "—"} V` },
+              { label: "τ theoretical", value: `${rl.tauTheoretical.toFixed(6)} s` },
+              {
+                label: "τ simulated",
+                value:
+                  rl.tauSimulated != null
+                    ? `${rl.tauSimulated.toFixed(6)} s`
+                    : "—",
+              },
+              {
+                label: "τ error",
+                value:
+                  rl.tauErrorPercent != null
+                    ? `${rl.tauErrorPercent.toFixed(2)} %`
+                    : "—",
+              },
+            ] as const
+          ).map((r) => (
+            <div key={`rl-${r.label}`} className="sim2-result-row">
               <span className="sim2-result-label">{r.label}</span>
               <span className="sim2-result-value">{r.value}</span>
             </div>

@@ -27,6 +27,10 @@ import {
   createRcCircuitStarter,
   RC_CIRCUIT_EXPERIMENT_ID,
 } from "./rcCircuit";
+import {
+  createRlCircuitStarter,
+  RL_CIRCUIT_EXPERIMENT_ID,
+} from "./rlCircuit";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
@@ -37,6 +41,7 @@ const STARTERS: Record<string, () => EditorCircuit> = {
   [NORTON_THEOREM_EXPERIMENT_ID]: createNortonTheoremStarter,
   [MAX_POWER_TRANSFER_EXPERIMENT_ID]: createMaxPowerTransferStarter,
   [RC_CIRCUIT_EXPERIMENT_ID]: createRcCircuitStarter,
+  [RL_CIRCUIT_EXPERIMENT_ID]: createRlCircuitStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -63,4 +68,6 @@ export {
   MAX_POWER_TRANSFER_EXPERIMENT_ID,
   createRcCircuitStarter,
   RC_CIRCUIT_EXPERIMENT_ID,
+  createRlCircuitStarter,
+  RL_CIRCUIT_EXPERIMENT_ID,
 };

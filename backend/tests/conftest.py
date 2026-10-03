@@ -41,6 +41,7 @@ EXPERIMENT_IDS = [
     "voltage-divider",
     "current-divider",
     "rc-circuit",
+    "rl-circuit",
     "diode-characteristics",
     "led-circuit",
     "wheatstone-bridge",

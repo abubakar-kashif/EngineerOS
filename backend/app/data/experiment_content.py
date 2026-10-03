@@ -1230,8 +1230,109 @@ EXPERIMENTS: list[dict] = [
             "Low-pass filters smooth PWM into DC in motor drivers and LED dimmers.",
             "Camera flashes store energy in a capacitor and dump it through a lamp.",
         ],
-        "related_experiments": ["ohms-law", "series-circuit", "led-circuit"],
+        "related_experiments": ["ohms-law", "series-circuit", "led-circuit", "rl-circuit"],
         "simulation_configuration": {"mode": "series", "parameters": {"voltage": 9, "r1": 10000}},
+    },
+    {
+        "id": "rl-circuit",
+        "title": "RL Transient Response",
+        "slug": "rl-circuit",
+        "short_description": "Explore current growth in a series RL circuit after a DC step.",
+        "description": (
+            "This experiment studies the transient response of a resistor-inductor "
+            "circuit. Inductor current cannot jump; after a DC step it grows "
+            "exponentially toward Vin/R with time constant τ = L/R."
+        ),
+        "objective": (
+            "Understand RL current growth i(t) = (Vin/R)(1 − e^(−t/τ)), measure "
+            "τ from the waveform, and compare theoretical vs simulated time constants."
+        ),
+        "theory": (
+            "In a series RL circuit the inductor opposes sudden current change. "
+            "After a DC step with zero initial current, i(t) = (Vin/R)(1 − e^(−t/τ)) "
+            "where τ = L/R. After one τ the current reaches about 63.2% of Vin/R; "
+            "after about 5τ it is practically settled. Resistor voltage VR = iR "
+            "follows the same exponential shape. The EngineerOS simulator uses an "
+            "ideal inductor model with a real backward-Euler transient solve."
+        ),
+        "difficulty": "Intermediate",
+        "category": "Circuit Fundamentals",
+        "duration_minutes": 35,
+        "status": "published",
+        "historical_background": (
+            "Michael Faraday and Joseph Henry established electromagnetic induction "
+            "in the 1830s; the henry later named the unit of inductance. First-order "
+            "RL analysis became standard once Kirchhoff's laws met calculus in "
+            "circuit theory."
+        ),
+        "learning_outcomes": [
+            "Explain why inductor current cannot change instantaneously",
+            "Calculate τ = L/R and the final current Vin/R",
+            "Read Time vs iL and Time vs VR waveforms from a real transient solve",
+            "Compare theoretical and simulated time constants in the lab report",
+        ],
+        "prerequisites": ["ohms-law", "series-circuit", "rc-circuit"],
+        "formulas": [
+            {
+                "expression": "τ = L / R",
+                "variables": [
+                    {"symbol": "τ", "name": "Time constant (seconds)"},
+                    {"symbol": "L", "name": "Inductance (henries)"},
+                    {"symbol": "R", "name": "Resistance (ohms)"},
+                ],
+            },
+            {
+                "expression": "i(t) = (Vin/R) × (1 − e^(−t/τ))",
+                "variables": [
+                    {"symbol": "i(t)", "name": "Inductor current at time t"},
+                    {"symbol": "Vin", "name": "Supply voltage"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "τ", "name": "Time constant", "unit": "second (s)", "description": "L/R"},
+            {"symbol": "i(t)", "name": "Inductor current", "unit": "ampere (A)", "description": "Grows toward Vin/R"},
+            {"symbol": "L", "name": "Inductance", "unit": "henry (H)", "description": "100 mH in the starter"},
+        ],
+        "components": [
+            {"name": "DC voltage source", "quantity": 1, "spec": "5 V"},
+            {"name": "Resistor R", "quantity": 1, "spec": "100 Ω, 1/4 W"},
+            {"name": "Inductor L", "quantity": 1, "spec": "100 mH"},
+            {"name": "SPST switch", "quantity": 1, "spec": "Charge path control"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Across resistor"},
+            {"name": "Ammeter", "quantity": 1, "spec": "Series with inductor"},
+            {"name": "Breadboard", "quantity": 1, "spec": null},
+        ],
+        "circuit_diagram": {
+            "art": (
+                "  V+ -- SW -- R -- L -- GND\n"
+                "  V- ---------------/"
+            ),
+            "caption": "Series RL with switch; τ = L/R = 1 ms for R=100 Ω, L=100 mH.",
+        },
+        "procedure": [
+            "Load the RL starter (Vin = 5 V, R = 100 Ω, L = 100 mH, SW closed).",
+            "Run the simulation and open Time vs Inductor Current and Time vs Resistor Voltage.",
+            "Record R, L, τ theoretical = L/R, τ simulated, final current, and percent error.",
+            "Optionally open SW1 to de-energize and observe current decay.",
+        ],
+        "expected_results": [
+            "iL reaches ~63% of Vin/R (50 mA) in one τ (1 ms).",
+            "Final current approaches 50 mA.",
+            "Simulated τ closely matches L/R for the ideal model.",
+        ],
+        "safety_notes": [
+            "Interrupting inductor current can produce a high voltage kick — use care with real coils.",
+        ],
+        "common_mistakes": [
+            "Writing τ as R/L instead of L/R",
+            "Expecting inductor current to jump at the switching instant",
+        ],
+        "related_experiments": ["ohms-law", "series-circuit", "rc-circuit"],
+        "simulation_configuration": {
+            "mode": "series",
+            "parameters": {"voltage": 5, "r1": 100, "l1": 0.1},
+        },
     },
     {
         "id": "diode-characteristics",

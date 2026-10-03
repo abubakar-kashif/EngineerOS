@@ -81,6 +81,27 @@ export function Bat({ x, y, h = 40, voltage }: { x: number; y: number; h?: numbe
   );
 }
 
+/* ── Inductor (horizontal coils). Terminals at (x,y) and (x+w, y). ── */
+export function Ind_H({ x, y, w = 64, label }: { x: number; y: number; w?: number; label?: string }) {
+  const lead = 8;
+  const usable = w - 2 * lead;
+  const r = usable / 8;
+  const cy = y;
+  const start = x + lead;
+  let d = `M${x} ${y} L${start} ${y}`;
+  for (let i = 0; i < 4; i++) {
+    const cx = start + r + i * 2 * r;
+    d += ` A${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+  }
+  d += ` L${x + w} ${y}`;
+  return (
+    <g>
+      <path d={d} {...wire} />
+      {label && <text x={x + w / 2} y={y - 16} {...lbl}>{label}</text>}
+    </g>
+  );
+}
+
 /* ── Capacitor (horizontal). Terminals at (x,y) and (x+w, y). ── */
 export function Cap_H({ x, y, w = 40, label }: { x: number; y: number; w?: number; label?: string }) {
   const gap = 6;

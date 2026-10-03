@@ -38,6 +38,12 @@ function formatCurrent(a: number): string {
   return `${a.toFixed(4)} A`;
 }
 
+function formatHenry(h: number): string {
+  if (h >= 1) return `${h.toFixed(3)} H`;
+  if (h >= 1e-3) return `${(h * 1e3).toFixed(1)} mH`;
+  return `${(h * 1e6).toFixed(1)} µH`;
+}
+
 function WorkspaceMentorPanel({
   experimentId,
   experimentTitle,
@@ -144,6 +150,11 @@ function WorkspaceMentorPanel({
           m.rc.tauSimulated != null ? `${m.rc.tauSimulated.toFixed(3)} s` : "n/a";
         return `RC ${m.rc.mode}: Vc=${m.rc.Vc.toFixed(3)} V, Ic=${formatCurrent(m.rc.Ic)}, τ_th=${m.rc.tauTheoretical.toFixed(3)} s, τ_sim=${tauSim}`;
       }
+      if (m.rl) {
+        const tauSim =
+          m.rl.tauSimulated != null ? `${m.rl.tauSimulated.toFixed(6)} s` : "n/a";
+        return `RL ${m.rl.mode}: R=${m.rl.R} Ω, L=${m.rl.L} H, Vin=${m.rl.Vin} V, t=${m.rl.time.toFixed(6)} s, i(t)=${formatCurrent(m.rl.iL)}, τ=${m.rl.tauTheoretical.toFixed(6)} s (sim ${tauSim})`;
+      }
       return `Latest run: I=${formatCurrent(m.totalCurrent)}, V=${m.totalVoltage.toFixed(2)} V, Req=${m.equivalentResistance.toFixed(1)} Ω`;
     }
     if (simResult.status === "completed") {
@@ -170,6 +181,15 @@ function WorkspaceMentorPanel({
       if (m.rc.tauSimulated != null) {
         chips.push(`τ_sim ${m.rc.tauSimulated.toFixed(3)} s`);
       }
+      return chips.slice(0, 6);
+    }
+    if (m.rl) {
+      chips.push(m.rl.mode);
+      chips.push(`R ${m.rl.R} Ω`);
+      chips.push(`L ${formatHenry(m.rl.L)}`);
+      chips.push(`Vin ${m.rl.Vin} V`);
+      chips.push(`i ${formatCurrent(m.rl.iL)}`);
+      chips.push(`τ ${m.rl.tauTheoretical.toFixed(6)} s`);
       return chips.slice(0, 6);
     }
     chips.push(`I ${formatCurrent(m.totalCurrent)}`);
@@ -212,6 +232,13 @@ function WorkspaceMentorPanel({
           "Compare my simulated τ with RC.",
           "Is this charging or discharging right now?",
           "Why is Ic falling while Vc rises?",
+        ];
+      }
+      if (experimentId === "rl-circuit" || simResult.measurements?.rl) {
+        return [
+          "Compare my simulated τ with L/R.",
+          "What is i(t) doing in this run?",
+          "Why does resistor voltage rise with inductor current?",
         ];
       }
       return [
@@ -285,27 +312,45 @@ function WorkspaceMentorPanel({
 
     const baseSnapshot = live ? compactCircuitForMentor(live) : null;
     const rcState = simResultRef.current?.measurements?.rc;
-    const circuitSnapshot =
-      baseSnapshot && rcState
-        ? {
-            ...baseSnapshot,
-            simulationState: {
-              experiment: "rc-circuit",
-              mode: rcState.mode,
-              R: rcState.R,
-              C: rcState.C,
-              Vin: rcState.Vin,
-              V0: rcState.V0,
-              time: rcState.time,
-              Vc: rcState.Vc,
-              Ic: rcState.Ic,
-              Ic0: rcState.Ic0,
-              tauTheoretical: rcState.tauTheoretical,
-              tauSimulated: rcState.tauSimulated,
-              tauErrorPercent: rcState.tauErrorPercent,
-            },
-          }
-        : baseSnapshot;
+    const rlState = simResultRef.current?.measurements?.rl;
+    let circuitSnapshot = baseSnapshot;
+    if (baseSnapshot && rcState) {
+      circuitSnapshot = {
+        ...baseSnapshot,
+        simulationState: {
+          experiment: "rc-circuit",
+          mode: rcState.mode,
+          R: rcState.R,
+          C: rcState.C,
+          Vin: rcState.Vin,
+          V0: rcState.V0,
+          time: rcState.time,
+          Vc: rcState.Vc,
+          Ic: rcState.Ic,
+          Ic0: rcState.Ic0,
+          tauTheoretical: rcState.tauTheoretical,
+          tauSimulated: rcState.tauSimulated,
+          tauErrorPercent: rcState.tauErrorPercent,
+        },
+      };
+    } else if (baseSnapshot && rlState) {
+      circuitSnapshot = {
+        ...baseSnapshot,
+        simulationState: {
+          experiment: "rl-circuit",
+          mode: rlState.mode,
+          R: rlState.R,
+          L: rlState.L,
+          Vin: rlState.Vin,
+          time: rlState.time,
+          i: rlState.iL,
+          tau: rlState.tauTheoretical,
+          tauSimulated: rlState.tauSimulated,
+          tauErrorPercent: rlState.tauErrorPercent,
+          Ifinal: rlState.Ifinal,
+        },
+      };
+    }
 
     cancelRef.current?.();
     cancelRef.current = mentorService.sendMessage(

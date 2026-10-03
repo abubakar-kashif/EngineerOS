@@ -42,6 +42,24 @@ export interface RcLabMeasurements {
   sampleCount: number;
 }
 
+/** RL transient lab metrics (from real transient samples). */
+export interface RlLabMeasurements {
+  mode: "energizing" | "deenergizing";
+  R: number;
+  L: number;
+  Vin: number;
+  I0: number;
+  /** Steady-state current Vin/R when energizing; 0 when de-energizing. */
+  Ifinal: number;
+  tauTheoretical: number;
+  tauSimulated: number | null;
+  tauErrorPercent: number | null;
+  time: number;
+  iL: number;
+  vR: number;
+  sampleCount: number;
+}
+
 export interface Measurements {
   totalVoltage: number;
   totalCurrent: number;
@@ -52,6 +70,8 @@ export interface Measurements {
   timeSeries?: TimeSeriesSample[];
   /** Present for RC charge/discharge runs with dynamic elements. */
   rc?: RcLabMeasurements;
+  /** Present for RL transient runs with an inductor. */
+  rl?: RlLabMeasurements;
 }
 
 export interface SimulationResult {
