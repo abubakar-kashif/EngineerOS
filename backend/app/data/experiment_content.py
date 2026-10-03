@@ -1328,10 +1328,103 @@ EXPERIMENTS: list[dict] = [
             "Writing τ as R/L instead of L/R",
             "Expecting inductor current to jump at the switching instant",
         ],
-        "related_experiments": ["ohms-law", "series-circuit", "rc-circuit"],
+        "related_experiments": ["ohms-law", "series-circuit", "rc-circuit", "rlc-circuit"],
         "simulation_configuration": {
             "mode": "series",
             "parameters": {"voltage": 5, "r1": 100, "l1": 0.1},
+        },
+    },
+    {
+        "id": "rlc-circuit",
+        "title": "RLC Circuit",
+        "slug": "rlc-circuit",
+        "short_description": "Explore the second-order natural response of a series RLC circuit.",
+        "description": (
+            "Study energy exchange between L and C, damping by R, and the series "
+            "RLC transient using a real time-domain solve."
+        ),
+        "objective": (
+            "Observe series RLC current and capacitor voltage after a DC step, and "
+            "relate the waveform to energy exchange and resistance damping."
+        ),
+        "theory": (
+            "In a series RLC loop, energy moves between the inductor magnetic field "
+            "(½Li²) and the capacitor electric field (½CVc²). Resistance dissipates "
+            "energy and damps the natural response. Depending on R, L, and C the "
+            "free response may be underdamped, critically damped, or overdamped. "
+            "Resonance ideas for driven circuits relate to ω₀ = 1/√(LC), but the "
+            "lab report lists only quantities taken from the simulated waveforms—"
+            "not fabricated Q or bandwidth."
+        ),
+        "difficulty": "Advanced",
+        "category": "Circuit Fundamentals",
+        "duration_minutes": 45,
+        "status": "published",
+        "historical_background": (
+            "Second-order RLC analysis became central once radio and telephone "
+            "engineering demanded tuned circuits; the same mathematics appears in "
+            "control systems and power electronics soft-start networks."
+        ),
+        "learning_outcomes": [
+            "Describe energy exchange between L and C",
+            "Relate R to damping of the natural response",
+            "Read i(t) and Vc(t) from a real transient solve",
+        ],
+        "prerequisites": ["rc-circuit", "rl-circuit"],
+        "formulas": [
+            {
+                "expression": "ω₀ = 1 / √(LC)",
+                "variables": [
+                    {"symbol": "ω₀", "name": "Undamped natural frequency"},
+                    {"symbol": "L", "name": "Inductance"},
+                    {"symbol": "C", "name": "Capacitance"},
+                ],
+            },
+            {
+                "expression": "α = R / (2L)  (series)",
+                "variables": [
+                    {"symbol": "α", "name": "Damping factor"},
+                    {"symbol": "R", "name": "Series resistance"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "i(t)", "name": "Series current", "unit": "ampere (A)", "description": "Shared by R, L, and C"},
+            {"symbol": "Vc(t)", "name": "Capacitor voltage", "unit": "volt (V)", "description": "Electric storage state"},
+        ],
+        "components": [
+            {"name": "DC voltage source", "quantity": 1, "spec": "5 V"},
+            {"name": "Resistor R", "quantity": 1, "spec": "100 Ω"},
+            {"name": "Inductor L", "quantity": 1, "spec": "100 mH"},
+            {"name": "Capacitor C", "quantity": 1, "spec": "10 µF"},
+            {"name": "SPST switch", "quantity": 1, "spec": "Step application"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Across capacitor"},
+            {"name": "Ammeter", "quantity": 1, "spec": "Series current"},
+        ],
+        "circuit_diagram": {
+            "art": "V -- SW -- R -- L -- C -- GND",
+            "caption": "Series RLC; starter is underdamped for a clear second-order waveform.",
+        },
+        "procedure": [
+            "Load the RLC starter (R=100 Ω, L=100 mH, C=10 µF, Vin=5 V).",
+            "Run and open Current vs Time and Capacitor Voltage vs Time.",
+            "Record measured peaks, zero-crossings, and last-sample energies only.",
+        ],
+        "expected_results": [
+            "Underdamped ringing of i(t) and Vc(t) before settle.",
+            "Steady state: Vc≈Vin, i≈0.",
+        ],
+        "safety_notes": [
+            "Real inductors can kick high voltage when current is interrupted.",
+        ],
+        "common_mistakes": [
+            "Fabricating Q or bandwidth without a driven frequency sweep",
+            "Ignoring that report metrics must come from the solve",
+        ],
+        "related_experiments": ["rc-circuit", "rl-circuit", "ohms-law"],
+        "simulation_configuration": {
+            "mode": "series",
+            "parameters": {"voltage": 5, "r1": 100, "l1": 0.1, "c1": 1e-5},
         },
     },
     {

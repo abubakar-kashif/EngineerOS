@@ -43,19 +43,27 @@ import {
   extractRlCircuitMetrics,
   prepareRlTransientCircuit,
 } from './rlCircuitAnalysis';
+import {
+  circuitIsSeriesRlc,
+  extractRlcCircuitMetrics,
+} from './rlcCircuitAnalysis';
 
 export interface SolveOptions {
   /**
    * Transient integration options.
    * - object: use as-is
-   * - true: infer duration/Δt from RC/RL
-   * - omitted: auto-run for rc-circuit / rl-circuit when C/L present
+   * - true: infer duration/Δt from RC/RL/RLC
+   * - omitted: auto-run for rc/rl/rlc labs when C/L present
    */
   transient?: TransientOptions | boolean;
 }
 
 function isTransientLab(experimentId?: string): boolean {
-  return experimentId === 'rc-circuit' || experimentId === 'rl-circuit';
+  return (
+    experimentId === 'rc-circuit' ||
+    experimentId === 'rl-circuit' ||
+    experimentId === 'rlc-circuit'
+  );
 }
 
 function resolveTransientOptions(
@@ -82,6 +90,7 @@ export function solveCircuit(
   const transientOpts = resolveTransientOptions(circuit, options);
   const isRcLab = circuit.experimentId === 'rc-circuit';
   const isRlLab = circuit.experimentId === 'rl-circuit';
+  const isRlcLab = circuit.experimentId === 'rlc-circuit';
   /** Open charge switch remaps to a solvable R–C / R–L loop before validate/solve. */
   let active = circuit;
   let preparedMode: string | undefined;
@@ -190,24 +199,27 @@ export function solveCircuit(
       }
     }
 
-    if (
-      isRcLab ||
-      (measurements.timeSeries &&
-        circuit.components.some((c) => c.type === 'capacitor'))
-    ) {
+    const hasC = circuit.components.some((c) => c.type === 'capacitor');
+    const hasL = circuit.components.some((c) => c.type === 'inductor');
+    const isRlc =
+      isRlcLab || (Boolean(measurements.timeSeries) && circuitIsSeriesRlc(circuit));
+
+    if (isRlc) {
+      const transientInfo = meta.transient as
+        | { duration?: number; timeStep?: number }
+        | undefined;
+      const rlc = extractRlcCircuitMetrics(circuit, measurements, transientInfo);
+      if (rlc) {
+        measurements.rlc = rlc;
+        meta.rlc = rlc;
+      }
+    } else if (isRcLab || (measurements.timeSeries && hasC)) {
       const rc = extractRcCircuitMetrics(circuit, measurements);
       if (rc) {
         measurements.rc = rc;
         meta.rc = rc;
       }
-    }
-
-    if (
-      isRlLab ||
-      (measurements.timeSeries &&
-        circuit.components.some((c) => c.type === 'inductor') &&
-        !circuit.components.some((c) => c.type === 'capacitor'))
-    ) {
+    } else if (isRlLab || (measurements.timeSeries && hasL && !hasC)) {
       const rl = extractRlCircuitMetrics(circuit, measurements);
       if (rl) {
         measurements.rl = rl;

@@ -789,6 +789,75 @@ export function generateGraphsFromMeasurements(
   }
 
   const cap = physical.find((cm) => cm.type === 'capacitor');
+  const ind = physical.find((cm) => cm.type === 'inductor');
+  const res = physical.find((cm) => cm.type === 'resistor');
+  const isRlcRun =
+    Boolean(measurements.rlc) ||
+    (Boolean(cap) && Boolean(ind) && hasRunTimeSeries(measurements));
+
+  if (isRlcRun && cap && ind && hasRunTimeSeries(measurements)) {
+    const rlcMeta = measurements.rlc
+      ? {
+          R: measurements.rlc.R,
+          L: measurements.rlc.L,
+          C: measurements.rlc.C,
+          Vin: measurements.rlc.Vin,
+          time: measurements.rlc.time,
+          i: measurements.rlc.i,
+          Vc: measurements.rlc.Vc,
+          iPeak: measurements.rlc.iPeak,
+          vcPeak: measurements.rlc.vcPeak,
+          energyL: measurements.rlc.energyL,
+          energyC: measurements.rlc.energyC,
+          zeroCrossings: measurements.rlc.zeroCrossings,
+          sampleCount: measurements.rlc.sampleCount,
+          duration: measurements.rlc.duration,
+          timeStep: measurements.rlc.timeStep,
+        }
+      : undefined;
+    const iPoints = measurements.timeSeries!
+      .map((sample) => {
+        const i = sample.values[`I_${ind.componentId}`];
+        return Number.isFinite(sample.t) && Number.isFinite(i)
+          ? { x: sample.t, y: i as number }
+          : null;
+      })
+      .filter((p): p is GraphPoint => p !== null);
+    if (iPoints.length > 0) {
+      graphs.push({
+        id: 'rlc_current_time',
+        type: 'line',
+        title: 'Current vs Time',
+        xAxis: { label: 'Time', unit: 's' },
+        yAxis: { label: 'Series current', unit: 'A' },
+        series: [{ name: 'i(t)', color: COLORS[0], points: iPoints }],
+        metadata: { source: 'measurements', timeSeries: true, ...rlcMeta },
+      });
+    }
+    const vcPoints = measurements.timeSeries!
+      .map((sample) => {
+        const vc =
+          sample.values[`V_${cap.componentId}`] ??
+          sample.values.vc ??
+          sample.values.capacitorVoltage;
+        return Number.isFinite(sample.t) && Number.isFinite(vc)
+          ? { x: sample.t, y: vc as number }
+          : null;
+      })
+      .filter((p): p is GraphPoint => p !== null);
+    if (vcPoints.length > 0) {
+      graphs.push({
+        id: 'rlc_capacitor_voltage_time',
+        type: 'line',
+        title: 'Capacitor Voltage vs Time',
+        xAxis: { label: 'Time', unit: 's' },
+        yAxis: { label: 'Capacitor voltage', unit: 'V' },
+        series: [{ name: 'Vc', color: COLORS[1], points: vcPoints }],
+        metadata: { source: 'measurements', timeSeries: true, ...rlcMeta },
+      });
+    }
+  }
+
   const rcMeta = measurements.rc
     ? {
         mode: measurements.rc.mode,
@@ -806,7 +875,7 @@ export function generateGraphsFromMeasurements(
       }
     : undefined;
   const rcPoints =
-    cap && hasRunTimeSeries(measurements)
+    !isRlcRun && cap && hasRunTimeSeries(measurements)
       ? measurements.timeSeries!
           .map((sample) => {
             const vc =
@@ -832,7 +901,7 @@ export function generateGraphsFromMeasurements(
   }
 
   const icPoints =
-    cap && hasRunTimeSeries(measurements)
+    !isRlcRun && cap && hasRunTimeSeries(measurements)
       ? measurements.timeSeries!
           .map((sample) => {
             const ic = sample.values[`I_${cap.componentId}`];
@@ -854,8 +923,6 @@ export function generateGraphsFromMeasurements(
     });
   }
 
-  const ind = physical.find((cm) => cm.type === 'inductor');
-  const res = physical.find((cm) => cm.type === 'resistor');
   const rlMeta = measurements.rl
     ? {
         mode: measurements.rl.mode,
@@ -873,7 +940,7 @@ export function generateGraphsFromMeasurements(
       }
     : undefined;
   const ilPoints =
-    ind && hasRunTimeSeries(measurements)
+    !isRlcRun && ind && hasRunTimeSeries(measurements)
       ? measurements.timeSeries!
           .map((sample) => {
             const i = sample.values[`I_${ind.componentId}`];
@@ -896,7 +963,7 @@ export function generateGraphsFromMeasurements(
   }
 
   const vrPoints =
-    res && ind && hasRunTimeSeries(measurements)
+    !isRlcRun && res && ind && hasRunTimeSeries(measurements)
       ? measurements.timeSeries!
           .map((sample) => {
             const v = sample.values[`V_${res.componentId}`];

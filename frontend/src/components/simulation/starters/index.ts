@@ -31,6 +31,10 @@ import {
   createRlCircuitStarter,
   RL_CIRCUIT_EXPERIMENT_ID,
 } from "./rlCircuit";
+import {
+  createRlcCircuitStarter,
+  RLC_CIRCUIT_EXPERIMENT_ID,
+} from "./rlcCircuit";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
@@ -42,6 +46,7 @@ const STARTERS: Record<string, () => EditorCircuit> = {
   [MAX_POWER_TRANSFER_EXPERIMENT_ID]: createMaxPowerTransferStarter,
   [RC_CIRCUIT_EXPERIMENT_ID]: createRcCircuitStarter,
   [RL_CIRCUIT_EXPERIMENT_ID]: createRlCircuitStarter,
+  [RLC_CIRCUIT_EXPERIMENT_ID]: createRlcCircuitStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -70,4 +75,6 @@ export {
   RC_CIRCUIT_EXPERIMENT_ID,
   createRlCircuitStarter,
   RL_CIRCUIT_EXPERIMENT_ID,
+  createRlcCircuitStarter,
+  RLC_CIRCUIT_EXPERIMENT_ID,
 };

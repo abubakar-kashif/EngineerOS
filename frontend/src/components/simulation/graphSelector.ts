@@ -52,6 +52,8 @@ const ANALYSIS_LABELS: Record<string, string> = {
   rc_current_time: "Time vs Ic",
   rl_current_time: "Time vs Inductor Current",
   rl_resistor_voltage_time: "Time vs Resistor Voltage",
+  rlc_current_time: "Current vs Time",
+  rlc_capacitor_voltage_time: "Capacitor Voltage vs Time",
   power_time: "Power vs time",
   current_signals: "KCL currents",
   voltage_signals: "KVL voltages",

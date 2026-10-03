@@ -62,6 +62,7 @@ const CATALOG_EXPERIMENT_IDS = [
   "current-divider",
   "rc-circuit",
   "rl-circuit",
+  "rlc-circuit",
   "diode-characteristics",
   "led-circuit",
   "wheatstone-bridge",

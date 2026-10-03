@@ -85,9 +85,39 @@ function ResultsTab({
 
   const rc = measurements.rc;
   const rl = measurements.rl;
+  const rlc = measurements.rlc;
 
   return (
     <div className="sim2-results-table">
+      {rlc && (
+        <>
+          <h4 className="sim2-results-heading">RLC transient (measured)</h4>
+          {(
+            [
+              { label: "R", value: formatWithPrefix(rlc.R, "Ω") },
+              { label: "L", value: formatWithPrefix(rlc.L, "H") },
+              { label: "C", value: formatWithPrefix(rlc.C, "F") },
+              { label: "Vin", value: `${rlc.Vin.toFixed(3)} V` },
+              { label: "time (last)", value: `${rlc.time.toFixed(6)} s` },
+              { label: "i(t)", value: formatWithPrefix(rlc.i, "A") },
+              { label: "Vc", value: `${rlc.Vc.toFixed(3)} V` },
+              { label: "|i| peak", value: formatWithPrefix(rlc.iPeak, "A") },
+              { label: "|Vc| peak", value: `${rlc.vcPeak.toFixed(3)} V` },
+              { label: "½Li² (last)", value: formatWithPrefix(rlc.energyL, "J") },
+              { label: "½CVc² (last)", value: formatWithPrefix(rlc.energyC, "J") },
+              { label: "i zero-crossings", value: String(rlc.zeroCrossings) },
+              { label: "samples", value: String(rlc.sampleCount) },
+              { label: "duration", value: `${rlc.duration.toFixed(6)} s` },
+              { label: "Δt", value: `${rlc.timeStep.toFixed(8)} s` },
+            ] as const
+          ).map((r) => (
+            <div key={`rlc-${r.label}`} className="sim2-result-row">
+              <span className="sim2-result-label">{r.label}</span>
+              <span className="sim2-result-value">{r.value}</span>
+            </div>
+          ))}
+        </>
+      )}
       {rc && (
         <>
           <h4 className="sim2-results-heading">RC transient</h4>

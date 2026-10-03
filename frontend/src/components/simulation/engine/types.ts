@@ -60,6 +60,31 @@ export interface RlLabMeasurements {
   sampleCount: number;
 }
 
+/**
+ * Series RLC lab metrics — only values from the circuit props + time series.
+ * No fabricated Q, bandwidth, or damping ratio.
+ */
+export interface RlcLabMeasurements {
+  R: number;
+  L: number;
+  C: number;
+  Vin: number;
+  time: number;
+  i: number;
+  Vc: number;
+  iPeak: number;
+  vcPeak: number;
+  /** ½ L i² at the last sample. */
+  energyL: number;
+  /** ½ C Vc² at the last sample. */
+  energyC: number;
+  /** Observed current zero-crossings in the recorded window. */
+  zeroCrossings: number;
+  sampleCount: number;
+  duration: number;
+  timeStep: number;
+}
+
 export interface Measurements {
   totalVoltage: number;
   totalCurrent: number;
@@ -72,6 +97,8 @@ export interface Measurements {
   rc?: RcLabMeasurements;
   /** Present for RL transient runs with an inductor. */
   rl?: RlLabMeasurements;
+  /** Present for series RLC transient runs. */
+  rlc?: RlcLabMeasurements;
 }
 
 export interface SimulationResult {

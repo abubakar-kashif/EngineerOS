@@ -155,6 +155,9 @@ function WorkspaceMentorPanel({
           m.rl.tauSimulated != null ? `${m.rl.tauSimulated.toFixed(6)} s` : "n/a";
         return `RL ${m.rl.mode}: R=${m.rl.R} Ω, L=${m.rl.L} H, Vin=${m.rl.Vin} V, t=${m.rl.time.toFixed(6)} s, i(t)=${formatCurrent(m.rl.iL)}, τ=${m.rl.tauTheoretical.toFixed(6)} s (sim ${tauSim})`;
       }
+      if (m.rlc) {
+        return `RLC: R=${m.rlc.R} Ω, L=${m.rlc.L} H, C=${m.rlc.C} F, Vin=${m.rlc.Vin} V, t=${m.rlc.time.toFixed(6)} s, i=${formatCurrent(m.rlc.i)}, Vc=${m.rlc.Vc.toFixed(3)} V, |i|_pk=${formatCurrent(m.rlc.iPeak)}, |Vc|_pk=${m.rlc.vcPeak.toFixed(3)} V, crossings=${m.rlc.zeroCrossings}`;
+      }
       return `Latest run: I=${formatCurrent(m.totalCurrent)}, V=${m.totalVoltage.toFixed(2)} V, Req=${m.equivalentResistance.toFixed(1)} Ω`;
     }
     if (simResult.status === "completed") {
@@ -190,6 +193,15 @@ function WorkspaceMentorPanel({
       chips.push(`Vin ${m.rl.Vin} V`);
       chips.push(`i ${formatCurrent(m.rl.iL)}`);
       chips.push(`τ ${m.rl.tauTheoretical.toFixed(6)} s`);
+      return chips.slice(0, 6);
+    }
+    if (m.rlc) {
+      chips.push("RLC");
+      chips.push(`i ${formatCurrent(m.rlc.i)}`);
+      chips.push(`Vc ${m.rlc.Vc.toFixed(2)} V`);
+      chips.push(`|i|pk ${formatCurrent(m.rlc.iPeak)}`);
+      chips.push(`|Vc|pk ${m.rlc.vcPeak.toFixed(2)} V`);
+      chips.push(`zx ${m.rlc.zeroCrossings}`);
       return chips.slice(0, 6);
     }
     chips.push(`I ${formatCurrent(m.totalCurrent)}`);
@@ -239,6 +251,13 @@ function WorkspaceMentorPanel({
           "Compare my simulated τ with L/R.",
           "What is i(t) doing in this run?",
           "Why does resistor voltage rise with inductor current?",
+        ];
+      }
+      if (experimentId === "rlc-circuit" || simResult.measurements?.rlc) {
+        return [
+          "Summarize my RLC i(t) and Vc(t) waveforms.",
+          "How is energy moving between L and C in this run?",
+          "What do the current zero-crossings tell me?",
         ];
       }
       return [
@@ -348,6 +367,29 @@ function WorkspaceMentorPanel({
           tauSimulated: rlState.tauSimulated,
           tauErrorPercent: rlState.tauErrorPercent,
           Ifinal: rlState.Ifinal,
+        },
+      };
+    } else if (baseSnapshot && simResultRef.current?.measurements?.rlc) {
+      const rlc = simResultRef.current.measurements.rlc;
+      circuitSnapshot = {
+        ...baseSnapshot,
+        simulationState: {
+          experiment: "rlc-circuit",
+          R: rlc.R,
+          L: rlc.L,
+          C: rlc.C,
+          Vin: rlc.Vin,
+          time: rlc.time,
+          i: rlc.i,
+          Vc: rlc.Vc,
+          iPeak: rlc.iPeak,
+          vcPeak: rlc.vcPeak,
+          energyL: rlc.energyL,
+          energyC: rlc.energyC,
+          zeroCrossings: rlc.zeroCrossings,
+          sampleCount: rlc.sampleCount,
+          duration: rlc.duration,
+          timeStep: rlc.timeStep,
         },
       };
     }

@@ -339,30 +339,48 @@ function sampleValues(
   return values;
 }
 
-/** Infer a stable window from the smallest RC / RL time constant. */
+/** Infer a stable window from RC / RL / RLC dynamics. */
 export function inferTransientOptions(circuit: CircuitDefinition): TransientOptions | null {
   const resistors = circuit.components.filter((c) => c.type === "resistor");
   const capacitors = circuit.components.filter((c) => c.type === "capacitor");
   const inductors = circuit.components.filter((c) => c.type === "inductor");
   if (capacitors.length === 0 && inductors.length === 0) return null;
 
-  let tau = 0;
   const rVals = resistors
     .map((r) => r.properties.resistance)
     .filter((x): x is number => typeof x === "number" && x > 0);
   const rEq = rVals.length ? Math.min(...rVals) : 1000;
 
-  for (const c of capacitors) {
-    const cap = c.properties.capacitance;
-    if (typeof cap === "number" && cap > 0) {
-      tau = Math.max(tau, timeConstant(rEq, cap));
-    }
+  const cVals = capacitors
+    .map((c) => c.properties.capacitance)
+    .filter((x): x is number => typeof x === "number" && x > 0);
+  const lVals = inductors
+    .map((l) => l.properties.inductance)
+    .filter((x): x is number => typeof x === "number" && x > 0);
+
+  // Series RLC: window from natural period and damping envelope (not fabricated Q).
+  if (cVals.length > 0 && lVals.length > 0) {
+    const C = Math.min(...cVals);
+    const L = Math.min(...lVals);
+    const omega0 = 1 / Math.sqrt(L * C);
+    const T0 = (2 * Math.PI) / omega0;
+    const alpha = rEq / (2 * L);
+    const settle = alpha > 1e-12 ? 8 / alpha : 10 * T0;
+    const duration = Math.max(settle, 6 * T0);
+    const timeStep = Math.min(T0 / 80, duration / 400);
+    return {
+      duration,
+      timeStep: Math.max(timeStep, duration / 5000),
+      t0: 0,
+    };
   }
-  for (const l of inductors) {
-    const ind = l.properties.inductance;
-    if (typeof ind === "number" && ind > 0) {
-      tau = Math.max(tau, ind / rEq);
-    }
+
+  let tau = 0;
+  for (const cap of cVals) {
+    tau = Math.max(tau, timeConstant(rEq, cap));
+  }
+  for (const ind of lVals) {
+    tau = Math.max(tau, ind / rEq);
   }
   if (!(tau > 0)) {
     tau = 1e-3;

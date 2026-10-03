@@ -44,6 +44,7 @@ export * from './nortonAnalysis';
 export * from './maxPowerTransferAnalysis';
 export * from './rcCircuitAnalysis';
 export * from './rlCircuitAnalysis';
+export * from './rlcCircuitAnalysis';
 
 // Phase A9 - Types (Single Source of Truth)
 export * from './types';
