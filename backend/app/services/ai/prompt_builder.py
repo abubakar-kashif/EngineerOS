@@ -599,20 +599,35 @@ Never present old conversation numbers as the current result."""
                 "DIAGNOSIS: Validation PASSED. Do not invent a wiring, component, "
                 "or measurement problem."
             )
-            return lines
-        lines.append(
-            "DIAGNOSIS HINTS (simulator + drawing only — recommend a fix, "
-            "do not re-solve the circuit):"
-        )
-        if unconnected:
-            lines.append(f"  Open/unconnected terminals: {unconnected}")
-        if isolated:
-            lines.append(f"  Isolated components: {isolated}")
-        for error in validation.get("errors") or []:
+        else:
             lines.append(
-                f"  Fault code={error.get('code')} terminals={error.get('affected_terminals')} "
-                f"components={error.get('affected_components')}"
+                "DIAGNOSIS HINTS (simulator + drawing only — recommend a fix, "
+                "do not re-solve the circuit):"
             )
+            if unconnected:
+                lines.append(f"  Open/unconnected terminals: {unconnected}")
+            if isolated:
+                lines.append(f"  Isolated components: {isolated}")
+            for error in validation.get("errors") or []:
+                lines.append(
+                    f"  Fault code={error.get('code')} terminals={error.get('affected_terminals')} "
+                    f"components={error.get('affected_components')}"
+                )
+        state = simulation.get("simulation_state") or {}
+        diagnoses = state.get("diagnoses") if isinstance(state, dict) else None
+        if isinstance(diagnoses, list) and diagnoses:
+            lines.append(
+                "EVIDENCE DIAGNOSES (classifications Confirmed, Likely, Possible, Expected). "
+                "Use only these. Do not add a fault that is not listed, and do not relabel Expected behavior as an error."
+            )
+            for item in diagnoses:
+                if not isinstance(item, dict):
+                    continue
+                lines.append(
+                    f"  [{item.get('classification')}] {item.get('topic')}: {item.get('evidence')}"
+                )
+                if item.get("suggestion"):
+                    lines.append(f"    Suggested fix: {item.get('suggestion')}")
         return lines
 
     def _format_quiz(self, quiz: Dict[str, Any]) -> str:

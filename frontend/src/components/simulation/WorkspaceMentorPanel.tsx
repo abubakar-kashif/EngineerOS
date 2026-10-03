@@ -14,6 +14,7 @@ import type { ChatMessage } from "../../types/chat";
 import type { SimulationResult } from "./engine";
 import type { CircuitDefinition } from "./engine/circuitGraph";
 import { compactCircuitForMentor } from "./engine/electricalSnapshot";
+import { diagnoseLab, type LabDiagnosis } from "./engine/labDiagnosis";
 import { labelForComponent } from "./engine/graphData";
 import {
   buildMentorExpandHref,
@@ -130,6 +131,11 @@ function WorkspaceMentorPanel({
     simStatus: simResult?.status ?? null,
     conversationId,
   });
+
+  const diagnoses = useMemo(
+    () => diagnoseLab(liveCircuit, simResult),
+    [liveCircuit, simResult],
+  );
 
   const contextHint = useMemo(() => {
     if (!simResult) {
@@ -601,6 +607,15 @@ function WorkspaceMentorPanel({
       };
     }
 
+    const diagnoses = diagnoseLab(live, simResultRef.current);
+    if (circuitSnapshot) {
+      const prior = circuitSnapshot.simulationState ?? {};
+      circuitSnapshot = {
+        ...circuitSnapshot,
+        simulationState: { ...prior, diagnoses },
+      };
+    }
+
     cancelRef.current?.();
     cancelRef.current = mentorService.sendMessage(
       activeId,
@@ -715,6 +730,15 @@ function WorkspaceMentorPanel({
         aria-live="polite"
       >
         <p className="sim2-mentor-context">{contextHint}</p>
+        {diagnoses.length > 0 && (
+          <ul className="sim2-mentor-facts" aria-label="Simulation diagnosis">
+            {diagnoses.slice(0, 4).map((item: LabDiagnosis) => (
+              <li key={`${item.classification}-${item.topic}`}>
+                {item.classification}: {item.topic}. {item.evidence}
+              </li>
+            ))}
+          </ul>
+        )}
         {factChips.length > 0 && (
           <div className="sim2-mentor-facts">
             {factChips.map((chip) => (

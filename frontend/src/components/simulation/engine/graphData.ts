@@ -515,7 +515,7 @@ export function generateGraphsFromMeasurements(
         peakVoltageFrequency: fs.peakVoltageFrequency,
         peakVoltageMag: fs.peakVoltageMag,
         f0Theoretical: sr?.f0Theoretical,
-        f0Simulated: sr?.f0Simulated ?? fs.peakCurrentFrequency,
+        f0Simulated: sr?.f0Simulated,
         errorPercent: sr?.errorPercent,
         bandwidth: sr?.bandwidth,
         Q: sr?.Q,

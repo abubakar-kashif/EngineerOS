@@ -263,13 +263,14 @@ function SimulationPage() {
       const starter = getExperimentStarterCircuit(experimentParam);
       if (starter) {
         loadCircuit(starter);
-        // Session state is already empty on this mount. Clearing it here
-        // only schedules another render with the same null result.
         requestAnimationFrame(() => canvasRef.current?.fitToScreen());
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot restore
-  }, []);
+    // Reload the matching starter when the experiment in the URL changes.
+    // The editor's loadCircuit identity is stable; listing it would re-run
+    // this effect on unrelated renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [experimentParam]);
 
   useEffect(() => {
     function onFsChange() {

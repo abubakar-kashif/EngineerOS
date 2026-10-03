@@ -107,7 +107,7 @@ def _append_component_rows(
         if not isinstance(component_result, dict):
             continue
         component_id = component_result.get(id_key) or component_result.get("component_id")
-        if not component_id:
+        if not component_id or str(component_id).startswith("__"):
             continue
         name = labels.get(component_id, component_id)
         for field, quantity, unit in COMPONENT_MEASUREMENT_FIELDS:
@@ -143,6 +143,9 @@ def _wheatstone_measured_rows(
 
     r2 = by_label.get("R2")
     r4 = by_label.get("R4")
+    # A lone voltmeter is not a Wheatstone measurement.
+    if r2 is None or r4 is None:
+        return []
     vm = by_label.get("VM1") or next(
         (
             row
@@ -202,22 +205,28 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
 
     measurements = results.get("measurements")
     if isinstance(measurements, dict):
-        mapping = (
-            ("totalVoltage", "Source Voltage", "V"),
-            ("equivalentResistance", "Total Resistance", "Ω"),
-            ("totalCurrent", "Total Current", "A"),
-            ("totalPower", "Total Power", "W"),
+        ac_filter = isinstance(
+            measurements.get("rcLowPass") or measurements.get("rc_low_pass"), dict
         )
-        for field, label, unit in mapping:
-            value = _numeric(measurements.get(field))
-            if value is not None and not any(r["label"] == label for r in rows):
-                rows.append({"label": label, "value": value, "unit": unit})
+        # A series capacitor blocks DC. The bias-point resistance and component
+        # voltages are not AC measurements of the filter.
+        if not ac_filter:
+            mapping = (
+                ("totalVoltage", "Source Voltage", "V"),
+                ("equivalentResistance", "Total Resistance", "Ω"),
+                ("totalCurrent", "Total Current", "A"),
+                ("totalPower", "Total Power", "W"),
+            )
+            for field, label, unit in mapping:
+                value = _numeric(measurements.get(field))
+                if value is not None and not any(r["label"] == label for r in rows):
+                    rows.append({"label": label, "value": value, "unit": unit})
 
-        component_rows = measurements.get("componentMeasurements") or measurements.get(
-            "component_measurements"
-        )
-        if isinstance(component_rows, list):
-            _append_component_rows(rows, component_rows, labels)
+            component_rows = measurements.get("componentMeasurements") or measurements.get(
+                "component_measurements"
+            )
+            if isinstance(component_rows, list):
+                _append_component_rows(rows, component_rows, labels)
 
         for wheatstone_row in _wheatstone_measured_rows(results, labels):
             if not any(r["label"] == wheatstone_row["label"] for r in rows):
@@ -294,6 +303,11 @@ def _rc_low_pass_measured_rows(results: dict) -> list[dict]:
             "unit": "dB",
         },
     ]
+    phase = _numeric(lp.get("phaseAtDriveDeg"))
+    if phase is not None:
+        rows.append(
+            {"label": "Phase at drive", "value": _fmt_num(phase, 2), "unit": "deg"}
+        )
     sweep = measurements.get("frequencySweep") or measurements.get("frequency_sweep")
     if isinstance(sweep, dict):
         response = sweep.get("response")
@@ -425,9 +439,11 @@ def _series_resonance_measured_rows(results: dict) -> list[dict]:
             meta = graph.get("metadata") if isinstance(graph.get("metadata"), dict) else {}
             rows: list[dict] = []
             f0t = _numeric(meta.get("f0Theoretical"))
-            f0s = _numeric(meta.get("f0Simulated") or meta.get("peakCurrentFrequency"))
-            if f0t is not None:
-                rows.append({"label": "Theoretical f0", "value": f0t, "unit": "Hz"})
+            # Peak current on an RC sweep is not a resonant frequency.
+            if f0t is None:
+                continue
+            f0s = _numeric(meta.get("f0Simulated"))
+            rows.append({"label": "Theoretical f0", "value": f0t, "unit": "Hz"})
             if f0s is not None:
                 rows.append({"label": "Simulated f0", "value": f0s, "unit": "Hz"})
             err = _numeric(meta.get("errorPercent"))
@@ -928,6 +944,12 @@ def _potentiometer_measured_rows(
         ),
         None,
     )
+    circuit_has_pot = isinstance(circuit, dict) and any(
+        isinstance(component, dict) and component.get("type") == "potentiometer"
+        for component in (circuit.get("components") or [])
+    )
+    if pot is None and not circuit_has_pot:
+        return []
     vm = next(
         (
             row

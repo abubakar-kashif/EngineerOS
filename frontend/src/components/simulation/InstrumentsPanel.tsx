@@ -33,10 +33,11 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
   const measurements = result?.measurements;
   const comps = measurements?.componentMeasurements ?? [];
 
-  const voltmeters = comps.filter((c) => c.type === "voltmeter");
-  const ammeters = comps.filter((c) => c.type === "ammeter");
-  const ohmmeter = comps.find((c) => c.type === "ohmmeter");
-  const powerMeter = comps.find((c) => c.type === "power_meter");
+  const placed = comps.filter((c) => !c.componentId.startsWith("__"));
+  const voltmeters = placed.filter((c) => c.type === "voltmeter");
+  const ammeters = placed.filter((c) => c.type === "ammeter");
+  const ohmmeter = placed.find((c) => c.type === "ohmmeter");
+  const powerMeter = placed.find((c) => c.type === "power_meter");
 
   const selectedVolt = voltmeters.find((c) => c.componentId === selectedComponentId);
   const selectedAmp = ammeters.find((c) => c.componentId === selectedComponentId);
@@ -44,11 +45,13 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
     selectedVolt?.voltage ?? (voltmeters.length === 1 ? voltmeters[0].voltage : undefined);
   const ampReading =
     selectedAmp?.current ?? (ammeters.length === 1 ? ammeters[0].current : undefined);
-  const ohmReading =
-    ohmmeter?.resistance ??
-    (measurements && measurements.equivalentResistance > 0
-      ? measurements.equivalentResistance
-      : undefined);
+  const equivalent = measurements?.equivalentResistance;
+  const dcOpen =
+    !ohmmeter &&
+    equivalent != null &&
+    Number.isFinite(equivalent) &&
+    equivalent > 1e8;
+  const ohmReading = ohmmeter?.resistance ?? (dcOpen ? undefined : equivalent);
   const powerReading = powerMeter?.power ?? measurements?.totalPower;
 
   const status = result?.status ?? "idle";
@@ -99,9 +102,11 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
           <div className="sim-instrument-card">
             <span className="sim-instrument-name">Resistance</span>
             <span className="sim-instrument-reading">
-              {ohmReading !== undefined && Number.isFinite(ohmReading) && ohmReading > 0
-                ? formatResistance(ohmReading)
-                : "— (not valid for this circuit state)"}
+              {dcOpen
+                ? "open at DC — no component resistance was measured"
+                : ohmReading !== undefined && Number.isFinite(ohmReading) && ohmReading > 0
+                  ? formatResistance(ohmReading)
+                  : "— (not valid for this circuit state)"}
             </span>
           </div>
           <div className="sim-instrument-card">
