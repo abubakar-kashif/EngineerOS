@@ -65,16 +65,44 @@ class ExperimentContext:
             wheatstone = _wheatstone_theoretical(experiment.simulation_configuration)
             if wheatstone:
                 context["theoretical_bridge"] = wheatstone
+            pot = _potentiometer_theoretical(experiment.simulation_configuration)
+            if pot:
+                context["theoretical_potentiometer"] = pot
 
         context["guidance_boundary"] = (
             "Experiment catalog data is for instructional guidance only. "
             "The simulator — not the Mentor — validates the student's circuit "
             "and determines electrical behavior. "
-            "Never invent Vleft, Vright, Vout, or other measurements — use "
-            "simulation context when a run is attached."
+            "Never invent Vleft, Vright, Vout, wiper position, or other "
+            "measurements — use simulation context when a run is attached."
         )
 
         return context
+
+
+def _potentiometer_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(config, dict) or config.get("mode") != "potentiometer":
+        return None
+    params = config.get("parameters")
+    if not isinstance(params, dict):
+        return None
+    try:
+        vin = float(params["voltage"])
+        rpot = float(params.get("rpot") or params["resistance"])
+        alpha = float(params.get("wiper_position") or params.get("wiperPosition"))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if vin <= 0 or rpot <= 0 or alpha < 0 or alpha > 1:
+        return None
+    return {
+        "Vin": vin,
+        "Rpot": rpot,
+        "wiper_position": alpha,
+        "Vout": alpha * vin,
+        "theoretical_Vout": alpha * vin,
+        "relation": "Vout = α · Vin (unloaded)",
+        "note": "Theoretical catalog values for the published starter configuration.",
+    }
 
 
 def _wheatstone_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:

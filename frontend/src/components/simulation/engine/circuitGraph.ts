@@ -8,6 +8,7 @@ export type ComponentType =
   | 'voltage_source'
   | 'current_source'
   | 'resistor'
+  | 'potentiometer'
   | 'capacitor'
   | 'inductor'
   | 'diode'
@@ -20,6 +21,7 @@ export type ComponentType =
 export type TerminalType =
   | 'A'
   | 'B'
+  | 'wiper'
   | 'positive'
   | 'negative'
   | 'anode'
@@ -36,7 +38,9 @@ export interface Position {
 }
 
 export interface ComponentProperties {
-  resistance?: number;      // Ω
+  resistance?: number;      // Ω (also total Rpot for potentiometer)
+  /** Potentiometer wiper fraction α from end B toward end A; 0 ≤ α ≤ 1. */
+  wiperPosition?: number;
   voltage?: number;         // V
   current?: number;         // A
   capacitance?: number;     // F
@@ -140,6 +144,7 @@ export function getComponentIds(circuit: CircuitDefinition): string[] {
  */
 export const ComponentTerminals: Record<ComponentType, TerminalType[]> = {
   resistor: ['A', 'B'],
+  potentiometer: ['A', 'wiper', 'B'],
   capacitor: ['A', 'B'],
   inductor: ['A', 'B'],
   diode: ['anode', 'cathode'],

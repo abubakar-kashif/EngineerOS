@@ -109,7 +109,7 @@ export function generateMeasurementsFromDCResult(
   const componentMeasurements: ComponentMeasurement[] = [];
 
   const reportedTypes = new Set([
-    'resistor', 'capacitor', 'inductor', 'diode', 'led',
+    'resistor', 'potentiometer', 'capacitor', 'inductor', 'diode', 'led',
     'voltage_source', 'current_source', 'voltmeter', 'ammeter', 'switch',
   ]);
 

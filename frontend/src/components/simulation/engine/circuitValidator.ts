@@ -99,7 +99,7 @@ function validateComponent(
   }
 
   const validTypes = [
-    'resistor', 'capacitor', 'inductor', 'diode', 'led',
+    'resistor', 'potentiometer', 'capacitor', 'inductor', 'diode', 'led',
     'switch', 'voltage_source', 'current_source', 'ground',
     'voltmeter', 'ammeter'
   ];
@@ -155,14 +155,27 @@ function validateComponent(
     ));
   }
 
-  if (component.type === 'resistor') {
+  if (component.type === 'resistor' || component.type === 'potentiometer') {
     const resistance = component.properties.resistance;
     if (resistance !== undefined && resistance <= 0) {
       errors.push(createErrorWithDetails('INVALID_COMPONENT_VALUE',
-        `Resistor ${component.id} has invalid resistance: ${resistance}Ω`,
+        `${component.type === 'potentiometer' ? 'Potentiometer' : 'Resistor'} ${component.id} has invalid resistance: ${resistance}Ω`,
         {
           affectedComponents: [component.id],
           suggestedFix: 'Resistance must be greater than 0 Ω.',
+        }
+      ));
+    }
+  }
+
+  if (component.type === 'potentiometer') {
+    const alpha = component.properties.wiperPosition;
+    if (alpha !== undefined && (alpha < 0 || alpha > 1)) {
+      errors.push(createErrorWithDetails('INVALID_COMPONENT_VALUE',
+        `Potentiometer ${component.id} has invalid wiper position: ${alpha}`,
+        {
+          affectedComponents: [component.id],
+          suggestedFix: 'Wiper position α must be between 0 and 1.',
         }
       ));
     }

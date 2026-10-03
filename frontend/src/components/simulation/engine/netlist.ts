@@ -10,6 +10,16 @@ export const GROUND_NET = '__gnd__';
 
 export type NetlistElement =
   | { kind: 'resistor'; id: string; n1: string; n2: string; resistance: number }
+  | {
+      kind: 'potentiometer';
+      id: string;
+      nA: string;
+      nW: string;
+      nB: string;
+      resistance: number;
+      /** α: fraction of R from B to wiper; Vout≈α·Vin when A=Vin, B=GND. */
+      wiperPosition: number;
+    }
   | { kind: 'capacitor'; id: string; n1: string; n2: string; capacitance: number }
   | { kind: 'inductor'; id: string; n1: string; n2: string; inductance: number }
   | { kind: 'voltage_source'; id: string; nPos: string; nNeg: string; voltage: number }
@@ -19,6 +29,18 @@ export type NetlistElement =
   | { kind: 'switch'; id: string; n1: string; n2: string; closed: boolean }
   | { kind: 'voltmeter'; id: string; nPos: string; nNeg: string }
   | { kind: 'ammeter'; id: string; n1: string; n2: string };
+
+/** Clamp α into (0,1) with tiny end resistances so MNA never sees a hard short. */
+export function potentiometerArmResistances(
+  resistance: number,
+  wiperPosition: number,
+): { rAw: number; rWb: number; alpha: number } {
+  const alpha = Math.min(1, Math.max(0, wiperPosition));
+  const eps = Math.max(resistance * 1e-9, 1e-6);
+  const rWb = Math.max(alpha * resistance, eps);
+  const rAw = Math.max((1 - alpha) * resistance, eps);
+  return { rAw, rWb, alpha };
+}
 
 export interface Netlist {
   /** Collapsed electrical nets (all schematic grounds share GROUND_NET). */
@@ -92,6 +114,40 @@ export function buildNetlist(
           break;
         }
         elements.push({ kind: 'resistor', id: component.id, ...n, resistance });
+        break;
+      }
+      case 'potentiometer': {
+        const a = component.terminals.find((t) => t.type === 'A');
+        const w = component.terminals.find((t) => t.type === 'wiper');
+        const b = component.terminals.find((t) => t.type === 'B');
+        if (!a || !w || !b) {
+          errors.push(`Potentiometer ${component.id} is missing A/wiper/B terminals`);
+          break;
+        }
+        const nA = netOfTerminal.get(a.id);
+        const nW = netOfTerminal.get(w.id);
+        const nB = netOfTerminal.get(b.id);
+        if (!nA || !nW || !nB) {
+          errors.push(`Potentiometer ${component.id} is not fully connected`);
+          break;
+        }
+        const resistance = component.properties.resistance;
+        if (resistance === undefined || resistance === null || resistance <= 0) {
+          errors.push(`Potentiometer ${component.id} has no positive resistance`);
+          break;
+        }
+        const rawAlpha = component.properties.wiperPosition;
+        const wiperPosition =
+          typeof rawAlpha === 'number' && Number.isFinite(rawAlpha) ? rawAlpha : 0.5;
+        elements.push({
+          kind: 'potentiometer',
+          id: component.id,
+          nA,
+          nW,
+          nB,
+          resistance,
+          wiperPosition,
+        });
         break;
       }
       case 'capacitor': {
@@ -234,6 +290,10 @@ export function topologyNeighbors(netlist: Netlist): Map<string, Set<string>> {
       case 'inductor':
       case 'ammeter':
         link(el.n1, el.n2);
+        break;
+      case 'potentiometer':
+        link(el.nA, el.nW);
+        link(el.nW, el.nB);
         break;
       case 'voltmeter':
         link(el.nPos, el.nNeg);

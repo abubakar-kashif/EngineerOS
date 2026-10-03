@@ -915,7 +915,7 @@ EXPERIMENTS: list[dict] = [
             "High-voltage probes divide 1000 V down to 1 V for safe metering.",
             "Bias networks set reference voltages for op-amps and transistor stages.",
         ],
-        "related_experiments": ["series-circuit", "current-divider", "kvl", "wheatstone-bridge"],
+        "related_experiments": ["series-circuit", "current-divider", "kvl", "wheatstone-bridge", "potentiometer"],
         "simulation_configuration": {"mode": "series", "parameters": {"voltage": 9, "r1": 1000, "r2": 2200}},
     },
     {
@@ -1704,7 +1704,7 @@ EXPERIMENTS: list[dict] = [
             "Precision ohmmeters and decade boxes still teach the null method.",
             "Instrumentation amplifiers often read the differential output of a sensor bridge.",
         ],
-        "related_experiments": ["voltage-divider", "series-circuit", "ohms-law", "kvl"],
+        "related_experiments": ["voltage-divider", "series-circuit", "ohms-law", "kvl", "potentiometer"],
         "simulation_configuration": {
             "mode": "wheatstone",
             "parameters": {
@@ -1713,6 +1713,155 @@ EXPERIMENTS: list[dict] = [
                 "r2": 1000,
                 "r3": 1000,
                 "r4": 1000,
+            },
+        },
+    },
+    {
+        "id": "potentiometer",
+        "title": "Potentiometer / Variable Voltage Divider",
+        "slug": "potentiometer",
+        "short_description": "Use a three-terminal potentiometer as a variable unloaded voltage divider.",
+        "description": (
+            "This experiment introduces the potentiometer as a real three-terminal "
+            "component: a resistive track between ends A and B with a movable wiper. "
+            "You will adjust Vin, total resistance Rpot, and wiper position α, then "
+            "compare simulated Vout with the ideal unloaded relation Vout = α·Vin."
+        ),
+        "objective": (
+            "Operate a potentiometer as a variable voltage divider, measure Vout "
+            "versus wiper position, and recognize loading limitations of the ideal model."
+        ),
+        "theory": (
+            "A potentiometer is a three-terminal variable resistor. Ends A and B "
+            "span the full track resistance Rpot; the wiper taps a fraction of that "
+            "track. Define α as the fractional position from B toward A "
+            "(0 ≤ α ≤ 1). With A at Vin, B at ground, and no load on the wiper, "
+            "the two track segments form a voltage divider: "
+            "R_Aw = (1−α)·Rpot and R_WB = α·Rpot, so "
+            "Vout = Vin · R_WB / (R_Aw + R_WB) = α·Vin. "
+            "The same device can also be wired as a two-terminal rheostat "
+            "(wiper tied to one end). Real meters and loads draw current from the "
+            "wiper and disturb the ideal α·Vin law — the loading effect."
+        ),
+        "difficulty": "Beginner",
+        "category": "Circuit Fundamentals",
+        "duration_minutes": 30,
+        "status": "published",
+        "historical_background": (
+            "Carbon and wire-wound potentiometers became everyday volume and "
+            "setpoint controls in radio and instrumentation. The name reflects "
+            "their use for measuring potential difference by null methods before "
+            "they became general-purpose variable dividers."
+        ),
+        "learning_outcomes": [
+            "Identify the three terminals of a potentiometer (A, B, wiper)",
+            "Relate wiper position α to the ideal unloaded output Vout = α·Vin",
+            "Adjust Vin, Rpot, and α in simulation and observe Vout",
+            "Explain why a load on the wiper changes Vout from the ideal prediction",
+        ],
+        "prerequisites": ["ohms-law", "voltage-divider"],
+        "formulas": [
+            {
+                "expression": "V_out = α · V_in  (unloaded)",
+                "variables": [
+                    {"symbol": "V_out", "name": "Wiper output voltage to ground"},
+                    {"symbol": "α", "name": "Wiper position from B toward A (0…1)"},
+                    {"symbol": "V_in", "name": "Supply across A–B"},
+                ],
+            },
+            {
+                "expression": "R_Aw = (1 − α) · R_pot ,  R_WB = α · R_pot",
+                "variables": [
+                    {"symbol": "R_pot", "name": "Total track resistance"},
+                    {"symbol": "R_Aw", "name": "Resistance A to wiper"},
+                    {"symbol": "R_WB", "name": "Resistance wiper to B"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "V_in", "name": "Supply voltage", "unit": "volt (V)", "description": "DC source across pot ends A–B"},
+            {"symbol": "R_pot", "name": "Track resistance", "unit": "ohm (Ω)", "description": "Full end-to-end resistance"},
+            {"symbol": "α", "name": "Wiper position", "unit": "dimensionless", "description": "0 at B, 1 at A"},
+            {"symbol": "V_out", "name": "Output voltage", "unit": "volt (V)", "description": "Wiper voltage relative to B/ground"},
+        ],
+        "components": [
+            {"name": "DC voltage source", "quantity": 1, "spec": "10 V"},
+            {"name": "Potentiometer", "quantity": 1, "spec": "10 kΩ track, adjustable wiper"},
+            {"name": "Ground", "quantity": 1, "spec": "Reference node"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Wiper to ground (Vout)"},
+        ],
+        "circuit_diagram": {
+            "art": (
+                "  +---- A [====POT====] B ----+\n"
+                "  |         | wiper           |\n"
+                " (Vin)      o---- VM (Vout)   |\n"
+                "  |         |                 |\n"
+                "  +---------o--- GND ---------+\n"
+            ),
+            "caption": (
+                "Ends A–B across Vin; wiper voltage to ground is Vout. "
+                "Ideal unloaded law: Vout = α·Vin."
+            ),
+        },
+        "procedure": [
+            "Open the Potentiometer lab — the starter circuit (Vin = 10 V, Rpot = 10 kΩ, α = 0.5) should load automatically.",
+            "Identify terminals A, B, and wiper on POT1, plus VM1 from wiper to ground.",
+            "Run the simulation and record Vout; expect ≈ 5 V at α = 0.5.",
+            "Set wiper position to 0.25 and 0.75, re-run, and compare Vout with α·Vin.",
+            "Change Vin to 5 V at α = 0.5 and verify Vout scales linearly.",
+            "Change Rpot (e.g. 5 kΩ) at fixed α — unloaded Vout should stay ≈ α·Vin.",
+            "Inspect the wiper-position vs Vout graph generated from real solver sweeps.",
+            "Discuss loading: if a finite load hung on the wiper, Vout would fall below α·Vin.",
+        ],
+        "expected_results": [
+            "At Vin = 10 V, α = 0.5: Vout ≈ 5 V.",
+            "At α = 0.25: Vout ≈ 2.5 V; at α = 0.75: Vout ≈ 7.5 V.",
+            "Changing Rpot alone (unloaded) does not change α·Vin.",
+            "The wiper sweep graph is essentially a straight line through the origin vs α.",
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Wiring only two terminals and expecting a divider",
+                "consequence": "A rheostat connection changes current, not a true α·Vin tap.",
+            },
+            {
+                "mistake": "Leaving B floating instead of grounded",
+                "consequence": "Vout reference is undefined relative to the supply return.",
+            },
+            {
+                "mistake": "Assuming Vout is independent of load current",
+                "consequence": "Any wiper load forms a new divider and pulls Vout down.",
+            },
+            {
+                "mistake": "Confusing α = 0 with the high end of the track",
+                "consequence": "In this lab α = 0 is at B (ground); α = 1 is at A (Vin).",
+            },
+        ],
+        "safety_precautions": [
+            "Keep Vin within the lab limit (this experiment uses 10 V DC).",
+            "Do not short the wiper directly to Vin or ground through a near-zero resistance path while probing carelessly.",
+            "Power off before rearranging wires in a physical build.",
+            "Start meter ranges high when Vout is unknown.",
+        ],
+        "observation_guidance": [
+            "Watch Vout track α linearly on the sweep graph.",
+            "Note that Rpot sets track current I = Vin/Rpot but not unloaded Vout.",
+            "Compare simulated Vout with theoretical α·Vin and compute percentage error.",
+            "Think about audio volume pots and sensor offset trimmers as the same topology.",
+        ],
+        "real_world_applications": [
+            "Volume and tone controls in audio equipment",
+            "Setpoint and calibration trimmers on instrument boards",
+            "Joystick and pedal position sensors (often as dual pots)",
+            "Adjustable reference voltages for analog circuits",
+        ],
+        "related_experiments": ["voltage-divider", "ohms-law", "series-circuit", "wheatstone-bridge"],
+        "simulation_configuration": {
+            "mode": "potentiometer",
+            "parameters": {
+                "voltage": 10,
+                "rpot": 10000,
+                "wiper_position": 0.5,
             },
         },
     },

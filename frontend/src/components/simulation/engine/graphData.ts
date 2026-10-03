@@ -13,6 +13,11 @@ import {
   findWheatstoneArms,
   wheatstoneRatioSweep,
 } from './wheatstoneAnalysis';
+import {
+  extractPotentiometerMetrics,
+  findPotentiometer,
+  potentiometerWiperSweep,
+} from './potentiometerAnalysis';
 
 export interface GraphPoint {
   x: number;
@@ -506,6 +511,41 @@ export function generateGraphsFromMeasurements(
   }
 
   if (circuit) {
+    const pot = findPotentiometer(circuit);
+    if (pot) {
+      const dc = solveDC(circuit);
+      const metrics = extractPotentiometerMetrics(circuit, dc);
+      if (metrics) {
+        const sweep = potentiometerWiperSweep(circuit, pot.id, 11);
+        if (sweep.length >= 2) {
+          graphs.push({
+            id: 'potentiometer_wiper',
+            type: 'line',
+            title: 'Potentiometer (Wiper position vs Vout)',
+            xAxis: { label: 'Wiper position α', unit: '' },
+            yAxis: { label: 'Vout', unit: 'V' },
+            series: [
+              {
+                name: 'Vout (solved)',
+                color: COLORS[1],
+                points: sweep.map((p) => ({ x: p.alpha, y: p.vout })),
+              },
+              {
+                name: 'Operating point',
+                color: COLORS[0],
+                points: [{ x: metrics.wiperPosition, y: metrics.vout }],
+              },
+            ],
+            metadata: {
+              source: 'dc_sweep',
+              pointCount: sweep.length,
+              theoreticalVout: metrics.theoreticalVout,
+            },
+          });
+        }
+      }
+    }
+
     const arms = findWheatstoneArms(circuit);
     if (arms) {
       const dc = solveDC(circuit);

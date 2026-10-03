@@ -156,6 +156,34 @@ export function ResistorNode(props: Omit<NodeProps, "children"> & { value?: stri
   );
 }
 
+/** Three-terminal potentiometer: resistive track A—B with wiper tap. */
+export function PotentiometerNode(
+  props: Omit<NodeProps, "children"> & { value?: string; alpha?: number },
+) {
+  const zigzag = "M-30,0 L-22,0 L-18,-8 L-10,0 L-2,8 L6,0 L14,-8 L22,0 L30,0";
+  const alpha = Math.min(1, Math.max(0, props.alpha ?? 0.5));
+  // Wiper arrow along the track: α=0 at B (+30), α=1 at A (−30).
+  const wx = 30 - alpha * 60;
+  return (
+    <NodeWrapper {...props}>
+      <path d={zigzag} {...WIRE_STYLE} />
+      <line x1={wx} y1={0} x2={0} y2={24} {...WIRE_STYLE} />
+      <polygon points={`0,24 -4,14 4,14`} fill="currentColor" />
+      <text x={-34} y={-10} fontSize={9} fill="var(--color-text-secondary)">
+        A
+      </text>
+      <text x={28} y={-10} fontSize={9} fill="var(--color-text-secondary)">
+        B
+      </text>
+      {props.value && (
+        <text x={0} y={-16} textAnchor="middle" fontSize={10} fill="var(--color-text-secondary)">
+          {props.value}
+        </text>
+      )}
+    </NodeWrapper>
+  );
+}
+
 export function CapacitorNode(props: Omit<NodeProps, "children"> & { value?: string }) {
   return (
     <NodeWrapper {...props}>

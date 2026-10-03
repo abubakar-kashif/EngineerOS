@@ -9,6 +9,7 @@ import type { SimulationResult } from './types';
 
 const ELECTRICAL_KEYS = [
   'resistance',
+  'wiperPosition',
   'voltage',
   'current',
   'capacitance',
@@ -22,6 +23,7 @@ export interface NetlistSnapshotElement {
   id: string;
   nets: string[];
   value?: number | boolean;
+  wiperPosition?: number;
 }
 
 export interface NetlistSnapshot {
@@ -87,6 +89,14 @@ export function serializeNetlistSnapshot(netlist: Netlist): NetlistSnapshot {
     switch (el.kind) {
       case 'resistor':
         return { kind: el.kind, id: el.id, nets: [el.n1, el.n2], value: el.resistance };
+      case 'potentiometer':
+        return {
+          kind: el.kind,
+          id: el.id,
+          nets: [el.nA, el.nW, el.nB],
+          value: el.resistance,
+          wiperPosition: el.wiperPosition,
+        };
       case 'capacitor':
         return { kind: el.kind, id: el.id, nets: [el.n1, el.n2], value: el.capacitance };
       case 'inductor':

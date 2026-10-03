@@ -223,7 +223,112 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
             if not any(r["label"] == wheatstone_row["label"] for r in rows):
                 rows.append(wheatstone_row)
 
+        for pot_row in _potentiometer_measured_rows(results, labels, circuit):
+            if not any(r["label"] == pot_row["label"] for r in rows):
+                rows.append(pot_row)
+
     return rows or None
+
+
+def _potentiometer_measured_rows(
+    results: dict,
+    labels: dict[str, str],
+    circuit: dict | None = None,
+) -> list[dict]:
+    measurements = results.get("measurements")
+    if not isinstance(measurements, dict):
+        return []
+    components = measurements.get("componentMeasurements") or measurements.get(
+        "component_measurements"
+    )
+    if not isinstance(components, list):
+        return []
+
+    pot = next(
+        (
+            row
+            for row in components
+            if isinstance(row, dict)
+            and (
+                row.get("type") == "potentiometer"
+                or labels.get(row.get("componentId") or row.get("component_id") or "", "").startswith(
+                    "POT"
+                )
+                or str(row.get("componentId") or "").startswith("POT")
+            )
+        ),
+        None,
+    )
+    vm = next(
+        (
+            row
+            for row in components
+            if isinstance(row, dict) and row.get("type") == "voltmeter"
+        ),
+        None,
+    )
+    rows: list[dict] = []
+
+    # Pull Vin / Rpot / α from the solved circuit definition when present.
+    if isinstance(circuit, dict):
+        for component in circuit.get("components", []):
+            if not isinstance(component, dict):
+                continue
+            props = component.get("properties") if isinstance(component.get("properties"), dict) else {}
+            if component.get("type") == "voltage_source":
+                vin = _numeric(props.get("voltage"))
+                if vin is not None:
+                    rows.append({"label": "Vin", "value": vin, "unit": "V"})
+            if component.get("type") == "potentiometer":
+                rpot = _numeric(props.get("resistance"))
+                alpha = _numeric(props.get("wiperPosition"))
+                if rpot is not None:
+                    rows.append({"label": "Rpot", "value": rpot, "unit": "Ω"})
+                if alpha is not None:
+                    rows.append({"label": "Wiper position", "value": alpha, "unit": "α"})
+                    vin_row = next((r for r in rows if r["label"] == "Vin"), None)
+                    if vin_row is not None:
+                        rows.append(
+                            {
+                                "label": "Theoretical Vout",
+                                "value": alpha * vin_row["value"],
+                                "unit": "V",
+                            }
+                        )
+
+    if pot:
+        vout = _numeric(pot.get("voltage"))
+        if vout is not None:
+            rows.append({"label": "Vout", "value": vout, "unit": "V"})
+        rpot = _numeric(pot.get("resistance"))
+        if rpot is not None and not any(r["label"] == "Rpot" for r in rows):
+            rows.append({"label": "Rpot", "value": rpot, "unit": "Ω"})
+    if vm:
+        vout_vm = _numeric(vm.get("voltage"))
+        if vout_vm is not None:
+            # Prefer meter reading as simulated Vout.
+            rows = [r for r in rows if r["label"] != "Vout"]
+            rows.append({"label": "Vout", "value": vout_vm, "unit": "V"})
+            rows.append({"label": "Simulated Vout", "value": vout_vm, "unit": "V"})
+    return rows
+
+
+def _potentiometer_reference_rows(parameters: dict, voltage: float) -> list[dict] | None:
+    rpot = _numeric(parameters.get("rpot") or parameters.get("resistance"))
+    alpha = _numeric(parameters.get("wiper_position") or parameters.get("wiperPosition"))
+    if rpot is None or alpha is None or rpot <= 0:
+        return None
+    if alpha < 0 or alpha > 1:
+        return None
+    vout = alpha * voltage
+    return [
+        {"label": "Source Voltage", "value": voltage, "unit": "V"},
+        {"label": "Vin", "value": voltage, "unit": "V"},
+        {"label": "Rpot", "value": rpot, "unit": "Ω"},
+        {"label": "Wiper position", "value": alpha, "unit": "α"},
+        {"label": "Vout", "value": vout, "unit": "V"},
+        {"label": "Theoretical Vout", "value": vout, "unit": "V"},
+    ]
 
 
 def _wheatstone_reference_rows(parameters: dict, voltage: float) -> list[dict] | None:
@@ -278,13 +383,19 @@ def _reference_rows(experiment: Experiment) -> list[dict] | None:
         return None
 
     voltage = _numeric(parameters.get("voltage"))
-    r1 = _numeric(parameters.get("r1"))
-    r2 = _numeric(parameters.get("r2"))
-    if voltage is None or r1 is None or voltage <= 0 or r1 <= 0:
+    if voltage is None or voltage <= 0:
         return None
 
     if config.get("mode") == "wheatstone" or experiment.id == "wheatstone-bridge":
         return _wheatstone_reference_rows(parameters, voltage)
+
+    if config.get("mode") == "potentiometer" or experiment.id == "potentiometer":
+        return _potentiometer_reference_rows(parameters, voltage)
+
+    r1 = _numeric(parameters.get("r1"))
+    r2 = _numeric(parameters.get("r2"))
+    if r1 is None or r1 <= 0:
+        return None
 
     if config.get("mode") == "parallel":
         if r2 is None or r2 <= 0:

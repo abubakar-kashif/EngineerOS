@@ -189,6 +189,24 @@ QUIZ_BANK_EXTRA = {
         {"question": "Wheatstone bridges are still used because:", "option_a": "They convert small resistance changes to differential voltages", "option_b": "They replace all capacitors", "option_c": "They eliminate Ohm's law", "option_d": "They need no supply", "correct_answer": "A", "explanation": "Sensor and metrology use cases."},
         {"question": "Restoring balance after changing R4 usually means adjusting:", "option_a": "R3 (or another known arm)", "option_b": "Ground symbol only", "option_c": "Wire thickness only", "option_d": "Monitor refresh rate", "correct_answer": "A", "explanation": "Match the new right ratio to the left."},
     ]
+,
+    "potentiometer": [
+        {"question": "α=0.1, Vin=10 V → Vout:", "option_a": "1 V", "option_b": "10 V", "option_c": "0.1 V", "option_d": "9 V", "correct_answer": "A", "explanation": "0.1×10."},
+        {"question": "α=0.9, Vin=10 V → Vout:", "option_a": "9 V", "option_b": "1 V", "option_c": "0.9 V", "option_d": "10 V", "correct_answer": "A", "explanation": "0.9×10."},
+        {"question": "Track current with Vin=10 V, Rpot=5 kΩ:", "option_a": "2 mA", "option_b": "5 mA", "option_c": "0.5 mA", "option_d": "10 A", "correct_answer": "A", "explanation": "10/5000=0.002."},
+        {"question": "If α doubles at fixed Vin, ideal Vout:", "option_a": "Doubles", "option_b": "Halves", "option_c": "Squares", "option_d": "Stays fixed", "correct_answer": "A", "explanation": "Linear in α."},
+        {"question": "Potentiometer is not:", "option_a": "A two-terminal fixed resistor only", "option_b": "A three-terminal part", "option_c": "Usable as a divider", "option_d": "Usable as a rheostat", "correct_answer": "A", "explanation": "It has three terminals."},
+        {"question": "Unloaded means:", "option_a": "Negligible wiper current", "option_b": "Zero Vin", "option_c": "α undefined", "option_d": "Rpot=0", "correct_answer": "A", "explanation": "No load current."},
+        {"question": "α=0.5, Vin=20 V → Vout:", "option_a": "10 V", "option_b": "20 V", "option_c": "5 V", "option_d": "0 V", "correct_answer": "A", "explanation": "Half."},
+        {"question": "End A is usually tied to:", "option_a": "Vin in the divider wiring", "option_b": "Nothing ever", "option_c": "Only USB data", "option_d": "Earth only always", "correct_answer": "A", "explanation": "Lab starter."},
+        {"question": "End B is usually tied to:", "option_a": "Ground in the divider wiring", "option_b": "Vin only", "option_c": "The LED anode", "option_d": "AC hot", "correct_answer": "A", "explanation": "Lab starter."},
+        {"question": "Percentage error uses:", "option_a": "|theory−measured|/theory×100", "option_b": "theory+measured", "option_c": "α only", "option_d": "Rpot²", "correct_answer": "A", "explanation": "Standard error."},
+        {"question": "A pot symbol shows:", "option_a": "A resistor with an arrow (wiper)", "option_b": "Only a battery", "option_c": "Only a capacitor", "option_d": "A diode", "correct_answer": "A", "explanation": "Standard schematic."},
+        {"question": "If simulation Vout matches α·Vin within tolerance:", "option_a": "The unloaded model holds", "option_b": "The circuit must be open", "option_c": "α is invalid", "option_d": "Ground is missing", "correct_answer": "A", "explanation": "Good agreement."},
+        {"question": "Increasing Vin at fixed α:", "option_a": "Increases Vout proportionally", "option_b": "Decreases α", "option_c": "Removes Rpot", "option_d": "Flips polarity always", "correct_answer": "A", "explanation": "Vout=αVin."},
+        {"question": "Digital pots still implement:", "option_a": "An adjustable divider ratio", "option_b": "Only mechanical gears", "option_c": "Pure inductance", "option_d": "No wiper concept", "correct_answer": "A", "explanation": "Same function."},
+        {"question": "Common mistake: treating pot like a single resistor to ground from Vin without wiper sense. Result:", "option_a": "You lose the variable tap voltage", "option_b": "Perfect Vout", "option_c": "α auto-sets", "option_d": "Rpot vanishes", "correct_answer": "A", "explanation": "Need the wiper node."},
+    ]
 
 }
 

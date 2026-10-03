@@ -12,6 +12,7 @@ const COMPONENTS: { type: ComponentType; label: string; icon: string }[] = [
   { type: "voltage_source", label: "Voltage Source", icon: "V" },
   { type: "current_source", label: "Current Source", icon: "I" },
   { type: "resistor", label: "Resistor", icon: "R" },
+  { type: "potentiometer", label: "Potentiometer", icon: "POT" },
   { type: "capacitor", label: "Capacitor", icon: "C" },
   { type: "inductor", label: "Inductor", icon: "L" },
   { type: "diode", label: "Diode", icon: "D" },

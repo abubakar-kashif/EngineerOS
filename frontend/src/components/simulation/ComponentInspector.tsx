@@ -95,6 +95,32 @@ function ComponentInspector({
           const displayValue = typeof value === "number" ? value.toString() : String(value);
           const unit = unitForProperty(key);
           const inputId = `spec-${component.id}-${key}`;
+
+          if (key === "wiperPosition" && typeof value === "number") {
+            return (
+              <div key={key} className="sim-inspector-field">
+                <label className="sim-inspector-label" htmlFor={inputId}>
+                  Wiper Position (α)
+                </label>
+                <div className="sim-inspector-input-row">
+                  <input
+                    id={inputId}
+                    className="sim-inspector-input"
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={value}
+                    onChange={(e) =>
+                      onUpdateProperty(component.id, "wiperPosition", parseFloat(e.target.value))
+                    }
+                  />
+                  <span className="sim-inspector-unit">{value.toFixed(2)}</span>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div key={key} className="sim-inspector-field">
               <label className="sim-inspector-label" htmlFor={inputId}>

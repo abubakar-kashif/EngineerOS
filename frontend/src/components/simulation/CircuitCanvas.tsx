@@ -28,6 +28,7 @@ import {
   VoltageSourceNode,
   CurrentSourceNode,
   ResistorNode,
+  PotentiometerNode,
   CapacitorNode,
   InductorNode,
   DiodeNode,
@@ -576,6 +577,18 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         const r = comp.properties.resistance as number;
         const label = r >= 1000 ? `${(r / 1000).toFixed(r % 1000 === 0 ? 0 : 1)}kΩ` : `${r}Ω`;
         node = <ResistorNode {...commonProps} value={label} />;
+        break;
+      }
+      case "potentiometer": {
+        const r = (comp.properties.resistance as number) ?? 10000;
+        const label = r >= 1000 ? `${(r / 1000).toFixed(r % 1000 === 0 ? 0 : 1)}kΩ` : `${r}Ω`;
+        node = (
+          <PotentiometerNode
+            {...commonProps}
+            value={label}
+            alpha={comp.properties.wiperPosition as number | undefined}
+          />
+        );
         break;
       }
       case "capacitor": {

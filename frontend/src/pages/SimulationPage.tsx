@@ -64,6 +64,7 @@ const CATALOG_EXPERIMENT_IDS = [
   "diode-characteristics",
   "led-circuit",
   "wheatstone-bridge",
+  "potentiometer",
 ] as const;
 
 function SimulationPage() {

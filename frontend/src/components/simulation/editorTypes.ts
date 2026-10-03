@@ -84,6 +84,7 @@ export const DEFAULT_TERMINALS: Record<ComponentType, TerminalType[]> = {
  */
 export const DEFAULT_PROPERTIES: Record<ComponentType, ComponentProperties> = {
   resistor: { resistance: 1000 },
+  potentiometer: { resistance: 10000, wiperPosition: 0.5 },
   capacitor: { capacitance: 1e-6 },
   inductor: { inductance: 1e-3 },
   diode: { forwardVoltage: 0.7 },

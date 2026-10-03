@@ -7,6 +7,8 @@ import type { ComponentInstance, ComponentType, TerminalType } from './editorTyp
 /** Local (unrotated) terminal offsets relative to the component origin. */
 const TERMINAL_LOCAL_OFFSETS: Record<ComponentType, Partial<Record<TerminalType, { x: number; y: number }>>> = {
   resistor: { A: { x: -30, y: 0 }, B: { x: 30, y: 0 } },
+  // A—track—B horizontal; wiper tap below center.
+  potentiometer: { A: { x: -30, y: 0 }, B: { x: 30, y: 0 }, wiper: { x: 0, y: 24 } },
   capacitor: { A: { x: -20, y: 0 }, B: { x: 20, y: 0 } },
   inductor: { A: { x: -30, y: 0 }, B: { x: 30, y: 0 } },
   diode: { anode: { x: -20, y: 0 }, cathode: { x: 20, y: 0 } },
@@ -75,6 +77,7 @@ export function buildOrthogonalPreview(
 export function unitForProperty(property: string): string {
   switch (property) {
     case 'resistance': return 'Ω';
+    case 'wiperPosition': return 'α';
     case 'capacitance': return 'F';
     case 'inductance': return 'H';
     case 'voltage': return 'V';

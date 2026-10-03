@@ -190,6 +190,23 @@ export const QUIZ_BANK_EXTRA: Record<string, SeedQuizQuestion[]> = {
     { question: "Wheatstone bridges are still used because:", options: ["They convert small resistance changes to differential voltages", "They replace all capacitors", "They eliminate Ohm's law", "They need no supply"], correct_answer: "A" as AnswerLetter, explanation: "Sensor and metrology use cases." },
     { question: "Restoring balance after changing R4 usually means adjusting:", options: ["R3 (or another known arm)", "Ground symbol only", "Wire thickness only", "Monitor refresh rate"], correct_answer: "A" as AnswerLetter, explanation: "Match the new right ratio to the left." },
   ]
-
+,
+  "potentiometer": [
+    { question: "\u03b1=0.1, Vin=10 V \u2192 Vout:", options: ["1 V", "10 V", "0.1 V", "9 V"], correct_answer: "A" as AnswerLetter, explanation: "0.1\u00d710." },
+    { question: "\u03b1=0.9, Vin=10 V \u2192 Vout:", options: ["9 V", "1 V", "0.9 V", "10 V"], correct_answer: "A" as AnswerLetter, explanation: "0.9\u00d710." },
+    { question: "Track current with Vin=10 V, Rpot=5 k\u03a9:", options: ["2 mA", "5 mA", "0.5 mA", "10 A"], correct_answer: "A" as AnswerLetter, explanation: "10/5000=0.002." },
+    { question: "If \u03b1 doubles at fixed Vin, ideal Vout:", options: ["Doubles", "Halves", "Squares", "Stays fixed"], correct_answer: "A" as AnswerLetter, explanation: "Linear in \u03b1." },
+    { question: "Potentiometer is not:", options: ["A two-terminal fixed resistor only", "A three-terminal part", "Usable as a divider", "Usable as a rheostat"], correct_answer: "A" as AnswerLetter, explanation: "It has three terminals." },
+    { question: "Unloaded means:", options: ["Negligible wiper current", "Zero Vin", "\u03b1 undefined", "Rpot=0"], correct_answer: "A" as AnswerLetter, explanation: "No load current." },
+    { question: "\u03b1=0.5, Vin=20 V \u2192 Vout:", options: ["10 V", "20 V", "5 V", "0 V"], correct_answer: "A" as AnswerLetter, explanation: "Half." },
+    { question: "End A is usually tied to:", options: ["Vin in the divider wiring", "Nothing ever", "Only USB data", "Earth only always"], correct_answer: "A" as AnswerLetter, explanation: "Lab starter." },
+    { question: "End B is usually tied to:", options: ["Ground in the divider wiring", "Vin only", "The LED anode", "AC hot"], correct_answer: "A" as AnswerLetter, explanation: "Lab starter." },
+    { question: "Percentage error uses:", options: ["|theory\u2212measured|/theory\u00d7100", "theory+measured", "\u03b1 only", "Rpot\u00b2"], correct_answer: "A" as AnswerLetter, explanation: "Standard error." },
+    { question: "A pot symbol shows:", options: ["A resistor with an arrow (wiper)", "Only a battery", "Only a capacitor", "A diode"], correct_answer: "A" as AnswerLetter, explanation: "Standard schematic." },
+    { question: "If simulation Vout matches \u03b1\u00b7Vin within tolerance:", options: ["The unloaded model holds", "The circuit must be open", "\u03b1 is invalid", "Ground is missing"], correct_answer: "A" as AnswerLetter, explanation: "Good agreement." },
+    { question: "Increasing Vin at fixed \u03b1:", options: ["Increases Vout proportionally", "Decreases \u03b1", "Removes Rpot", "Flips polarity always"], correct_answer: "A" as AnswerLetter, explanation: "Vout=\u03b1Vin." },
+    { question: "Digital pots still implement:", options: ["An adjustable divider ratio", "Only mechanical gears", "Pure inductance", "No wiper concept"], correct_answer: "A" as AnswerLetter, explanation: "Same function." },
+    { question: "Common mistake: treating pot like a single resistor to ground from Vin without wiper sense. Result:", options: ["You lose the variable tap voltage", "Perfect Vout", "\u03b1 auto-sets", "Rpot vanishes"], correct_answer: "A" as AnswerLetter, explanation: "Need the wiper node." },
+  ]
 };
 

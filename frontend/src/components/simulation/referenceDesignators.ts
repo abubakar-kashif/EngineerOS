@@ -7,6 +7,7 @@ import type { ComponentType } from './engine';
 
 const prefixMap: Record<ComponentType, string> = {
   resistor: 'R',
+  potentiometer: 'POT',
   capacitor: 'C',
   inductor: 'L',
   diode: 'D',

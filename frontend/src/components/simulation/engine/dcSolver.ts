@@ -14,6 +14,7 @@ import {
   GROUND_NET,
   allTerminalsWired,
   buildNetlist,
+  potentiometerArmResistances,
   sourceLoopIsWired,
   type Netlist,
   type NetlistElement,
@@ -155,6 +156,9 @@ function activeNets(netlist: Netlist, diodes: DiodeState[], skipIds: Set<string>
       case 'ammeter':
         add(el.n1, el.n2);
         break;
+      case 'potentiometer':
+        add(el.nA, el.nW, el.nB);
+        break;
       case 'capacitor':
         add(el.n1, el.n2);
         break;
@@ -239,6 +243,10 @@ function solveStamps(
   for (const el of netlist.elements) {
     if (el.kind === 'resistor') {
       stampG(el.n1, el.n2, 1 / el.resistance);
+    } else if (el.kind === 'potentiometer') {
+      const { rAw, rWb } = potentiometerArmResistances(el.resistance, el.wiperPosition);
+      stampG(el.nA, el.nW, 1 / rAw);
+      stampG(el.nW, el.nB, 1 / rWb);
     } else if (el.kind === 'voltmeter') {
       if (!skipIds.has(el.id)) stampG(el.nPos, el.nNeg, VOLTMETER_CONDUCTANCE);
     } else if (el.kind === 'current_source') {
@@ -378,6 +386,28 @@ function solveNetlist(
         resistance: el.resistance,
       });
       branchCurrents.set(el.id, current);
+      totalPower += power;
+    } else if (el.kind === 'potentiometer') {
+      const { rAw, rWb, alpha } = potentiometerArmResistances(
+        el.resistance,
+        el.wiperPosition,
+      );
+      const vAw = vDrop(el.nA, el.nW);
+      const vWb = vDrop(el.nW, el.nB);
+      const iAw = vAw / rAw;
+      const iWb = vWb / rWb;
+      const power = iAw * iAw * rAw + iWb * iWb * rWb;
+      // Report wiper-to-B voltage as the primary Vout for divider use (B usually GND).
+      const vout = vDrop(el.nW, el.nB);
+      componentResults.set(el.id, {
+        componentId: el.id,
+        voltage: vout,
+        current: Math.abs(iAw),
+        power,
+        resistance: el.resistance,
+      });
+      branchCurrents.set(el.id, iAw);
+      branchCurrents.set(`${el.id}:alpha`, alpha);
       totalPower += power;
     } else if (el.kind === 'capacitor') {
       const voltage = vDrop(el.n1, el.n2);

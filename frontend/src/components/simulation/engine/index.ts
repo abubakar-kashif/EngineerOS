@@ -35,6 +35,7 @@ export * from './measurements';
 // Phase A8 - Graph Data
 export * from './graphData';
 export * from './wheatstoneAnalysis';
+export * from './potentiometerAnalysis';
 
 // Phase A9 - Types (Single Source of Truth)
 export * from './types';

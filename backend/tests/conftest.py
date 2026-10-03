@@ -44,6 +44,7 @@ EXPERIMENT_IDS = [
     "diode-characteristics",
     "led-circuit",
     "wheatstone-bridge",
+    "potentiometer",
 ]
 
 

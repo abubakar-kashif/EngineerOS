@@ -41,6 +41,9 @@ const GROUP_TITLES: Record<GraphSelectorGroupId, string> = {
 const ANALYSIS_LABELS: Record<string, string> = {
   ohms_law: "Ohm's Law",
   voltage_divider: "Voltage Divider",
+  potentiometer_wiper: "Wiper position vs Vout",
+  wheatstone_bridge: "Wheatstone bridge",
+  wheatstone_bridge_nodes: "Wheatstone node voltages",
   rc_time: "RC response",
   power_time: "Power vs time",
   current_signals: "KCL currents",
