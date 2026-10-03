@@ -16,6 +16,11 @@ const ELECTRICAL_KEYS = [
   'inductance',
   'initialVoltage',
   'initialCurrent',
+  'amplitude',
+  'frequency',
+  'phase',
+  'waveform',
+  'acMode',
   'forwardVoltage',
   'state',
 ] as const;

@@ -23,6 +23,7 @@ export * from './dcSolver';
 export * from './complexLinearAlgebra';
 export * from './acSolver';
 export * from './frequencySweepAnalysis';
+export * from './seriesResonanceAnalysis';
 export * from './transientSolver';
 export * from './circuitSolver';
 

@@ -155,6 +155,12 @@ function WorkspaceMentorPanel({
           m.rl.tauSimulated != null ? `${m.rl.tauSimulated.toFixed(6)} s` : "n/a";
         return `RL ${m.rl.mode}: R=${m.rl.R} Ω, L=${m.rl.L} H, Vin=${m.rl.Vin} V, t=${m.rl.time.toFixed(6)} s, i(t)=${formatCurrent(m.rl.iL)}, τ=${m.rl.tauTheoretical.toFixed(6)} s (sim ${tauSim})`;
       }
+      if (m.seriesResonance) {
+        const sr = m.seriesResonance;
+        const fSim =
+          sr.f0Simulated != null ? `${sr.f0Simulated.toFixed(2)} Hz` : "n/a";
+        return `Series resonance: R=${sr.R} Ω, L=${sr.L} H, C=${sr.C} F, Vin=${sr.Vin} V, sweep ${sr.fStart.toFixed(1)}–${sr.fStop.toFixed(1)} Hz (${sr.points} pts), f0_th=${sr.f0Theoretical.toFixed(2)} Hz, f0_sim(max|I|)=${fSim}`;
+      }
       if (m.rlc) {
         return `RLC: R=${m.rlc.R} Ω, L=${m.rlc.L} H, C=${m.rlc.C} F, Vin=${m.rlc.Vin} V, t=${m.rlc.time.toFixed(6)} s, i=${formatCurrent(m.rlc.i)}, Vc=${m.rlc.Vc.toFixed(3)} V, |i|_pk=${formatCurrent(m.rlc.iPeak)}, |Vc|_pk=${m.rlc.vcPeak.toFixed(3)} V, crossings=${m.rlc.zeroCrossings}`;
       }
@@ -193,6 +199,18 @@ function WorkspaceMentorPanel({
       chips.push(`Vin ${m.rl.Vin} V`);
       chips.push(`i ${formatCurrent(m.rl.iL)}`);
       chips.push(`τ ${m.rl.tauTheoretical.toFixed(6)} s`);
+      return chips.slice(0, 6);
+    }
+    if (m.seriesResonance) {
+      const sr = m.seriesResonance;
+      chips.push("resonance");
+      chips.push(`f0_th ${sr.f0Theoretical.toFixed(1)} Hz`);
+      if (sr.f0Simulated != null) {
+        chips.push(`f0_sim ${sr.f0Simulated.toFixed(1)} Hz`);
+      }
+      chips.push(`R ${sr.R} Ω`);
+      chips.push(`L ${formatHenry(sr.L)}`);
+      chips.push(`C ${sr.C} F`);
       return chips.slice(0, 6);
     }
     if (m.rlc) {
@@ -258,6 +276,16 @@ function WorkspaceMentorPanel({
           "Summarize my RLC i(t) and Vc(t) waveforms.",
           "How is energy moving between L and C in this run?",
           "What do the current zero-crossings tell me?",
+        ];
+      }
+      if (
+        experimentId === "series-resonance" ||
+        simResult.measurements?.seriesResonance
+      ) {
+        return [
+          "Compare my simulated f0 to 1/(2π√LC).",
+          "Where is the maximum-current frequency on my sweep?",
+          "What do R, L, and C do to the resonance peak?",
         ];
       }
       return [
@@ -390,6 +418,34 @@ function WorkspaceMentorPanel({
           sampleCount: rlc.sampleCount,
           duration: rlc.duration,
           timeStep: rlc.timeStep,
+        },
+      };
+    } else if (baseSnapshot && simResultRef.current?.measurements?.seriesResonance) {
+      const sr = simResultRef.current.measurements.seriesResonance;
+      circuitSnapshot = {
+        ...baseSnapshot,
+        simulationState: {
+          experiment: "series-resonance",
+          R: sr.R,
+          L: sr.L,
+          C: sr.C,
+          Vin: sr.Vin,
+          fStart: sr.fStart,
+          fStop: sr.fStop,
+          points: sr.points,
+          frequencySweep: {
+            fStart: sr.fStart,
+            fStop: sr.fStop,
+            points: sr.points,
+            scale: sr.scale,
+          },
+          maximumCurrentFrequency: sr.f0Simulated,
+          theoreticalF0: sr.f0Theoretical,
+          f0Simulated: sr.f0Simulated,
+          errorPercent: sr.errorPercent,
+          peakCurrentMag: sr.peakCurrentMag,
+          bandwidth: sr.bandwidth,
+          Q: sr.Q,
         },
       };
     }

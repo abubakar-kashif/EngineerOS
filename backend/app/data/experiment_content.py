@@ -1421,10 +1421,113 @@ EXPERIMENTS: list[dict] = [
             "Fabricating Q or bandwidth without a driven frequency sweep",
             "Ignoring that report metrics must come from the solve",
         ],
-        "related_experiments": ["rc-circuit", "rl-circuit", "ohms-law"],
+        "related_experiments": ["rc-circuit", "rl-circuit", "series-resonance", "ohms-law"],
         "simulation_configuration": {
             "mode": "series",
             "parameters": {"voltage": 5, "r1": 100, "l1": 0.1, "c1": 1e-5},
+        },
+    },
+    {
+        "id": "series-resonance",
+        "title": "Series Resonance",
+        "slug": "series-resonance",
+        "short_description": "Find series RLC resonance from a real AC frequency sweep.",
+        "description": (
+            "Drive a series RLC loop with a sine function generator and sweep "
+            "frequency to locate the current peak. Compare the measured "
+            "maximum-current frequency with f0 = 1/(2π√(LC))."
+        ),
+        "objective": (
+            "Run a frequency sweep on a series RLC circuit, identify resonance "
+            "from the Frequency vs Circuit Current graph, and report theoretical "
+            "versus simulated f0 (and bandwidth/Q only if half-power points are found)."
+        ),
+        "theory": (
+            "In a series RLC circuit driven by a sine source, the impedance "
+            "Z = R + j(ωL − 1/(ωC)) is minimum when ωL = 1/(ωC), i.e. at "
+            "f0 = 1/(2π√(LC)). At resonance the circuit current is maximum "
+            "(|I| = Vin/R for an ideal series loop). Bandwidth and Q follow from "
+            "the half-power frequencies on the measured |I|(f) curve when both "
+            "flanks of the peak are resolved — they must not be invented."
+        ),
+        "difficulty": "Advanced",
+        "category": "Circuit Fundamentals",
+        "duration_minutes": 45,
+        "status": "published",
+        "historical_background": (
+            "Series and parallel resonance underpin tuned radio receivers, "
+            "filters, and impedance matching networks; the same LC product "
+            "sets the natural frequency seen in transient RLC labs."
+        ),
+        "learning_outcomes": [
+            "Compute theoretical series resonance f0 = 1/(2π√(LC))",
+            "Locate simulated f0 from a real AC frequency sweep (max |I|)",
+            "Relate R, L, and C to the shape of the current-vs-frequency curve",
+        ],
+        "prerequisites": ["rlc-circuit", "rl-circuit", "rc-circuit"],
+        "formulas": [
+            {
+                "expression": "f0 = 1 / (2π√(LC))",
+                "variables": [
+                    {"symbol": "f0", "name": "Resonant frequency"},
+                    {"symbol": "L", "name": "Inductance"},
+                    {"symbol": "C", "name": "Capacitance"},
+                ],
+            },
+            {
+                "expression": "Q = f0 / BW  (when half-power BW is measured)",
+                "variables": [
+                    {"symbol": "Q", "name": "Quality factor"},
+                    {"symbol": "BW", "name": "Half-power bandwidth"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "|I|(f)", "name": "Circuit current magnitude", "unit": "ampere (A)", "description": "From AC phasor solve at each frequency"},
+            {"symbol": "f0", "name": "Resonant frequency", "unit": "hertz (Hz)", "description": "Theory from L·C; sim from max |I|"},
+        ],
+        "components": [
+            {"name": "AC function generator", "quantity": 1, "spec": "Sine, 5 V peak"},
+            {"name": "Resistor R", "quantity": 1, "spec": "100 Ω"},
+            {"name": "Inductor L", "quantity": 1, "spec": "100 mH"},
+            {"name": "Capacitor C", "quantity": 1, "spec": "10 µF"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Across capacitor"},
+            {"name": "Ammeter", "quantity": 1, "spec": "Series current"},
+            {"name": "Ground", "quantity": 1, "spec": None},
+        ],
+        "circuit_diagram": {
+            "art": "Vin~ -- R -- L -- C -- GND",
+            "caption": "Series RLC driven by a sine AC source; sweep frequency to find max |I|.",
+        },
+        "procedure": [
+            "Load the series-resonance starter (R=100 Ω, L=100 mH, C=10 µF, Vin=5 V peak).",
+            "Run the simulation to perform an AC frequency sweep.",
+            "Open Frequency vs Circuit Current and note the peak current frequency.",
+            "Compare simulated f0 with 1/(2π√(LC)); record error. Include BW/Q only if listed in Results.",
+        ],
+        "expected_results": [
+            "Clear |I| peak near f0 ≈ 159 Hz for the starter L and C.",
+            "Theoretical and simulated f0 agree within sweep resolution.",
+        ],
+        "safety_notes": [
+            "Real AC sources and inductors can present hazardous voltages — use lab-safe generators.",
+        ],
+        "common_mistakes": [
+            "Reporting a hard-coded resonance curve instead of the sweep peak",
+            "Fabricating Q or bandwidth when half-power points were not found",
+        ],
+        "related_experiments": ["rlc-circuit", "rl-circuit", "rc-circuit", "ohms-law"],
+        "simulation_configuration": {
+            "mode": "series-resonance",
+            "parameters": {
+                "voltage": 5,
+                "r1": 100,
+                "l1": 0.1,
+                "c1": 1e-5,
+                "f_start": 15.9,
+                "f_stop": 1590,
+                "points": 81,
+            },
         },
     },
     {

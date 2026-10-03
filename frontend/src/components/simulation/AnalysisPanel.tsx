@@ -86,9 +86,78 @@ function ResultsTab({
   const rc = measurements.rc;
   const rl = measurements.rl;
   const rlc = measurements.rlc;
+  const sr = measurements.seriesResonance;
 
   return (
     <div className="sim2-results-table">
+      {sr && (
+        <>
+          <h4 className="sim2-results-heading">Series resonance (from sweep)</h4>
+          {(
+            [
+              { label: "R", value: formatWithPrefix(sr.R, "Ω") },
+              { label: "L", value: formatWithPrefix(sr.L, "H") },
+              { label: "C", value: formatWithPrefix(sr.C, "F") },
+              { label: "Vin (peak)", value: `${sr.Vin.toFixed(3)} V` },
+              { label: "f start", value: `${sr.fStart.toFixed(2)} Hz` },
+              { label: "f stop", value: `${sr.fStop.toFixed(2)} Hz` },
+              { label: "points", value: String(sr.points) },
+              {
+                label: "theoretical f₀",
+                value: `${sr.f0Theoretical.toFixed(2)} Hz`,
+              },
+              {
+                label: "simulated f₀",
+                value:
+                  sr.f0Simulated != null
+                    ? `${sr.f0Simulated.toFixed(2)} Hz`
+                    : "—",
+              },
+              {
+                label: "|I| at peak",
+                value:
+                  sr.peakCurrentMag != null
+                    ? formatWithPrefix(sr.peakCurrentMag, "A")
+                    : "—",
+              },
+              {
+                label: "f₀ error",
+                value:
+                  sr.errorPercent != null
+                    ? `${sr.errorPercent.toFixed(2)} %`
+                    : "—",
+              },
+              ...(sr.bandwidth != null && sr.Q != null
+                ? [
+                    {
+                      label: "f1 (half-power)",
+                      value: sr.f1 != null ? `${sr.f1.toFixed(2)} Hz` : "—",
+                    },
+                    {
+                      label: "f2 (half-power)",
+                      value: sr.f2 != null ? `${sr.f2.toFixed(2)} Hz` : "—",
+                    },
+                    {
+                      label: "bandwidth",
+                      value: `${sr.bandwidth.toFixed(2)} Hz`,
+                    },
+                    { label: "Q (from sweep)", value: sr.Q.toFixed(3) },
+                  ]
+                : [
+                    {
+                      label: "bandwidth / Q",
+                      value: "not validated on this sweep",
+                    },
+                  ]),
+            ] as const
+          ).map((r) => (
+            <div key={`sr-${r.label}`} className="sim2-result-row">
+              <span className="sim2-result-label">{r.label}</span>
+              <span className="sim2-result-value">{r.value}</span>
+            </div>
+          ))}
+        </>
+      )}
       {rlc && (
         <>
           <h4 className="sim2-results-heading">RLC transient (measured)</h4>

@@ -53,6 +53,11 @@ _ELECTRICAL_PROPERTY_KEYS = (
     "current",
     "capacitance",
     "inductance",
+    "amplitude",
+    "frequency",
+    "phase",
+    "waveform",
+    "acMode",
     "forwardVoltage",
     "state",
 )
@@ -214,18 +219,30 @@ def apply_live_editor_circuit(
     measurements so Mentor cannot reuse a stale run.
     """
     editor = summarize_circuit_definition(circuit_snapshot) if circuit_snapshot else None
+    sim_state = None
+    if isinstance(circuit_snapshot, dict):
+        raw_state = circuit_snapshot.get("simulationState") or circuit_snapshot.get(
+            "simulation_state"
+        )
+        if isinstance(raw_state, dict):
+            sim_state = raw_state
+
     if simulation_context is None:
-        if editor is None:
+        if editor is None and sim_state is None:
             return None
-        return {
+        out: Dict[str, Any] = {
             "status": "editor_only",
-            "editor_circuit": editor,
             "authority": (
                 "This is the student's current drawing only. "
                 "No matching SimulationRun is attached. "
                 "Do not invent voltages, currents, or measurements."
             ),
         }
+        if editor is not None:
+            out["editor_circuit"] = editor
+        if sim_state is not None:
+            out["simulation_state"] = sim_state
+        return out
 
     merged = dict(simulation_context)
     if editor is not None:
@@ -242,6 +259,8 @@ def apply_live_editor_circuit(
             for key in ("dc_result", "measurements", "graphs"):
                 merged.pop(key, None)
             merged["status"] = "stale_editor_mismatch"
+    if sim_state is not None:
+        merged["simulation_state"] = sim_state
     return merged
 
 
@@ -388,6 +407,8 @@ def parse_simulation_result_dict(data: Dict[str, Any]) -> Optional[SimulationRes
                     resistance=_pick(item, "resistance"),
                 )
             )
+        sr_raw = _pick(meas_raw, "seriesResonance", "series_resonance")
+        fs_raw = _pick(meas_raw, "frequencySweep", "frequency_sweep")
         measurements = Measurements(
             total_voltage=float(_pick(meas_raw, "totalVoltage", "total_voltage", default=0.0) or 0.0),
             total_current=float(_pick(meas_raw, "totalCurrent", "total_current", default=0.0) or 0.0),
@@ -396,6 +417,8 @@ def parse_simulation_result_dict(data: Dict[str, Any]) -> Optional[SimulationRes
                 _pick(meas_raw, "equivalentResistance", "equivalent_resistance", default=0.0) or 0.0
             ),
             component_measurements=component_measurements,
+            series_resonance=sr_raw if isinstance(sr_raw, dict) else None,
+            frequency_sweep=fs_raw if isinstance(fs_raw, dict) else None,
         )
 
     graphs: Optional[List[GraphData]] = None
@@ -722,6 +745,24 @@ class SimulationContext:
                 }
                 for cm in measurements.component_measurements
             ]
+
+        if measurements.series_resonance:
+            context["series_resonance"] = measurements.series_resonance
+        if measurements.frequency_sweep:
+            context["frequency_sweep"] = {
+                key: measurements.frequency_sweep[key]
+                for key in (
+                    "fStart",
+                    "fStop",
+                    "points",
+                    "scale",
+                    "step",
+                    "amplitude",
+                    "peakCurrentFrequency",
+                    "peakCurrentMag",
+                )
+                if key in measurements.frequency_sweep
+            }
 
         return context
 

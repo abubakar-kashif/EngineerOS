@@ -63,6 +63,7 @@ const CATALOG_EXPERIMENT_IDS = [
   "rc-circuit",
   "rl-circuit",
   "rlc-circuit",
+  "series-resonance",
   "diode-characteristics",
   "led-circuit",
   "wheatstone-bridge",

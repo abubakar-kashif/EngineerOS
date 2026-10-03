@@ -247,7 +247,63 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
                 if not any(r["label"] == mpt_row["label"] for r in rows):
                     rows.append(mpt_row)
 
+        for sr_row in _series_resonance_measured_rows(results):
+            if not any(r["label"] == sr_row["label"] for r in rows):
+                rows.append(sr_row)
+
     return rows or None
+
+
+def _series_resonance_measured_rows(results: dict) -> list[dict]:
+    """R, L, C, theoretical/simulated f0, error; BW/Q only if present."""
+    measurements = results.get("measurements")
+    if not isinstance(measurements, dict):
+        return []
+    sr = measurements.get("seriesResonance") or measurements.get("series_resonance")
+    if not isinstance(sr, dict):
+        # Fall back to frequency-response graph metadata
+        for graph in results.get("graphs") or []:
+            if not isinstance(graph, dict):
+                continue
+            if graph.get("id") != "frequency_response":
+                continue
+            meta = graph.get("metadata") if isinstance(graph.get("metadata"), dict) else {}
+            rows: list[dict] = []
+            f0t = _numeric(meta.get("f0Theoretical"))
+            f0s = _numeric(meta.get("f0Simulated") or meta.get("peakCurrentFrequency"))
+            if f0t is not None:
+                rows.append({"label": "Theoretical f0", "value": f0t, "unit": "Hz"})
+            if f0s is not None:
+                rows.append({"label": "Simulated f0", "value": f0s, "unit": "Hz"})
+            err = _numeric(meta.get("errorPercent"))
+            if err is not None:
+                rows.append({"label": "f0 error", "value": err, "unit": "%"})
+            return rows
+        return []
+
+    rows: list[dict] = []
+    mapping = (
+        ("R", "R", "Ω"),
+        ("L", "L", "H"),
+        ("C", "C", "F"),
+        ("Vin", "Vin", "V"),
+        ("f0Theoretical", "Theoretical f0", "Hz"),
+        ("f0Simulated", "Simulated f0", "Hz"),
+        ("errorPercent", "f0 error", "%"),
+        ("peakCurrentMag", "|I| at resonance", "A"),
+        ("fStart", "Sweep start", "Hz"),
+        ("fStop", "Sweep stop", "Hz"),
+    )
+    for field, label, unit in mapping:
+        value = _numeric(sr.get(field))
+        if value is not None:
+            rows.append({"label": label, "value": value, "unit": unit})
+    bw = _numeric(sr.get("bandwidth"))
+    q = _numeric(sr.get("Q"))
+    if bw is not None and q is not None:
+        rows.append({"label": "Bandwidth", "value": bw, "unit": "Hz"})
+        rows.append({"label": "Q", "value": q, "unit": ""})
+    return rows
 
 
 def _max_power_rows_from_divider(

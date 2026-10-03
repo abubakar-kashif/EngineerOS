@@ -35,6 +35,10 @@ import {
   createRlcCircuitStarter,
   RLC_CIRCUIT_EXPERIMENT_ID,
 } from "./rlcCircuit";
+import {
+  createSeriesResonanceStarter,
+  SERIES_RESONANCE_EXPERIMENT_ID,
+} from "./seriesResonance";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
@@ -47,6 +51,7 @@ const STARTERS: Record<string, () => EditorCircuit> = {
   [RC_CIRCUIT_EXPERIMENT_ID]: createRcCircuitStarter,
   [RL_CIRCUIT_EXPERIMENT_ID]: createRlCircuitStarter,
   [RLC_CIRCUIT_EXPERIMENT_ID]: createRlcCircuitStarter,
+  [SERIES_RESONANCE_EXPERIMENT_ID]: createSeriesResonanceStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -77,4 +82,6 @@ export {
   RL_CIRCUIT_EXPERIMENT_ID,
   createRlcCircuitStarter,
   RLC_CIRCUIT_EXPERIMENT_ID,
+  createSeriesResonanceStarter,
+  SERIES_RESONANCE_EXPERIMENT_ID,
 };

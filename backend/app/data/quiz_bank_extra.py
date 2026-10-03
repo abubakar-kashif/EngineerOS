@@ -274,9 +274,24 @@ QUIZ_BANK_EXTRA = {
         {"question": "Prerequisite lab most related is:", "option_a": "Thévenin's theorem", "option_b": "Only LED labs", "option_c": "Only RC timing", "option_d": "Only digital gates", "correct_answer": "A", "explanation": "Equivalents."},
         {"question": "If Pmax reported is in watts but tiny, consider:", "option_a": "Milliwatts scale (e.g. 0.009 W = 9 mW)", "option_b": "Deleting the graph", "option_c": "Ignoring VL", "option_d": "Setting RL=Vs", "correct_answer": "A", "explanation": "Units."},
         {"question": "Load matching here means:", "option_a": "Setting RL close to Rth", "option_b": "Painting resistors", "option_c": "Removing ground", "option_d": "Shorting VM", "correct_answer": "A", "explanation": "Definition."},
-  ]
-
-
+  ],
+    "series-resonance": [
+        {"question": "Half-power means |I| equals:", "option_a": "Ipeak / \u221a2", "option_b": "Ipeak \u00d7 2", "option_c": "Vin/R\u00b2", "option_d": "Zero", "correct_answer": "A", "explanation": "\u22123 dB current."},
+        {"question": "Error percent in the report compares:", "option_a": "|f0_sim \u2212 f0_th| / f0_th \u00d7 100%", "option_b": "Only R", "option_c": "Only Vin", "option_d": "Quiz score", "correct_answer": "A", "explanation": "Definition."},
+        {"question": "Log frequency spacing is useful because:", "option_a": "It covers decades around f0 efficiently", "option_b": "It deletes C", "option_c": "It forces Q=1", "option_d": "It removes R", "correct_answer": "A", "explanation": "Sweep design."},
+        {"question": "XL = 2\u03c0fL and XC = 1/(2\u03c0fC) cross when:", "option_a": "f = 1/(2\u03c0\u221a(LC))", "option_b": "f = RC", "option_c": "f = 0 only", "option_d": "f = R/L", "correct_answer": "A", "explanation": "Resonance condition."},
+        {"question": "Driven resonance differs from the DC-step RLC lab because:", "option_a": "It needs an AC sweep to define the current peak vs frequency", "option_b": "RLC cannot store energy", "option_c": "L has no current", "option_d": "C has no voltage", "correct_answer": "A", "explanation": "Lab focus."},
+        {"question": "Selective radio tuning historically used:", "option_a": "Series/parallel resonance", "option_b": "Only Ohm's law", "option_c": "Only LEDs", "option_d": "Only CSS", "correct_answer": "A", "explanation": "Application."},
+        {"question": "If simulated f0 is far from theory, first check:", "option_a": "L and C values, wiring, and sweep window", "option_b": "Theme contrast", "option_c": "User email", "option_d": "Font weight", "correct_answer": "A", "explanation": "Debug."},
+        {"question": "Ipeak at resonance ideally equals:", "option_a": "Vin / R", "option_b": "Vin \u00d7 R", "option_c": "Vin / L", "option_d": "Vin \u00d7 C", "correct_answer": "A", "explanation": "Z=R."},
+        {"question": "Ground is required so that:", "option_a": "The AC source and C share a return path", "option_b": "R becomes zero", "option_c": "f0 becomes infinite", "option_d": "L shorts", "correct_answer": "A", "explanation": "Topology."},
+        {"question": "Bandwidth grows when R:", "option_a": "Increases (lower Q)", "option_b": "Goes to zero only", "option_c": "Is removed", "option_d": "Equals L", "correct_answer": "A", "explanation": "Q\u221d1/R."},
+        {"question": "Quality factor describes:", "option_a": "Peak sharpness / energy storage vs loss", "option_b": "Wire colour", "option_c": "Quiz length", "option_d": "Theme tokens", "correct_answer": "A", "explanation": "Meaning of Q."},
+        {"question": "A linear step of 1 Hz is an example of:", "option_a": "Frequency resolution / step", "option_b": "Amplitude", "option_c": "Phase only", "option_d": "DC offset", "correct_answer": "A", "explanation": "Sweep control."},
+        {"question": "Mentor must not invent BW; it should:", "option_a": "Use half-power results from the attached sweep when present", "option_b": "Always guess Q=50", "option_c": "Ignore f0", "option_d": "Only discuss CSS", "correct_answer": "A", "explanation": "Grounding."},
+        {"question": "Changing L and C but keeping LC constant:", "option_a": "Keeps f0 the same", "option_b": "Always doubles f0", "option_c": "Removes resonance", "option_d": "Sets I=0", "correct_answer": "A", "explanation": "Product rule."},
+        {"question": "The frequency-response gain graph shows:", "option_a": "|Vout|/|Vin| vs frequency when available", "option_b": "Only R", "option_c": "Only time", "option_d": "Only DC power", "correct_answer": "A", "explanation": "Secondary graph."},
+    ],
 
 
 

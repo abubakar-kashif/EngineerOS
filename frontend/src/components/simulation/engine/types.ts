@@ -101,6 +101,32 @@ export interface Measurements {
   rlc?: RlcLabMeasurements;
   /** Present when an AC frequency sweep was run on the circuit model. */
   frequencySweep?: FrequencySweepLabMeasurements;
+  /** Present for the series-resonance lab (driven AC + sweep). */
+  seriesResonance?: SeriesResonanceLabMeasurements;
+}
+
+/** Series resonance lab — f0 from sweep; BW/Q only when half-power flanks exist. */
+export interface SeriesResonanceLabMeasurements {
+  R: number;
+  L: number;
+  C: number;
+  Vin: number;
+  fStart: number;
+  fStop: number;
+  points: number;
+  step: number | null;
+  scale: 'log' | 'lin';
+  f0Theoretical: number;
+  f0Simulated: number | null;
+  errorPercent: number | null;
+  peakCurrentMag: number | null;
+  /** Lower half-power frequency (Hz), or null if not found on the sweep. */
+  f1: number | null;
+  /** Upper half-power frequency (Hz), or null if not found on the sweep. */
+  f2: number | null;
+  bandwidth: number | null;
+  Q: number | null;
+  response: FrequencyResponseSample[];
 }
 
 /** Frequency-response samples from real AC phasor solves (not hard-coded curves). */

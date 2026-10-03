@@ -52,6 +52,10 @@ import {
   extractFrequencySweepMetrics,
   type FrequencySweepOptions,
 } from './frequencySweepAnalysis';
+import {
+  extractSeriesResonanceMetrics,
+  seriesResonanceSweepOptions,
+} from './seriesResonanceAnalysis';
 
 export interface SolveOptions {
   /**
@@ -103,6 +107,9 @@ function resolveFrequencySweepOptions(
   if (options?.frequencySweep && typeof options.frequencySweep === 'object') {
     return options.frequencySweep;
   }
+  if (circuit.experimentId === 'series-resonance') {
+    return seriesResonanceSweepOptions(circuit) ?? true;
+  }
   if (options?.frequencySweep === true || circuitHasAcSource(circuit)) {
     return true;
   }
@@ -119,6 +126,7 @@ export function solveCircuit(
   const isRcLab = circuit.experimentId === 'rc-circuit';
   const isRlLab = circuit.experimentId === 'rl-circuit';
   const isRlcLab = circuit.experimentId === 'rlc-circuit';
+  const isSeriesResonanceLab = circuit.experimentId === 'series-resonance';
   /** Open charge switch remaps to a solvable R–C / R–L loop before validate/solve. */
   let active = circuit;
   let preparedMode: string | undefined;
@@ -264,6 +272,24 @@ export function solveCircuit(
       };
       if (sweep) {
         measurements.frequencySweep = sweep;
+      }
+      if (isSeriesResonanceLab || (sweep && circuitHasAcSource(active))) {
+        const resonance = extractSeriesResonanceMetrics(active, sweep);
+        if (resonance) {
+          measurements.seriesResonance = resonance;
+          meta.seriesResonance = {
+            R: resonance.R,
+            L: resonance.L,
+            C: resonance.C,
+            Vin: resonance.Vin,
+            f0Theoretical: resonance.f0Theoretical,
+            f0Simulated: resonance.f0Simulated,
+            errorPercent: resonance.errorPercent,
+            peakCurrentMag: resonance.peakCurrentMag,
+            bandwidth: resonance.bandwidth,
+            Q: resonance.Q,
+          };
+        }
       }
     }
 

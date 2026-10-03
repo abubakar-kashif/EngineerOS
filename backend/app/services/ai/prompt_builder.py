@@ -449,12 +449,60 @@ Never present old conversation numbers as the current result."""
             else:
                 lines.append(f"DC Solver Failed: {dc.get('error', 'Unknown error')}")
 
+        # Live lab state from the editor snapshot (RC / resonance / …)
+        sim_state = simulation.get("simulation_state")
+        if isinstance(sim_state, dict) and sim_state:
+            lines.append("Live simulation state (from student run / canvas):")
+            for key in (
+                "experiment",
+                "R",
+                "L",
+                "C",
+                "Vin",
+                "theoreticalF0",
+                "maximumCurrentFrequency",
+                "f0Simulated",
+                "fStart",
+                "fStop",
+                "points",
+                "errorPercent",
+                "peakCurrentMag",
+                "bandwidth",
+                "Q",
+            ):
+                if key in sim_state and sim_state[key] is not None:
+                    lines.append(f"  - {key}: {sim_state[key]}")
+            fs = sim_state.get("frequencySweep")
+            if isinstance(fs, dict):
+                lines.append(
+                    "  - frequency_sweep: "
+                    f"{fs.get('fStart')}–{fs.get('fStop')} Hz, "
+                    f"{fs.get('points')} points, scale={fs.get('scale')}"
+                )
+
         # Measurements
         if simulation.get('measurements'):
             meas = simulation['measurements']
             lines.append(f"Total Voltage: {meas.get('total_voltage', 'N/A')} V")
             lines.append(f"Total Current: {meas.get('total_current', 'N/A')} A")
             lines.append(f"Total Power: {meas.get('total_power', 'N/A')} W")
+            sr = meas.get("series_resonance")
+            if isinstance(sr, dict):
+                lines.append("Series resonance (from AC frequency sweep):")
+                lines.append(f"  - R={sr.get('R')} Ω, L={sr.get('L')} H, C={sr.get('C')} F")
+                lines.append(
+                    f"  - theoretical f0={sr.get('f0Theoretical')} Hz, "
+                    f"simulated f0 (max |I|)={sr.get('f0Simulated')} Hz"
+                )
+                lines.append(
+                    f"  - sweep {sr.get('fStart')}–{sr.get('fStop')} Hz "
+                    f"({sr.get('points')} points)"
+                )
+                if sr.get("bandwidth") is not None and sr.get("Q") is not None:
+                    lines.append(
+                        f"  - bandwidth={sr.get('bandwidth')} Hz, Q={sr.get('Q')} "
+                        "(from half-power on the sweep)"
+                    )
             if meas.get('component_measurements'):
                 lines.append("Component Measurements:")
                 for cm in meas['component_measurements']:

@@ -31,6 +31,8 @@ class ComponentMeasurement(BaseModel):
     resistance: Optional[float] = None
 
 class Measurements(BaseModel):
+    """Accept lab-specific blocks (rc, frequencySweep, seriesResonance, …)."""
+    model_config = ConfigDict(extra="allow")
     totalVoltage: float
     totalCurrent: float
     totalPower: float

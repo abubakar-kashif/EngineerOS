@@ -48,7 +48,7 @@ const ANALYSIS_LABELS: Record<string, string> = {
   thevenin_comparison: "Original vs Thévenin",
   norton_comparison: "Original vs Norton",
   max_power_transfer: "Load resistance vs load power",
-  frequency_response: "Frequency vs current magnitude",
+  frequency_response: "Frequency vs Circuit Current",
   frequency_response_gain: "Frequency vs voltage gain",
   rc_time: "Time vs Vc",
   rc_current_time: "Time vs Ic",

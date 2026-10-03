@@ -471,19 +471,33 @@ export function generateGraphsFromMeasurements(
   const resistors = drops.filter((cm) => cm.type === 'resistor');
 
   const fs = measurements.frequencySweep;
+  const sr = measurements.seriesResonance;
   if (fs && fs.response.length >= 2) {
+    const peakSeries =
+      fs.peakCurrentFrequency != null && fs.peakCurrentMag != null
+        ? [
+            {
+              name: 'Simulated f₀ (max |I|)',
+              color: COLORS[2] ?? COLORS[1],
+              points: [
+                { x: fs.peakCurrentFrequency, y: fs.peakCurrentMag },
+              ],
+            },
+          ]
+        : [];
     graphs.push({
       id: 'frequency_response',
       type: 'line',
-      title: 'Frequency Response (|I| vs f)',
+      title: 'Frequency vs Circuit Current',
       xAxis: { label: 'Frequency', unit: 'Hz' },
-      yAxis: { label: 'Current magnitude', unit: 'A' },
+      yAxis: { label: 'Circuit current', unit: 'A' },
       series: [
         {
           name: '|I| (AC solve)',
           color: COLORS[0],
           points: fs.response.map((p) => ({ x: p.frequency, y: p.currentMag })),
         },
+        ...peakSeries,
       ],
       metadata: {
         source: 'ac_frequency_sweep',
@@ -498,6 +512,11 @@ export function generateGraphsFromMeasurements(
         peakCurrentMag: fs.peakCurrentMag,
         peakVoltageFrequency: fs.peakVoltageFrequency,
         peakVoltageMag: fs.peakVoltageMag,
+        f0Theoretical: sr?.f0Theoretical,
+        f0Simulated: sr?.f0Simulated ?? fs.peakCurrentFrequency,
+        errorPercent: sr?.errorPercent,
+        bandwidth: sr?.bandwidth,
+        Q: sr?.Q,
         gainSeries: fs.response.map((p) => ({ x: p.frequency, y: p.gain })),
         impedanceSeries: fs.response.map((p) => ({
           x: p.frequency,

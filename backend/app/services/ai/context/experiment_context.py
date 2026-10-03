@@ -80,6 +80,9 @@ class ExperimentContext:
             mpt = _max_power_theoretical(experiment.simulation_configuration)
             if mpt:
                 context["theoretical_maximum_power_transfer"] = mpt
+            resonance = _series_resonance_theoretical(experiment.simulation_configuration)
+            if resonance:
+                context["theoretical_series_resonance"] = resonance
 
         context["guidance_boundary"] = (
             "Experiment catalog data is for instructional guidance only. "
@@ -185,6 +188,42 @@ def _max_power_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "note": (
             "Catalog theory for the starter. Prefer attached simulation sweep "
             "results for the measured maximum point."
+        ),
+    }
+
+
+def _series_resonance_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(config, dict) or config.get("mode") != "series-resonance":
+        return None
+    params = config.get("parameters")
+    if not isinstance(params, dict):
+        return None
+    try:
+        vin = float(params["voltage"])
+        r = float(params["r1"])
+        l = float(params["l1"])
+        c = float(params["c1"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if min(vin, r, l, c) <= 0:
+        return None
+    import math
+
+    f0 = 1.0 / (2.0 * math.pi * math.sqrt(l * c))
+    q_theory = (1.0 / r) * math.sqrt(l / c)
+    return {
+        "Vin": vin,
+        "R": r,
+        "L": l,
+        "C": c,
+        "f0": f0,
+        "theoretical_f0": f0,
+        "relation": "f0 = 1 / (2π√(LC))",
+        "theoretical_Q_series": q_theory,
+        "note": (
+            "Catalog theory for the starter. Simulated f0 must come from the "
+            "AC frequency sweep (max |I|). Report Q/BW only when half-power "
+            "points are found on that sweep."
         ),
     }
 

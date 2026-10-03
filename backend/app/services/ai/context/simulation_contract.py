@@ -118,6 +118,9 @@ class Measurements:
     total_power: float = 0.0
     equivalent_resistance: float = 0.0
     component_measurements: List[ComponentMeasurement] = field(default_factory=list)
+    # Lab-specific blocks from the engine (camelCase keys preserved as dicts).
+    series_resonance: Optional[Dict[str, Any]] = None
+    frequency_sweep: Optional[Dict[str, Any]] = None
 
 
 @dataclass
