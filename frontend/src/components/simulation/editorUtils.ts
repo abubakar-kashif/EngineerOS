@@ -81,7 +81,10 @@ export function unitForProperty(property: string): string {
     case 'capacitance': return 'F';
     case 'inductance': return 'H';
     case 'voltage': return 'V';
+    case 'amplitude': return 'V';
     case 'current': return 'A';
+    case 'frequency': return 'Hz';
+    case 'phase': return '°';
     default: return '';
   }
 }

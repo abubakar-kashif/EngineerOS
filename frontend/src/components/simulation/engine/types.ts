@@ -99,6 +99,34 @@ export interface Measurements {
   rl?: RlLabMeasurements;
   /** Present for series RLC transient runs. */
   rlc?: RlcLabMeasurements;
+  /** Present when an AC frequency sweep was run on the circuit model. */
+  frequencySweep?: FrequencySweepLabMeasurements;
+}
+
+/** Frequency-response samples from real AC phasor solves (not hard-coded curves). */
+export interface FrequencyResponseSample {
+  frequency: number;
+  currentMag: number;
+  sourceVoltageMag: number;
+  voltageMag: number;
+  impedanceMag: number;
+  gain: number;
+  phaseDeg: number;
+}
+
+export interface FrequencySweepLabMeasurements {
+  fStart: number;
+  fStop: number;
+  points: number;
+  scale: 'log' | 'lin';
+  step: number | null;
+  amplitude: number;
+  probeId: string | null;
+  response: FrequencyResponseSample[];
+  peakCurrentFrequency: number | null;
+  peakCurrentMag: number | null;
+  peakVoltageFrequency: number | null;
+  peakVoltageMag: number | null;
 }
 
 export interface SimulationResult {

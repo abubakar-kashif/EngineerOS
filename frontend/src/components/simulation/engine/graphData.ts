@@ -470,6 +470,62 @@ export function generateGraphsFromMeasurements(
   const drops = physical.filter(isPassiveDrop);
   const resistors = drops.filter((cm) => cm.type === 'resistor');
 
+  const fs = measurements.frequencySweep;
+  if (fs && fs.response.length >= 2) {
+    graphs.push({
+      id: 'frequency_response',
+      type: 'line',
+      title: 'Frequency Response (|I| vs f)',
+      xAxis: { label: 'Frequency', unit: 'Hz' },
+      yAxis: { label: 'Current magnitude', unit: 'A' },
+      series: [
+        {
+          name: '|I| (AC solve)',
+          color: COLORS[0],
+          points: fs.response.map((p) => ({ x: p.frequency, y: p.currentMag })),
+        },
+      ],
+      metadata: {
+        source: 'ac_frequency_sweep',
+        pointCount: fs.response.length,
+        fStart: fs.fStart,
+        fStop: fs.fStop,
+        scale: fs.scale,
+        step: fs.step,
+        amplitude: fs.amplitude,
+        probeId: fs.probeId,
+        peakCurrentFrequency: fs.peakCurrentFrequency,
+        peakCurrentMag: fs.peakCurrentMag,
+        peakVoltageFrequency: fs.peakVoltageFrequency,
+        peakVoltageMag: fs.peakVoltageMag,
+        gainSeries: fs.response.map((p) => ({ x: p.frequency, y: p.gain })),
+        impedanceSeries: fs.response.map((p) => ({
+          x: p.frequency,
+          y: p.impedanceMag,
+        })),
+      },
+    });
+    graphs.push({
+      id: 'frequency_response_gain',
+      type: 'line',
+      title: 'Frequency Response (|Vout|/|Vin|)',
+      xAxis: { label: 'Frequency', unit: 'Hz' },
+      yAxis: { label: 'Voltage gain', unit: '' },
+      series: [
+        {
+          name: '|Vout|/|Vin|',
+          color: COLORS[1],
+          points: fs.response.map((p) => ({ x: p.frequency, y: p.gain })),
+        },
+      ],
+      metadata: {
+        source: 'ac_frequency_sweep',
+        pointCount: fs.response.length,
+        probeId: fs.probeId,
+      },
+    });
+  }
+
   const ohmsOk =
     Number.isFinite(measurements.totalVoltage) && Number.isFinite(measurements.totalCurrent);
   if (ohmsOk) {

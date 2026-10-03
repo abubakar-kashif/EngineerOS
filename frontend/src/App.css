@@ -7448,6 +7448,27 @@
   color: var(--color-text-secondary);
   margin: 0 0 var(--space-sm);
 }
+.sim-palette-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 var(--space-sm);
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 12px;
+}
+.sim-palette-search:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.sim-palette-empty {
+  margin: 0;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
 .sim-palette-cat { border-bottom: 1px solid var(--color-border); }
 .sim-palette-cat-btn {
   width: 100%; display: flex; justify-content: space-between; align-items: center;

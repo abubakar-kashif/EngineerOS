@@ -111,6 +111,7 @@ describe("CircuitCanvas wheel listener", () => {
       selectedWireId: null,
       mode: "select" as const,
       placementType: null,
+      placementPropertyOverrides: null,
       wireStart: null,
       wirePreviewPoints: [],
       undoStack: [],

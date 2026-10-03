@@ -6,8 +6,8 @@
 import type { ComponentType, TerminalType, Position, ComponentProperties } from './engine';
 import { ComponentTerminals as EngineComponentTerminals } from './engine/circuitGraph';
 
-// Re-export engine's ComponentType for convenience
-export type { ComponentType, TerminalType, Position };
+// Re-export engine types for convenience
+export type { ComponentType, TerminalType, Position, ComponentProperties };
 
 /**
  * Editor representation of a component on the canvas.

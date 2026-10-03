@@ -47,6 +47,11 @@ import {
   circuitIsSeriesRlc,
   extractRlcCircuitMetrics,
 } from './rlcCircuitAnalysis';
+import {
+  circuitHasAcSource,
+  extractFrequencySweepMetrics,
+  type FrequencySweepOptions,
+} from './frequencySweepAnalysis';
 
 export interface SolveOptions {
   /**
@@ -56,6 +61,14 @@ export interface SolveOptions {
    * - omitted: auto-run for rc/rl/rlc labs when C/L present
    */
   transient?: TransientOptions | boolean;
+  /**
+   * AC frequency sweep (phasor MNA at each frequency).
+   * - object: use as-is (fStart/fStop/points or step)
+   * - true: infer window from AC source / LC resonance
+   * - omitted: auto-run when the circuit has an AC voltage source
+   * - false: never run
+   */
+  frequencySweep?: FrequencySweepOptions | boolean;
 }
 
 function isTransientLab(experimentId?: string): boolean {
@@ -82,12 +95,27 @@ function resolveTransientOptions(
   return null;
 }
 
+function resolveFrequencySweepOptions(
+  circuit: CircuitDefinition,
+  options?: SolveOptions,
+): FrequencySweepOptions | boolean | null {
+  if (options?.frequencySweep === false) return null;
+  if (options?.frequencySweep && typeof options.frequencySweep === 'object') {
+    return options.frequencySweep;
+  }
+  if (options?.frequencySweep === true || circuitHasAcSource(circuit)) {
+    return true;
+  }
+  return null;
+}
+
 export function solveCircuit(
   circuit: CircuitDefinition,
   options?: SolveOptions,
 ): SimulationResult {
   const binding = solveBinding(circuit);
   const transientOpts = resolveTransientOptions(circuit, options);
+  const frequencySweepOpts = resolveFrequencySweepOptions(circuit, options);
   const isRcLab = circuit.experimentId === 'rc-circuit';
   const isRlLab = circuit.experimentId === 'rl-circuit';
   const isRlcLab = circuit.experimentId === 'rlc-circuit';
@@ -224,6 +252,18 @@ export function solveCircuit(
       if (rl) {
         measurements.rl = rl;
         meta.rl = rl;
+      }
+    }
+
+    if (frequencySweepOpts) {
+      const sweep = extractFrequencySweepMetrics(active, frequencySweepOpts);
+      meta.frequencySweep = {
+        requested: true,
+        success: Boolean(sweep),
+        points: sweep?.points ?? 0,
+      };
+      if (sweep) {
+        measurements.frequencySweep = sweep;
       }
     }
 

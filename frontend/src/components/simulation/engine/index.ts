@@ -20,6 +20,9 @@ export * from './linearAlgebra';
 export * from './netlist';
 export * from './electricalSnapshot';
 export * from './dcSolver';
+export * from './complexLinearAlgebra';
+export * from './acSolver';
+export * from './frequencySweepAnalysis';
 export * from './transientSolver';
 export * from './circuitSolver';
 

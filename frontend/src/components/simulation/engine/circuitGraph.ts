@@ -41,7 +41,7 @@ export interface ComponentProperties {
   resistance?: number;      // Ω (also total Rpot for potentiometer)
   /** Potentiometer wiper fraction α from end B toward end A; 0 ≤ α ≤ 1. */
   wiperPosition?: number;
-  voltage?: number;         // V
+  voltage?: number;         // V (DC value, or AC peak when amplitude omitted)
   current?: number;         // A
   capacitance?: number;     // F
   inductance?: number;      // H
@@ -49,6 +49,16 @@ export interface ComponentProperties {
   initialVoltage?: number;
   /** Inductor initial current iL(0) for transient solves (A). */
   initialCurrent?: number;
+  /** AC sine peak amplitude (V); falls back to `voltage`. */
+  amplitude?: number;
+  /** AC drive frequency (Hz). */
+  frequency?: number;
+  /** AC phasor phase (degrees). */
+  phase?: number;
+  /** Waveform tag for AC sources (e.g. 'sine'). */
+  waveform?: string;
+  /** When true, treat voltage_source as an AC / function-generator drive. */
+  acMode?: boolean;
   forwardVoltage?: number;  // V
   state?: SwitchState;
   [key: string]: string | number | boolean | SwitchState | undefined;

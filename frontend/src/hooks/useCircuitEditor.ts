@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
   ComponentInstance,
+  ComponentProperties,
   ComponentType,
   EditorCircuit,
   WireEnd,
@@ -64,6 +65,8 @@ export interface EditorState {
   selectedWireId: string | null;
   mode: EditorMode;
   placementType: ComponentType | null;
+  /** Optional property overrides for the next placed component (e.g. AC FG). */
+  placementPropertyOverrides: ComponentProperties | null;
   wireStart: WireStartState | null;
   wirePreviewPoints: Point[];
   undoStack: EditorCircuit[];
@@ -123,6 +126,7 @@ export function useCircuitEditor(initial?: EditorCircuit) {
     selectedWireId: null,
     mode: "select",
     placementType: null,
+    placementPropertyOverrides: null,
     wireStart: null,
     wirePreviewPoints: [],
     undoStack: [],
@@ -170,21 +174,26 @@ export function useCircuitEditor(initial?: EditorCircuit) {
     }));
   }, []);
 
-  const setPlacementType = useCallback((type: ComponentType | null) => {
-    setState((s) => ({
-      ...s,
-      mode: type ? "place" : "select",
-      placementType: type,
-      wireStart: null,
-      wirePreviewPoints: [],
-    }));
-  }, []);
+  const setPlacementType = useCallback(
+    (type: ComponentType | null, propertyOverrides?: ComponentProperties) => {
+      setState((s) => ({
+        ...s,
+        mode: type ? "place" : "select",
+        placementType: type,
+        placementPropertyOverrides: type ? (propertyOverrides ?? null) : null,
+        wireStart: null,
+        wirePreviewPoints: [],
+      }));
+    },
+    [],
+  );
 
   const cancelPlacement = useCallback(() => {
     setState((s) => ({
       ...s,
       mode: "select",
       placementType: null,
+      placementPropertyOverrides: null,
     }));
   }, []);
 
@@ -194,29 +203,32 @@ export function useCircuitEditor(initial?: EditorCircuit) {
       const existingLabels = new Set(circuit.components.map((c) => c.label));
       const label = nextDesignator(type, existingLabels);
 
-      const comp: ComponentInstance = {
-        id: uid("comp"),
-        type,
-        label,
-        x: snap(canvasX),
-        y: snap(canvasY),
-        rotation: 0,
-        properties: { ...DEFAULT_PROPERTIES[type] },
-        terminals: [...DEFAULT_TERMINALS[type]],
-      };
-
       pushUndo(circuit);
-      setState((s) => ({
-        ...s,
-        circuit: {
-          ...s.circuit,
-          components: [...s.circuit.components, comp],
-        },
-        selectedComponentId: comp.id,
-        selectedWireId: null,
-        mode: "select",
-        placementType: null,
-      }));
+      setState((s) => {
+        const overrides = s.placementPropertyOverrides;
+        const comp: ComponentInstance = {
+          id: uid("comp"),
+          type,
+          label,
+          x: snap(canvasX),
+          y: snap(canvasY),
+          rotation: 0,
+          properties: { ...DEFAULT_PROPERTIES[type], ...(overrides ?? {}) },
+          terminals: [...DEFAULT_TERMINALS[type]],
+        };
+        return {
+          ...s,
+          circuit: {
+            ...s.circuit,
+            components: [...s.circuit.components, comp],
+          },
+          selectedComponentId: comp.id,
+          selectedWireId: null,
+          mode: "select",
+          placementType: null,
+          placementPropertyOverrides: null,
+        };
+      });
     },
     [pushUndo],
   );
