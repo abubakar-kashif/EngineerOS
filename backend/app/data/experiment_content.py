@@ -2163,9 +2163,164 @@ EXPERIMENTS: list[dict] = [
             "Impedance matching intuition at DC (maximum power when RL = Rth)",
             "Simplifying large linear networks before attaching a load",
         ],
-        "related_experiments": ["voltage-divider", "superposition-theorem", "ohms-law", "series-circuit", "parallel-circuit"],
+        "related_experiments": ["voltage-divider", "superposition-theorem", "ohms-law", "norton-theorem", "series-circuit", "parallel-circuit"],
         "simulation_configuration": {
             "mode": "thevenin",
+            "parameters": {
+                "voltage": 12,
+                "r1": 2000,
+                "r2": 2000,
+                "rl": 2000,
+            },
+        },
+    },
+    {
+        "id": "norton-theorem",
+        "title": "Norton's Theorem",
+        "slug": "norton-theorem",
+        "short_description": "Find IN and RN and verify that the Norton equivalent matches the original load current.",
+        "description": (
+            "This experiment develops Norton's theorem for a linear resistive network "
+            "with a designated load. You will determine the short-circuit current IN, "
+            "the parallel resistance RN, form the Norton equivalent, and verify that "
+            "the load current matches the original circuit."
+        ),
+        "objective": (
+            "Compute IN and RN for a single-source network, predict load current from "
+            "the Norton equivalent, and compare with the original loaded circuit."
+        ),
+        "theory": (
+            "Any linear network seen from two load terminals is equivalent to a single "
+            "current source IN in parallel with resistance RN. IN equals the short-circuit "
+            "current Isc at those terminals. RN equals the Thévenin resistance "
+            "(Voc/Isc) with independent sources deactivated. With load RL attached, "
+            "IL = IN · RN / (RN + RL). Norton and Thévenin are duals: IN = Vth/Rth, RN = Rth."
+        ),
+        "difficulty": "Intermediate",
+        "category": "Circuit Theorems",
+        "duration_minutes": 40,
+        "status": "published",
+        "historical_background": (
+            "Edward L. Norton described the current-source equivalent while at Bell Labs. "
+            "Together with Thévenin's voltage form it is a standard tool for reducing "
+            "linear networks before attaching a load."
+        ),
+        "learning_outcomes": [
+            "Define IN as the short-circuit current at the load port",
+            "Find RN (= Rth) by Voc/Isc or source deactivation",
+            "Predict IL from the Norton current divider",
+            "Relate Norton and Thévenin equivalents",
+        ],
+        "prerequisites": ["ohms-law", "voltage-divider", "current-divider", "thevenin-theorem"],
+        "formulas": [
+            {
+                "expression": "I_N = I_sc",
+                "variables": [
+                    {"symbol": "I_N", "name": "Norton current"},
+                    {"symbol": "I_sc", "name": "Short-circuit port current"},
+                ],
+            },
+            {
+                "expression": "R_N = V_oc / I_sc = R_th",
+                "variables": [
+                    {"symbol": "R_N", "name": "Norton resistance"},
+                    {"symbol": "V_oc", "name": "Open-circuit port voltage"},
+                ],
+            },
+            {
+                "expression": "I_L = I_N · R_N / (R_N + R_L)",
+                "variables": [
+                    {"symbol": "I_L", "name": "Load current"},
+                    {"symbol": "R_L", "name": "Load resistance"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "Vs", "name": "Source voltage", "unit": "volt (V)", "description": "Independent DC source"},
+            {"symbol": "R1", "name": "Series resistor", "unit": "ohm (Ω)", "description": "Source-side series resistance"},
+            {"symbol": "R2", "name": "Shunt resistor", "unit": "ohm (Ω)", "description": "Parallel path at the load port"},
+            {"symbol": "RL", "name": "Load resistor", "unit": "ohm (Ω)", "description": "Load attached to the port"},
+            {"symbol": "IN", "name": "Norton current", "unit": "ampere (A)", "description": "Short-circuit equivalent current"},
+            {"symbol": "RN", "name": "Norton resistance", "unit": "ohm (Ω)", "description": "Parallel equivalent resistance"},
+            {"symbol": "VL", "name": "Load voltage", "unit": "volt (V)", "description": "Voltage across RL"},
+            {"symbol": "IL", "name": "Load current", "unit": "ampere (A)", "description": "Current through RL"},
+        ],
+        "components": [
+            {"name": "DC voltage source", "quantity": 1, "spec": "12 V"},
+            {"name": "Resistor R1", "quantity": 1, "spec": "2 kΩ"},
+            {"name": "Resistor R2", "quantity": 1, "spec": "2 kΩ"},
+            {"name": "Load resistor RL", "quantity": 1, "spec": "2 kΩ"},
+            {"name": "Ground", "quantity": 1, "spec": "Reference node"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Across RL / port"},
+            {"name": "Ammeter", "quantity": 1, "spec": "In series with RL"},
+        ],
+        "circuit_diagram": {
+            "art": (
+                "  Vs+--R1--+--R2--GND\n"
+                "          |\n"
+                "         RL--GND\n"
+                "  Equivalent: IN || RN feeding RL\n"
+            ),
+            "caption": (
+                "Same network as the Thévenin lab. IN = Isc; RN = Voc/Isc; "
+                "IL = IN·RN/(RN+RL)."
+            ),
+        },
+        "procedure": [
+            "Open the Norton Theorem lab — the starter (Vs=12 V, R1=R2=RL=2 kΩ) should load.",
+            "Run the original circuit and record VL and IL.",
+            "Inspect the Norton comparison graph and reported IN, RN values.",
+            "Verify IN ≈ 6 mA and RN ≈ 1 kΩ for the starter.",
+            "Confirm Norton IL ≈ IN·RN/(RN+RL) matches the original load current.",
+            "Change RL and observe that IN and RN stay the same while IL changes.",
+            "Convert mentally to Thévenin: Vth = IN·RN and compare with the prior lab.",
+            "Discuss deactivating sources to find RN (VS shorted, CS opened).",
+        ],
+        "expected_results": [
+            "Starter: IN ≈ 6 mA, RN ≈ 1 kΩ.",
+            "Starter: IL ≈ 2 mA on both original and Norton models.",
+            "Error between original IL and Norton IL is near zero.",
+            "Changing only RL leaves IN and RN unchanged.",
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Including RL when computing RN",
+                "consequence": "RN is seen with the load removed.",
+            },
+            {
+                "mistake": "Opening a voltage source instead of shorting it for RN",
+                "consequence": "Wrong equivalent resistance.",
+            },
+            {
+                "mistake": "Using loaded IL as IN",
+                "consequence": "IN is the short-circuit current, not the loaded IL.",
+            },
+            {
+                "mistake": "Putting RN in series with IN",
+                "consequence": "Norton resistance is in parallel with the current source.",
+            },
+        ],
+        "safety_precautions": [
+            "Keep Vs within the lab starter limit (12 V DC).",
+            "Treat short-circuit measurements carefully — currents are larger than loaded IL.",
+            "Power off before rearranging wires in a physical build.",
+            "Start meter ranges high when IL is unknown.",
+        ],
+        "observation_guidance": [
+            "Compare original IL with Norton IL on the graph.",
+            "Note IN and RN in the analysis metadata / report.",
+            "Sweep RL and watch the current-divider behavior.",
+            "Check that IN·RN matches Vth from the Thévenin lab.",
+        ],
+        "real_world_applications": [
+            "Current-output sensor and photodiode models",
+            "Dual of battery/internal-resistance source models",
+            "Simplifying networks that naturally look like current drives",
+            "Teaching duality with Thévenin's theorem",
+        ],
+        "related_experiments": ["thevenin-theorem", "current-divider", "voltage-divider", "superposition-theorem", "ohms-law"],
+        "simulation_configuration": {
+            "mode": "norton",
             "parameters": {
                 "voltage": 12,
                 "r1": 2000,

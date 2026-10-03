@@ -46,6 +46,7 @@ const ANALYSIS_LABELS: Record<string, string> = {
   wheatstone_bridge_nodes: "Wheatstone node voltages",
   superposition_comparison: "Full vs contributions",
   thevenin_comparison: "Original vs Thévenin",
+  norton_comparison: "Original vs Norton",
   rc_time: "RC response",
   power_time: "Power vs time",
   current_signals: "KCL currents",

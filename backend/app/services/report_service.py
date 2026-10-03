@@ -231,11 +231,116 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
             if not any(r["label"] == super_row["label"] for r in rows):
                 rows.append(super_row)
 
-        for th_row in _thevenin_measured_rows(results, circuit):
-            if not any(r["label"] == th_row["label"] for r in rows):
-                rows.append(th_row)
+        exp_id = getattr(run, "experiment_id", None)
+        if exp_id != "norton-theorem":
+            for th_row in _thevenin_measured_rows(results, circuit):
+                if not any(r["label"] == th_row["label"] for r in rows):
+                    rows.append(th_row)
+
+        if exp_id != "thevenin-theorem":
+            for n_row in _norton_measured_rows(results, circuit):
+                if not any(r["label"] == n_row["label"] for r in rows):
+                    rows.append(n_row)
 
     return rows or None
+
+
+def _norton_rows_from_divider(
+    vs: float, r1: float, r2: float, rl: float
+) -> list[dict]:
+    vth = vs * r2 / (r1 + r2)
+    rn = (r1 * r2) / (r1 + r2)
+    inorton = vth / rn if rn > 0 else vs / r1
+    il = inorton * rn / (rn + rl)
+    vl = il * rl
+    return [
+        {"label": "Source Voltage", "value": vs, "unit": "V"},
+        {"label": "IN", "value": inorton, "unit": "A"},
+        {"label": "RN", "value": rn, "unit": "Ω"},
+        {"label": "RL", "value": rl, "unit": "Ω"},
+        {"label": "Original VL", "value": vl, "unit": "V"},
+        {"label": "Original IL", "value": il, "unit": "A"},
+        {"label": "Norton VL", "value": vl, "unit": "V"},
+        {"label": "Norton IL", "value": il, "unit": "A"},
+        {"label": "Difference IL", "value": 0.0, "unit": "A"},
+        {"label": "Error", "value": 0.0, "unit": "%"},
+    ]
+
+
+def _norton_from_circuit(circuit: dict | None) -> list[dict]:
+    if not isinstance(circuit, dict):
+        return []
+    components = circuit.get("components")
+    if not isinstance(components, list):
+        return []
+    by_id: dict[str, dict] = {}
+    for component in components:
+        if isinstance(component, dict) and component.get("id"):
+            by_id[str(component["id"])] = component
+
+    def prop(cid: str, key: str) -> float | None:
+        row = by_id.get(cid)
+        if not row:
+            return None
+        props = row.get("properties") if isinstance(row.get("properties"), dict) else {}
+        return _numeric(props.get(key))
+
+    vs = prop("V1", "voltage")
+    r1 = prop("R1", "resistance")
+    r2 = prop("R2", "resistance")
+    rl = prop("RL", "resistance")
+    if None in (vs, r1, r2, rl) or min(r1, r2, rl) <= 0:
+        return []
+    sources = [
+        c
+        for c in components
+        if isinstance(c, dict)
+        and c.get("type") in ("voltage_source", "current_source")
+    ]
+    if len(sources) != 1:
+        return []
+    return _norton_rows_from_divider(vs, r1, r2, rl)
+
+
+def _norton_measured_rows(
+    results: dict, circuit: dict | None = None
+) -> list[dict]:
+    graphs = results.get("graphs")
+    if isinstance(graphs, list):
+        for graph in graphs:
+            if not isinstance(graph, dict) or graph.get("id") != "norton_comparison":
+                continue
+            meta = graph.get("metadata")
+            if not isinstance(meta, dict):
+                continue
+            rows: list[dict] = []
+            mapping = (
+                ("inorton", "IN", "A"),
+                ("rn", "RN", "Ω"),
+                ("rl", "RL", "Ω"),
+                ("originalVL", "Original VL", "V"),
+                ("originalIL", "Original IL", "A"),
+                ("nortonVL", "Norton VL", "V"),
+                ("nortonIL", "Norton IL", "A"),
+                ("differenceIL", "Difference IL", "A"),
+                ("errorPercentIL", "Error", "%"),
+            )
+            for key, label, unit in mapping:
+                value = _numeric(meta.get(key))
+                if value is not None:
+                    rows.append({"label": label, "value": value, "unit": unit})
+            if rows:
+                return rows
+    return _norton_from_circuit(circuit)
+
+
+def _norton_reference_rows(parameters: dict, voltage: float) -> list[dict] | None:
+    r1 = _numeric(parameters.get("r1"))
+    r2 = _numeric(parameters.get("r2"))
+    rl = _numeric(parameters.get("rl"))
+    if None in (r1, r2, rl) or min(r1, r2, rl) <= 0:
+        return None
+    return _norton_rows_from_divider(voltage, r1, r2, rl)
 
 
 def _thevenin_rows_from_divider(
@@ -645,6 +750,9 @@ def _reference_rows(experiment: Experiment) -> list[dict] | None:
 
     if config.get("mode") == "thevenin" or experiment.id == "thevenin-theorem":
         return _thevenin_reference_rows(parameters, voltage)
+
+    if config.get("mode") == "norton" or experiment.id == "norton-theorem":
+        return _norton_reference_rows(parameters, voltage)
 
     r1 = _numeric(parameters.get("r1"))
     r2 = _numeric(parameters.get("r2"))

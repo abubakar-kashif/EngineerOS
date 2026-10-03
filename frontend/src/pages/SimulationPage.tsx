@@ -67,6 +67,7 @@ const CATALOG_EXPERIMENT_IDS = [
   "potentiometer",
   "superposition-theorem",
   "thevenin-theorem",
+  "norton-theorem",
 ] as const;
 
 function SimulationPage() {

@@ -74,14 +74,17 @@ class ExperimentContext:
             thevenin = _thevenin_theoretical(experiment.simulation_configuration)
             if thevenin:
                 context["theoretical_thevenin"] = thevenin
+            norton = _norton_theoretical(experiment.simulation_configuration)
+            if norton:
+                context["theoretical_norton"] = norton
 
         context["guidance_boundary"] = (
             "Experiment catalog data is for instructional guidance only. "
             "The simulator — not the Mentor — validates the student's circuit "
             "and determines electrical behavior. "
             "Never invent Vleft, Vright, Vout, wiper position, superposition "
-            "contributions, Vth, Rth, or other measurements — use simulation "
-            "context when a run is attached."
+            "contributions, Vth, Rth, IN, RN, or other measurements — use "
+            "simulation context when a run is attached."
         )
 
         return context
@@ -140,6 +143,40 @@ def _thevenin_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "VL": vl,
         "IL": il,
         "relation": "IL = Vth / (Rth + RL)",
+        "note": "Theoretical catalog values for the published starter configuration.",
+    }
+
+
+def _norton_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(config, dict) or config.get("mode") != "norton":
+        return None
+    params = config.get("parameters")
+    if not isinstance(params, dict):
+        return None
+    try:
+        vs = float(params["voltage"])
+        r1 = float(params["r1"])
+        r2 = float(params["r2"])
+        rl = float(params["rl"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if min(vs, r1, r2, rl) <= 0:
+        return None
+    vth = vs * r2 / (r1 + r2)
+    rn = (r1 * r2) / (r1 + r2)
+    inorton = vth / rn
+    il = inorton * rn / (rn + rl)
+    vl = il * rl
+    return {
+        "original_circuit": {"Vs": vs, "R1": r1, "R2": r2, "RL": rl, "IL": il, "VL": vl},
+        "equivalent_circuit": {"IN": inorton, "RN": rn},
+        "IN": inorton,
+        "RN": rn,
+        "RL": rl,
+        "IL": il,
+        "original_IL": il,
+        "equivalent_IL": il,
+        "relation": "IL = IN · RN / (RN + RL)",
         "note": "Theoretical catalog values for the published starter configuration.",
     }
 

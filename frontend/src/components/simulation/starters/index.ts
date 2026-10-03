@@ -15,6 +15,10 @@ import {
   createTheveninTheoremStarter,
   THEVENIN_THEOREM_EXPERIMENT_ID,
 } from "./theveninTheorem";
+import {
+  createNortonTheoremStarter,
+  NORTON_THEOREM_EXPERIMENT_ID,
+} from "./nortonTheorem";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
@@ -22,6 +26,7 @@ const STARTERS: Record<string, () => EditorCircuit> = {
   [POTENTIOMETER_EXPERIMENT_ID]: createPotentiometerStarter,
   [SUPERPOSITION_THEOREM_EXPERIMENT_ID]: createSuperpositionTheoremStarter,
   [THEVENIN_THEOREM_EXPERIMENT_ID]: createTheveninTheoremStarter,
+  [NORTON_THEOREM_EXPERIMENT_ID]: createNortonTheoremStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -42,4 +47,6 @@ export {
   SUPERPOSITION_THEOREM_EXPERIMENT_ID,
   createTheveninTheoremStarter,
   THEVENIN_THEOREM_EXPERIMENT_ID,
+  createNortonTheoremStarter,
+  NORTON_THEOREM_EXPERIMENT_ID,
 };

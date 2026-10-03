@@ -39,6 +39,7 @@ export * from './potentiometerAnalysis';
 export * from './superpositionAnalysis';
 export * from './portEquivalentAnalysis';
 export * from './theveninAnalysis';
+export * from './nortonAnalysis';
 
 // Phase A9 - Types (Single Source of Truth)
 export * from './types';

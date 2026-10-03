@@ -20,6 +20,7 @@ import {
 } from './potentiometerAnalysis';
 import { extractSuperpositionMetrics } from './superpositionAnalysis';
 import { extractTheveninMetrics } from './theveninAnalysis';
+import { extractNortonMetrics } from './nortonAnalysis';
 
 export interface GraphPoint {
   x: number;
@@ -657,8 +658,9 @@ export function generateGraphsFromMeasurements(
       });
     }
 
+    const expId = circuit.experimentId;
     const thevenin = extractTheveninMetrics(circuit);
-    if (thevenin) {
+    if (thevenin && expId !== 'norton-theorem') {
       graphs.push({
         id: 'thevenin_comparison',
         type: 'bar',
@@ -689,6 +691,42 @@ export function generateGraphsFromMeasurements(
           theveninIL: thevenin.theveninIL,
           differenceIL: thevenin.differenceIL,
           errorPercentIL: thevenin.errorPercentIL,
+        },
+      });
+    }
+
+    const norton = extractNortonMetrics(circuit);
+    if (norton && expId !== 'thevenin-theorem') {
+      graphs.push({
+        id: 'norton_comparison',
+        type: 'bar',
+        title: 'Norton (original vs equivalent)',
+        xAxis: { label: 'Quantity', unit: '' },
+        yAxis: { label: 'Value', unit: '' },
+        series: [
+          {
+            name: 'Comparison',
+            color: COLORS[1],
+            points: [
+              { x: 1, y: norton.originalIL },
+              { x: 2, y: norton.nortonIL },
+              { x: 3, y: norton.originalVL },
+              { x: 4, y: norton.nortonVL },
+            ],
+          },
+        ],
+        metadata: {
+          source: 'dc_norton',
+          labels: ['Original IL', 'Norton IL', 'Original VL', 'Norton VL'],
+          inorton: norton.inorton,
+          rn: norton.rn,
+          rl: norton.rl,
+          originalVL: norton.originalVL,
+          originalIL: norton.originalIL,
+          nortonVL: norton.nortonVL,
+          nortonIL: norton.nortonIL,
+          differenceIL: norton.differenceIL,
+          errorPercentIL: norton.errorPercentIL,
         },
       });
     }

@@ -42,10 +42,12 @@ describe("Thévenin theorem starter + DC solve", () => {
 
   it("emits original vs Thévenin comparison graph", () => {
     const circuit = toEngineCircuit(createTheveninTheoremStarter());
+    circuit.experimentId = "thevenin-theorem";
     const result = solveCircuit(circuit);
     const graphs = generateGraphsFromMeasurements(result.measurements!, circuit);
     const graph = graphs.find((g) => g.id === "thevenin_comparison");
     expect(graph).toBeDefined();
     expect(graph!.metadata?.vth).toBeCloseTo(6, 1);
+    expect(graphs.some((g) => g.id === "norton_comparison")).toBe(false);
   });
 });

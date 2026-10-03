@@ -240,7 +240,25 @@ QUIZ_BANK_EXTRA = {
         {"question": "Mentor must not invent Vth; it should:", "option_a": "Use catalog/simulation values", "option_b": "Guess", "option_c": "Ignore the lab", "option_d": "Only discuss CSS", "correct_answer": "A", "explanation": "Grounding."},
         {"question": "DC Thévenin ignores:", "option_a": "Reactive impedance (use AC phasors later)", "option_b": "Resistance", "option_c": "Voltage", "option_d": "Current", "correct_answer": "A", "explanation": "Scope."},
         {"question": "Equivalence means for any RL:", "option_a": "Same IL and VL as the original", "option_b": "Same internal node voltages always", "option_c": "Same wire colors", "option_d": "Same quiz answers", "correct_answer": "A", "explanation": "Port behavior."},
+  ],
+  "norton-theorem": [
+        {"question": "Dual of Vth is:", "option_a": "IN", "option_b": "RL", "option_c": "Ground", "option_d": "Font", "correct_answer": "A", "explanation": "Duality."},
+        {"question": "Dual of series Rth is:", "option_a": "Parallel RN", "option_b": "Series RL only", "option_c": "Open Vs", "option_d": "Short quiz", "correct_answer": "A", "explanation": "Duality."},
+        {"question": "Norton maximum power transfer when:", "option_a": "RL = RN", "option_b": "RL = 0 only", "option_c": "RL = infinity only", "option_d": "IN = 0", "correct_answer": "A", "explanation": "Match."},
+        {"question": "Changing Vs scales IN:", "option_a": "Proportionally in a linear network", "option_b": "Never", "option_c": "Only RN", "option_d": "Only wire color", "correct_answer": "A", "explanation": "Homogeneity."},
+        {"question": "Isc measurement must not leave:", "option_a": "A large RL in place", "option_b": "Ground connected", "option_c": "R1 present", "option_d": "A meter", "correct_answer": "A", "explanation": "Need a short."},
+        {"question": "Voc / IN equals:", "option_a": "RN", "option_b": "IL", "option_c": "Vs always", "option_d": "0", "correct_answer": "A", "explanation": "RN = Voc/IN."},
+        {"question": "Parallel RN with IN means node voltage is:", "option_a": "Shared by RN and RL", "option_b": "Only across Vs internally always equal IN", "option_c": "Forbidden", "option_d": "In henries", "correct_answer": "A", "explanation": "KCL/KVL."},
+        {"question": "Norton instrumentation use-case:", "option_a": "Current-output sensor into a load", "option_b": "Only RF coils", "option_c": "Only transformers", "option_d": "Only LEDs", "correct_answer": "A", "explanation": "Application."},
+        {"question": "If Norton error is large, check:", "option_a": "Short/open deactivation and the true load port", "option_b": "Theme only", "option_c": "Font only", "option_d": "Email only", "correct_answer": "A", "explanation": "Debug."},
+        {"question": "Mentor must not invent IN; it should:", "option_a": "Use catalog/simulation values", "option_b": "Guess", "option_c": "Ignore the lab", "option_d": "Only discuss CSS", "correct_answer": "A", "explanation": "Grounding."},
+        {"question": "DC Norton ignores:", "option_a": "Reactive impedance until AC analysis", "option_b": "Current", "option_c": "Resistance", "option_d": "Voltage on load", "correct_answer": "A", "explanation": "Scope."},
+        {"question": "Norton port equivalence means for any RL:", "option_a": "Same port IL and VL as original", "option_b": "Same every internal voltage always", "option_c": "Same colors", "option_d": "Same quiz", "correct_answer": "A", "explanation": "Port behavior."},
+        {"question": "Converting Norton → Thévenin:", "option_a": "Vth = IN·RN, Rth = RN", "option_b": "Deletes IN", "option_c": "Forces RL=0", "option_d": "Opens ground", "correct_answer": "A", "explanation": "Conversion."},
+        {"question": "Report difference/error compares:", "option_a": "Original IL vs Norton IL", "option_b": "Only titles", "option_c": "Only themes", "option_d": "Only user ids", "correct_answer": "A", "explanation": "Spec."},
+        {"question": "With RN → ∞, Norton approaches:", "option_a": "An ideal current source", "option_b": "A short", "option_c": "Vth=0 forced", "option_d": "No current ever", "correct_answer": "A", "explanation": "Idealization."},
   ]
+
 
 
 

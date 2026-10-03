@@ -241,7 +241,25 @@ export const QUIZ_BANK_EXTRA: Record<string, SeedQuizQuestion[]> = {
     { question: "Mentor must not invent Vth; it should:", options: ["Use catalog/simulation values", "Guess", "Ignore the lab", "Only discuss CSS"], correct_answer: "A", explanation: "Grounding.", category: "conceptual" },
     { question: "DC Thévenin ignores:", options: ["Reactive impedance (use AC phasors later)", "Resistance", "Voltage", "Current"], correct_answer: "A", explanation: "Scope.", category: "conceptual" },
     { question: "Equivalence means for any RL:", options: ["Same IL and VL as the original", "Same internal node voltages always", "Same wire colors", "Same quiz answers"], correct_answer: "A", explanation: "Port behavior.", category: "conceptual" },
+  ],
+  "norton-theorem": [
+    { question: "Dual of Vth is:", options: ["IN", "RL", "Ground", "Font"], correct_answer: "A", explanation: "Duality.", category: "conceptual" },
+    { question: "Dual of series Rth is:", options: ["Parallel RN", "Series RL only", "Open Vs", "Short quiz"], correct_answer: "A", explanation: "Duality.", category: "conceptual" },
+    { question: "Norton maximum power transfer when:", options: ["RL = RN", "RL = 0 only", "RL = infinity only", "IN = 0"], correct_answer: "A", explanation: "Match.", category: "conceptual" },
+    { question: "Changing Vs scales IN:", options: ["Proportionally in a linear network", "Never", "Only RN", "Only wire color"], correct_answer: "A", explanation: "Homogeneity.", category: "conceptual" },
+    { question: "Isc measurement must not leave:", options: ["A large RL in place", "Ground connected", "R1 present", "A meter"], correct_answer: "A", explanation: "Need a short.", category: "conceptual" },
+    { question: "Voc / IN equals:", options: ["RN", "IL", "Vs always", "0"], correct_answer: "A", explanation: "RN = Voc/IN.", category: "conceptual" },
+    { question: "Parallel RN with IN means node voltage is:", options: ["Shared by RN and RL", "Only across Vs internally always equal IN", "Forbidden", "In henries"], correct_answer: "A", explanation: "KCL/KVL.", category: "conceptual" },
+    { question: "Norton instrumentation use-case:", options: ["Current-output sensor into a load", "Only RF coils", "Only transformers", "Only LEDs"], correct_answer: "A", explanation: "Application.", category: "conceptual" },
+    { question: "If Norton error is large, check:", options: ["Short/open deactivation and the true load port", "Theme only", "Font only", "Email only"], correct_answer: "A", explanation: "Debug.", category: "conceptual" },
+    { question: "Mentor must not invent IN; it should:", options: ["Use catalog/simulation values", "Guess", "Ignore the lab", "Only discuss CSS"], correct_answer: "A", explanation: "Grounding.", category: "conceptual" },
+    { question: "DC Norton ignores:", options: ["Reactive impedance until AC analysis", "Current", "Resistance", "Voltage on load"], correct_answer: "A", explanation: "Scope.", category: "conceptual" },
+    { question: "Norton port equivalence means for any RL:", options: ["Same port IL and VL as original", "Same every internal voltage always", "Same colors", "Same quiz"], correct_answer: "A", explanation: "Port behavior.", category: "conceptual" },
+    { question: "Converting Norton → Thévenin:", options: ["Vth = IN·RN, Rth = RN", "Deletes IN", "Forces RL=0", "Opens ground"], correct_answer: "A", explanation: "Conversion.", category: "conceptual" },
+    { question: "Report difference/error compares:", options: ["Original IL vs Norton IL", "Only titles", "Only themes", "Only user ids"], correct_answer: "A", explanation: "Spec.", category: "conceptual" },
+    { question: "With RN → ∞, Norton approaches:", options: ["An ideal current source", "A short", "Vth=0 forced", "No current ever"], correct_answer: "A", explanation: "Idealization.", category: "conceptual" },
   ]
+
 
 
 };

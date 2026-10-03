@@ -47,6 +47,7 @@ EXPERIMENT_IDS = [
     "potentiometer",
     "superposition-theorem",
     "thevenin-theorem",
+    "norton-theorem",
 ]
 
 
