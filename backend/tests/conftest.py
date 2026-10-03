@@ -46,6 +46,7 @@ EXPERIMENT_IDS = [
     "wheatstone-bridge",
     "potentiometer",
     "superposition-theorem",
+    "thevenin-theorem",
 ]
 
 

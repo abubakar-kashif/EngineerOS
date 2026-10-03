@@ -66,6 +66,7 @@ const CATALOG_EXPERIMENT_IDS = [
   "wheatstone-bridge",
   "potentiometer",
   "superposition-theorem",
+  "thevenin-theorem",
 ] as const;
 
 function SimulationPage() {

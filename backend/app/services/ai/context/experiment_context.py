@@ -71,14 +71,17 @@ class ExperimentContext:
             superposition = _superposition_theoretical(experiment.simulation_configuration)
             if superposition:
                 context["theoretical_superposition"] = superposition
+            thevenin = _thevenin_theoretical(experiment.simulation_configuration)
+            if thevenin:
+                context["theoretical_thevenin"] = thevenin
 
         context["guidance_boundary"] = (
             "Experiment catalog data is for instructional guidance only. "
             "The simulator — not the Mentor — validates the student's circuit "
             "and determines electrical behavior. "
             "Never invent Vleft, Vright, Vout, wiper position, superposition "
-            "contributions, or other measurements — use simulation context "
-            "when a run is attached."
+            "contributions, Vth, Rth, or other measurements — use simulation "
+            "context when a run is attached."
         )
 
         return context
@@ -105,6 +108,38 @@ def _potentiometer_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any
         "Vout": alpha * vin,
         "theoretical_Vout": alpha * vin,
         "relation": "Vout = α · Vin (unloaded)",
+        "note": "Theoretical catalog values for the published starter configuration.",
+    }
+
+
+def _thevenin_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(config, dict) or config.get("mode") != "thevenin":
+        return None
+    params = config.get("parameters")
+    if not isinstance(params, dict):
+        return None
+    try:
+        vs = float(params["voltage"])
+        r1 = float(params["r1"])
+        r2 = float(params["r2"])
+        rl = float(params["rl"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if min(vs, r1, r2, rl) <= 0:
+        return None
+    vth = vs * r2 / (r1 + r2)
+    rth = (r1 * r2) / (r1 + r2)
+    il = vth / (rth + rl)
+    vl = il * rl
+    return {
+        "original_circuit": {"Vs": vs, "R1": r1, "R2": r2, "RL": rl},
+        "equivalent_circuit": {"Vth": vth, "Rth": rth},
+        "Vth": vth,
+        "Rth": rth,
+        "RL": rl,
+        "VL": vl,
+        "IL": il,
+        "relation": "IL = Vth / (Rth + RL)",
         "note": "Theoretical catalog values for the published starter configuration.",
     }
 

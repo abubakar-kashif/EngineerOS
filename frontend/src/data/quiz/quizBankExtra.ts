@@ -224,7 +224,25 @@ export const QUIZ_BANK_EXTRA: Record<string, SeedQuizQuestion[]> = {
     { question: "Mentor should not invent contributions; it should:", options: ["Use attached simulation/catalog values", "Guess randomly", "Ignore the lab", "Only discuss fonts"], correct_answer: "A", explanation: "Grounding rule.", category: "conceptual" },
     { question: "A third independent source would require:", options: ["A third contribution circuit plus the sum of all three", "Deleting superposition", "Shorting RL", "Only AC meters"], correct_answer: "A", explanation: "General theorem.", category: "conceptual" },
     { question: "Best first debugging step if sum ≠ full:", options: ["Re-check deactivation (short vs open) and wiring", "Change the theme", "Delete ground forever", "Ignore meters"], correct_answer: "A", explanation: "Physical correctness.", category: "conceptual" },
+  ],
+  "thevenin-theorem": [
+    { question: "Norton current related to Thévenin is:", options: ["IN = Vth / Rth", "IN = Vth * Rth", "IN = RL only", "IN = 0 always"], correct_answer: "A", explanation: "Duality.", category: "conceptual" },
+    { question: "If RL → ∞, VL approaches:", options: ["Vth", "0", "Isc", "Rth"], correct_answer: "A", explanation: "Open load.", category: "conceptual" },
+    { question: "If RL → 0, IL approaches:", options: ["Isc = Vth/Rth", "0", "Vth", "Vs²"], correct_answer: "A", explanation: "Short load.", category: "conceptual" },
+    { question: "Graph comparison should show:", options: ["Original vs Thévenin IL and VL", "Only colors", "Only quiz", "Only user id"], correct_answer: "A", explanation: "Validation view.", category: "conceptual" },
+    { question: "Changing Vs scales:", options: ["Vth and IL proportionally (linear network)", "Only Rth", "Only wire gauge", "Nothing"], correct_answer: "A", explanation: "Homogeneity.", category: "conceptual" },
+    { question: "R1||R2 formula is:", options: ["R1 R2 / (R1+R2)", "R1+R2", "R1−R2", "R1/R2 only"], correct_answer: "A", explanation: "Parallel.", category: "conceptual" },
+    { question: "Port terminals are where:", options: ["The load attaches", "Only the battery sits", "Ground is banned", "AC must enter"], correct_answer: "A", explanation: "Definition.", category: "conceptual" },
+    { question: "A wrong short for Voc measurement:", options: ["Corrupts Vth", "Is required always", "Sets Rth=RL", "Removes need for R2"], correct_answer: "A", explanation: "Keep open for Voc.", category: "conceptual" },
+    { question: "Instrumentation use-case:", options: ["Sensor loading of a divider", "Only RF antennas", "Only transformers", "Only LEDs"], correct_answer: "A", explanation: "Application.", category: "conceptual" },
+    { question: "If error is large, check:", options: ["Whether RL is the true port load and network is linear", "Theme only", "Font only", "Email only"], correct_answer: "A", explanation: "Debug.", category: "conceptual" },
+    { question: "Thévenin voltage polarity:", options: ["Matches Voc polarity at the port", "Is always opposite Vs", "Is random", "Is in ohms"], correct_answer: "A", explanation: "Sign.", category: "conceptual" },
+    { question: "Series Rth is placed:", options: ["Between Vth and the load", "Across ground only", "Inside the meter battery", "In parallel with Vs only"], correct_answer: "A", explanation: "Equivalent topology.", category: "conceptual" },
+    { question: "Mentor must not invent Vth; it should:", options: ["Use catalog/simulation values", "Guess", "Ignore the lab", "Only discuss CSS"], correct_answer: "A", explanation: "Grounding.", category: "conceptual" },
+    { question: "DC Thévenin ignores:", options: ["Reactive impedance (use AC phasors later)", "Resistance", "Voltage", "Current"], correct_answer: "A", explanation: "Scope.", category: "conceptual" },
+    { question: "Equivalence means for any RL:", options: ["Same IL and VL as the original", "Same internal node voltages always", "Same wire colors", "Same quiz answers"], correct_answer: "A", explanation: "Port behavior.", category: "conceptual" },
   ]
+
 
 };
 

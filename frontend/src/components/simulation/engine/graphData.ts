@@ -19,6 +19,7 @@ import {
   potentiometerWiperSweep,
 } from './potentiometerAnalysis';
 import { extractSuperpositionMetrics } from './superpositionAnalysis';
+import { extractTheveninMetrics } from './theveninAnalysis';
 
 export interface GraphPoint {
   x: number;
@@ -652,6 +653,42 @@ export function generateGraphsFromMeasurements(
           difference: superposition.difference,
           errorPercent: superposition.errorPercent,
           sources: superposition.sources,
+        },
+      });
+    }
+
+    const thevenin = extractTheveninMetrics(circuit);
+    if (thevenin) {
+      graphs.push({
+        id: 'thevenin_comparison',
+        type: 'bar',
+        title: 'Thévenin (original vs equivalent)',
+        xAxis: { label: 'Quantity', unit: '' },
+        yAxis: { label: 'Value', unit: '' },
+        series: [
+          {
+            name: 'Comparison',
+            color: COLORS[0],
+            points: [
+              { x: 1, y: thevenin.originalIL },
+              { x: 2, y: thevenin.theveninIL },
+              { x: 3, y: thevenin.originalVL },
+              { x: 4, y: thevenin.theveninVL },
+            ],
+          },
+        ],
+        metadata: {
+          source: 'dc_thevenin',
+          labels: ['Original IL', 'Thevenin IL', 'Original VL', 'Thevenin VL'],
+          vth: thevenin.vth,
+          rth: thevenin.rth,
+          rl: thevenin.rl,
+          originalVL: thevenin.originalVL,
+          originalIL: thevenin.originalIL,
+          theveninVL: thevenin.theveninVL,
+          theveninIL: thevenin.theveninIL,
+          differenceIL: thevenin.differenceIL,
+          errorPercentIL: thevenin.errorPercentIL,
         },
       });
     }

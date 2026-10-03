@@ -231,7 +231,109 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
             if not any(r["label"] == super_row["label"] for r in rows):
                 rows.append(super_row)
 
+        for th_row in _thevenin_measured_rows(results, circuit):
+            if not any(r["label"] == th_row["label"] for r in rows):
+                rows.append(th_row)
+
     return rows or None
+
+
+def _thevenin_rows_from_divider(
+    vs: float, r1: float, r2: float, rl: float
+) -> list[dict]:
+    vth = vs * r2 / (r1 + r2)
+    rth = (r1 * r2) / (r1 + r2)
+    il = vth / (rth + rl)
+    vl = il * rl
+    return [
+        {"label": "Source Voltage", "value": vs, "unit": "V"},
+        {"label": "Vth", "value": vth, "unit": "V"},
+        {"label": "Rth", "value": rth, "unit": "Ω"},
+        {"label": "RL", "value": rl, "unit": "Ω"},
+        {"label": "Original VL", "value": vl, "unit": "V"},
+        {"label": "Original IL", "value": il, "unit": "A"},
+        {"label": "Thevenin VL", "value": vl, "unit": "V"},
+        {"label": "Thevenin IL", "value": il, "unit": "A"},
+        {"label": "Difference IL", "value": 0.0, "unit": "A"},
+        {"label": "Error", "value": 0.0, "unit": "%"},
+    ]
+
+
+def _thevenin_from_circuit(circuit: dict | None) -> list[dict]:
+    if not isinstance(circuit, dict):
+        return []
+    components = circuit.get("components")
+    if not isinstance(components, list):
+        return []
+    by_id: dict[str, dict] = {}
+    for component in components:
+        if isinstance(component, dict) and component.get("id"):
+            by_id[str(component["id"])] = component
+
+    def prop(cid: str, key: str) -> float | None:
+        row = by_id.get(cid)
+        if not row:
+            return None
+        props = row.get("properties") if isinstance(row.get("properties"), dict) else {}
+        return _numeric(props.get(key))
+
+    vs = prop("V1", "voltage")
+    r1 = prop("R1", "resistance")
+    r2 = prop("R2", "resistance")
+    rl = prop("RL", "resistance")
+    if None in (vs, r1, r2, rl) or min(r1, r2, rl) <= 0:
+        return []
+    # Single-source gate: ignore multi-source nets.
+    sources = [
+        c
+        for c in components
+        if isinstance(c, dict)
+        and c.get("type") in ("voltage_source", "current_source")
+    ]
+    if len(sources) != 1:
+        return []
+    return _thevenin_rows_from_divider(vs, r1, r2, rl)
+
+
+def _thevenin_measured_rows(
+    results: dict, circuit: dict | None = None
+) -> list[dict]:
+    graphs = results.get("graphs")
+    if isinstance(graphs, list):
+        for graph in graphs:
+            if not isinstance(graph, dict) or graph.get("id") != "thevenin_comparison":
+                continue
+            meta = graph.get("metadata")
+            if not isinstance(meta, dict):
+                continue
+            rows: list[dict] = []
+            mapping = (
+                ("vth", "Vth", "V"),
+                ("rth", "Rth", "Ω"),
+                ("rl", "RL", "Ω"),
+                ("originalVL", "Original VL", "V"),
+                ("originalIL", "Original IL", "A"),
+                ("theveninVL", "Thevenin VL", "V"),
+                ("theveninIL", "Thevenin IL", "A"),
+                ("differenceIL", "Difference IL", "A"),
+                ("errorPercentIL", "Error", "%"),
+            )
+            for key, label, unit in mapping:
+                value = _numeric(meta.get(key))
+                if value is not None:
+                    rows.append({"label": label, "value": value, "unit": unit})
+            if rows:
+                return rows
+    return _thevenin_from_circuit(circuit)
+
+
+def _thevenin_reference_rows(parameters: dict, voltage: float) -> list[dict] | None:
+    r1 = _numeric(parameters.get("r1"))
+    r2 = _numeric(parameters.get("r2"))
+    rl = _numeric(parameters.get("rl"))
+    if None in (r1, r2, rl) or min(r1, r2, rl) <= 0:
+        return None
+    return _thevenin_rows_from_divider(voltage, r1, r2, rl)
 
 
 def _superposition_rows_from_two_source_divider(
@@ -540,6 +642,9 @@ def _reference_rows(experiment: Experiment) -> list[dict] | None:
 
     if config.get("mode") == "potentiometer" or experiment.id == "potentiometer":
         return _potentiometer_reference_rows(parameters, voltage)
+
+    if config.get("mode") == "thevenin" or experiment.id == "thevenin-theorem":
+        return _thevenin_reference_rows(parameters, voltage)
 
     r1 = _numeric(parameters.get("r1"))
     r2 = _numeric(parameters.get("r2"))

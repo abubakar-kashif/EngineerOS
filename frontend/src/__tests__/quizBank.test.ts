@@ -23,7 +23,7 @@ describe("quiz bank shape (Phase 2)", () => {
   );
 
   it("gives every experiment at least 40 questions (prefer 50–60)", () => {
-    expect(experiments).toHaveLength(13);
+    expect(experiments).toHaveLength(14);
     for (const [experimentId, questions] of experiments) {
       expect(questions.length, experimentId).toBeGreaterThanOrEqual(40);
       expect(questions.length, experimentId).toBeGreaterThanOrEqual(50);

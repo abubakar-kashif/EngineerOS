@@ -2005,7 +2005,7 @@ EXPERIMENTS: list[dict] = [
             "Teaching path to Thévenin/Norton multi-source reductions",
             "Estimating interference from several sources in linear networks",
         ],
-        "related_experiments": ["ohms-law", "series-circuit", "parallel-circuit", "voltage-divider", "kvl", "kcl"],
+        "related_experiments": ["ohms-law", "series-circuit", "parallel-circuit", "voltage-divider", "kvl", "kcl", "thevenin-theorem"],
         "simulation_configuration": {
             "mode": "superposition",
             "parameters": {
@@ -2014,6 +2014,163 @@ EXPERIMENTS: list[dict] = [
                 "r1": 1000,
                 "r2": 2000,
                 "rl": 3000,
+            },
+        },
+    },
+    {
+        "id": "thevenin-theorem",
+        "title": "Thevenin's Theorem",
+        "slug": "thevenin-theorem",
+        "short_description": "Find Vth and Rth and verify that the Thévenin equivalent matches the original load current.",
+        "description": (
+            "This experiment develops Thévenin's theorem for a linear resistive network "
+            "with a designated load. You will determine the open-circuit voltage Vth, "
+            "the equivalent resistance Rth seen by the load, build the mental model of "
+            "the series Vth–Rth equivalent, and verify IL = Vth / (Rth + RL) against "
+            "the original circuit."
+        ),
+        "objective": (
+            "Measure or compute Vth and Rth for a single-source network, predict load "
+            "current from the Thévenin equivalent, and compare with the original loaded circuit."
+        ),
+        "theory": (
+            "Any linear network seen from two load terminals is equivalent to a single "
+            "voltage source Vth in series with resistance Rth. Vth equals the open-circuit "
+            "voltage Voc at those terminals. Rth is the resistance looking into the "
+            "terminals with independent sources deactivated (voltage sources shorted, "
+            "current sources opened), equivalently Rth = Voc / Isc. With load RL attached, "
+            "IL = Vth / (Rth + RL) and VL = IL · RL."
+        ),
+        "difficulty": "Intermediate",
+        "category": "Circuit Theorems",
+        "duration_minutes": 40,
+        "status": "published",
+        "historical_background": (
+            "Léon Charles Thévenin published the equivalent-source idea in 1883. It remains "
+            "one of the most used circuit reductions for analyzing how a load interacts "
+            "with a complicated linear network."
+        ),
+        "learning_outcomes": [
+            "Define Vth as the open-circuit voltage at the load port",
+            "Find Rth by source deactivation or Voc/Isc",
+            "Predict IL and VL from the Thévenin equivalent",
+            "Compare original-network load behavior with the equivalent",
+        ],
+        "prerequisites": ["ohms-law", "voltage-divider", "series-circuit", "parallel-circuit", "superposition-theorem"],
+        "formulas": [
+            {
+                "expression": "V_th = V_oc",
+                "variables": [
+                    {"symbol": "V_th", "name": "Thévenin voltage"},
+                    {"symbol": "V_oc", "name": "Open-circuit port voltage"},
+                ],
+            },
+            {
+                "expression": "R_th = V_oc / I_sc",
+                "variables": [
+                    {"symbol": "R_th", "name": "Thévenin resistance"},
+                    {"symbol": "I_sc", "name": "Short-circuit port current"},
+                ],
+            },
+            {
+                "expression": "I_L = V_th / (R_th + R_L)",
+                "variables": [
+                    {"symbol": "I_L", "name": "Load current"},
+                    {"symbol": "R_L", "name": "Load resistance"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "Vs", "name": "Source voltage", "unit": "volt (V)", "description": "Independent DC source"},
+            {"symbol": "R1", "name": "Series resistor", "unit": "ohm (Ω)", "description": "Source-side series resistance"},
+            {"symbol": "R2", "name": "Shunt resistor", "unit": "ohm (Ω)", "description": "Parallel path at the load port"},
+            {"symbol": "RL", "name": "Load resistor", "unit": "ohm (Ω)", "description": "Load attached to the port"},
+            {"symbol": "Vth", "name": "Thévenin voltage", "unit": "volt (V)", "description": "Open-circuit equivalent voltage"},
+            {"symbol": "Rth", "name": "Thévenin resistance", "unit": "ohm (Ω)", "description": "Equivalent series resistance"},
+            {"symbol": "VL", "name": "Load voltage", "unit": "volt (V)", "description": "Voltage across RL"},
+            {"symbol": "IL", "name": "Load current", "unit": "ampere (A)", "description": "Current through RL"},
+        ],
+        "components": [
+            {"name": "DC voltage source", "quantity": 1, "spec": "12 V"},
+            {"name": "Resistor R1", "quantity": 1, "spec": "2 kΩ"},
+            {"name": "Resistor R2", "quantity": 1, "spec": "2 kΩ"},
+            {"name": "Load resistor RL", "quantity": 1, "spec": "2 kΩ"},
+            {"name": "Ground", "quantity": 1, "spec": "Reference node"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Across RL / port"},
+            {"name": "Ammeter", "quantity": 1, "spec": "In series with RL"},
+        ],
+        "circuit_diagram": {
+            "art": (
+                "  Vs+--R1--+--R2--GND\n"
+                "          |\n"
+                "         RL--GND\n"
+                "  VM across port, AM in series with RL\n"
+            ),
+            "caption": (
+                "Single-source network with load RL. Vth = Voc at the port; "
+                "Rth = Voc/Isc; IL = Vth/(Rth+RL)."
+            ),
+        },
+        "procedure": [
+            "Open the Thévenin Theorem lab — the starter (Vs=12 V, R1=R2=RL=2 kΩ) should load.",
+            "Run the original circuit and record VL and IL.",
+            "Inspect the Thévenin comparison graph and reported Vth, Rth values.",
+            "Verify Vth ≈ 6 V and Rth ≈ 1 kΩ for the starter (divider with R1||R2).",
+            "Confirm IL ≈ Vth/(Rth+RL) matches the original load current.",
+            "Change RL and observe that Vth and Rth stay the same while IL and VL change.",
+            "Change Vs or R1/R2 and recompute — the equivalent should track the new network.",
+            "Discuss finding Rth by shorting Vs and combining R1||R2 with RL removed.",
+        ],
+        "expected_results": [
+            "Starter: Vth ≈ 6 V, Rth ≈ 1 kΩ.",
+            "Starter: IL ≈ 2 mA, VL ≈ 4 V on both original and Thévenin models.",
+            "Error between original IL and Thévenin IL is near zero.",
+            "Changing only RL leaves Vth and Rth unchanged.",
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Including RL when computing Rth",
+                "consequence": "Rth is seen with the load removed.",
+            },
+            {
+                "mistake": "Opening the voltage source instead of shorting it for Rth",
+                "consequence": "Wrong equivalent resistance.",
+            },
+            {
+                "mistake": "Using Vth = VL of the loaded circuit",
+                "consequence": "Vth is the open-circuit voltage, not the loaded VL.",
+            },
+            {
+                "mistake": "Forgetting IL = Vth/(Rth+RL)",
+                "consequence": "Cannot predict how the load interacts with the network.",
+            },
+        ],
+        "safety_precautions": [
+            "Keep Vs within the lab starter limit (12 V DC).",
+            "Do not hard-short the source while probing.",
+            "Power off before rearranging wires in a physical build.",
+            "Start meter ranges high when VL/IL are unknown.",
+        ],
+        "observation_guidance": [
+            "Compare original IL with Thévenin IL on the graph.",
+            "Note Vth and Rth in the analysis metadata / report.",
+            "Sweep RL and watch IL follow Vth/(Rth+RL).",
+            "Relate Rth to R1||R2 with Vs shorted.",
+        ],
+        "real_world_applications": [
+            "Predicting how sensors load a voltage divider or amplifier output",
+            "Battery/internal-resistance models of power sources",
+            "Impedance matching intuition at DC (maximum power when RL = Rth)",
+            "Simplifying large linear networks before attaching a load",
+        ],
+        "related_experiments": ["voltage-divider", "superposition-theorem", "ohms-law", "series-circuit", "parallel-circuit"],
+        "simulation_configuration": {
+            "mode": "thevenin",
+            "parameters": {
+                "voltage": 12,
+                "r1": 2000,
+                "r2": 2000,
+                "rl": 2000,
             },
         },
     },

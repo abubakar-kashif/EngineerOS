@@ -223,7 +223,25 @@ QUIZ_BANK_EXTRA = {
         {"question": "Mentor should not invent contributions; it should:", "option_a": "Use attached simulation/catalog values", "option_b": "Guess randomly", "option_c": "Ignore the lab", "option_d": "Only discuss fonts", "correct_answer": "A", "explanation": "Grounding rule."},
         {"question": "A third independent source would require:", "option_a": "A third contribution circuit plus the sum of all three", "option_b": "Deleting superposition", "option_c": "Shorting RL", "option_d": "Only AC meters", "correct_answer": "A", "explanation": "General theorem."},
         {"question": "Best first debugging step if sum ≠ full:", "option_a": "Re-check deactivation (short vs open) and wiring", "option_b": "Change the theme", "option_c": "Delete ground forever", "option_d": "Ignore meters", "correct_answer": "A", "explanation": "Physical correctness."},
+  ],
+  "thevenin-theorem": [
+        {"question": "Norton current related to Thévenin is:", "option_a": "IN = Vth / Rth", "option_b": "IN = Vth * Rth", "option_c": "IN = RL only", "option_d": "IN = 0 always", "correct_answer": "A", "explanation": "Duality."},
+        {"question": "If RL → ∞, VL approaches:", "option_a": "Vth", "option_b": "0", "option_c": "Isc", "option_d": "Rth", "correct_answer": "A", "explanation": "Open load."},
+        {"question": "If RL → 0, IL approaches:", "option_a": "Isc = Vth/Rth", "option_b": "0", "option_c": "Vth", "option_d": "Vs²", "correct_answer": "A", "explanation": "Short load."},
+        {"question": "Graph comparison should show:", "option_a": "Original vs Thévenin IL and VL", "option_b": "Only colors", "option_c": "Only quiz", "option_d": "Only user id", "correct_answer": "A", "explanation": "Validation view."},
+        {"question": "Changing Vs scales:", "option_a": "Vth and IL proportionally (linear network)", "option_b": "Only Rth", "option_c": "Only wire gauge", "option_d": "Nothing", "correct_answer": "A", "explanation": "Homogeneity."},
+        {"question": "R1||R2 formula is:", "option_a": "R1 R2 / (R1+R2)", "option_b": "R1+R2", "option_c": "R1−R2", "option_d": "R1/R2 only", "correct_answer": "A", "explanation": "Parallel."},
+        {"question": "Port terminals are where:", "option_a": "The load attaches", "option_b": "Only the battery sits", "option_c": "Ground is banned", "option_d": "AC must enter", "correct_answer": "A", "explanation": "Definition."},
+        {"question": "A wrong short for Voc measurement:", "option_a": "Corrupts Vth", "option_b": "Is required always", "option_c": "Sets Rth=RL", "option_d": "Removes need for R2", "correct_answer": "A", "explanation": "Keep open for Voc."},
+        {"question": "Instrumentation use-case:", "option_a": "Sensor loading of a divider", "option_b": "Only RF antennas", "option_c": "Only transformers", "option_d": "Only LEDs", "correct_answer": "A", "explanation": "Application."},
+        {"question": "If error is large, check:", "option_a": "Whether RL is the true port load and network is linear", "option_b": "Theme only", "option_c": "Font only", "option_d": "Email only", "correct_answer": "A", "explanation": "Debug."},
+        {"question": "Thévenin voltage polarity:", "option_a": "Matches Voc polarity at the port", "option_b": "Is always opposite Vs", "option_c": "Is random", "option_d": "Is in ohms", "correct_answer": "A", "explanation": "Sign."},
+        {"question": "Series Rth is placed:", "option_a": "Between Vth and the load", "option_b": "Across ground only", "option_c": "Inside the meter battery", "option_d": "In parallel with Vs only", "correct_answer": "A", "explanation": "Equivalent topology."},
+        {"question": "Mentor must not invent Vth; it should:", "option_a": "Use catalog/simulation values", "option_b": "Guess", "option_c": "Ignore the lab", "option_d": "Only discuss CSS", "correct_answer": "A", "explanation": "Grounding."},
+        {"question": "DC Thévenin ignores:", "option_a": "Reactive impedance (use AC phasors later)", "option_b": "Resistance", "option_c": "Voltage", "option_d": "Current", "correct_answer": "A", "explanation": "Scope."},
+        {"question": "Equivalence means for any RL:", "option_a": "Same IL and VL as the original", "option_b": "Same internal node voltages always", "option_c": "Same wire colors", "option_d": "Same quiz answers", "correct_answer": "A", "explanation": "Port behavior."},
   ]
+
 
 
 }

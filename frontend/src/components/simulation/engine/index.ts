@@ -37,6 +37,8 @@ export * from './graphData';
 export * from './wheatstoneAnalysis';
 export * from './potentiometerAnalysis';
 export * from './superpositionAnalysis';
+export * from './portEquivalentAnalysis';
+export * from './theveninAnalysis';
 
 // Phase A9 - Types (Single Source of Truth)
 export * from './types';
