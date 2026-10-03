@@ -141,17 +141,30 @@ function ComponentInspector({
           );
         })}
 
-        {"closed" in component.properties && (
+        {component.type === "switch" && (
           <div className="sim-inspector-field">
             <label className="sim-inspector-label">Switch</label>
             <button
               type="button"
-              className={`sim-inspector-toggle${component.properties.closed ? " sim-inspector-toggle--on" : ""}`}
-              onClick={() =>
-                onUpdateProperty(component.id, "closed", !component.properties.closed)
-              }
+              className={`sim-inspector-toggle${
+                component.properties.state === "closed" || component.properties.closed
+                  ? " sim-inspector-toggle--on"
+                  : ""
+              }`}
+              onClick={() => {
+                const isClosed =
+                  component.properties.state === "closed" ||
+                  component.properties.closed === true;
+                onUpdateProperty(
+                  component.id,
+                  "state",
+                  isClosed ? "open" : "closed",
+                );
+              }}
             >
-              {component.properties.closed ? "Closed (ON)" : "Open (OFF)"}
+              {component.properties.state === "closed" || component.properties.closed
+                ? "Closed (ON)"
+                : "Open (OFF)"}
             </button>
           </div>
         )}

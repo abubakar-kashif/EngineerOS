@@ -217,7 +217,12 @@ export function buildNetlist(
           kind: 'switch',
           id: component.id,
           ...n,
-          closed: component.properties.state !== 'open',
+          closed:
+            component.properties.state === 'open'
+              ? false
+              : component.properties.state === 'closed'
+                ? true
+                : component.properties.closed === true,
         });
         break;
       }

@@ -76,6 +76,8 @@ export interface MentorAskContext {
   circuitSnapshot?: {
     components: Array<Record<string, unknown>>;
     connections: Array<Record<string, unknown>>;
+    /** Optional live solver metrics (e.g. RC mode / τ) for Mentor context. */
+    simulationState?: Record<string, unknown>;
   } | null;
   /**
    * When false, skip the optimistic onUserMessage callback

@@ -139,6 +139,11 @@ function WorkspaceMentorPanel({
     }
     if (simResult.status === "completed" && simResult.measurements) {
       const m = simResult.measurements;
+      if (m.rc) {
+        const tauSim =
+          m.rc.tauSimulated != null ? `${m.rc.tauSimulated.toFixed(3)} s` : "n/a";
+        return `RC ${m.rc.mode}: Vc=${m.rc.Vc.toFixed(3)} V, Ic=${formatCurrent(m.rc.Ic)}, τ_th=${m.rc.tauTheoretical.toFixed(3)} s, τ_sim=${tauSim}`;
+      }
       return `Latest run: I=${formatCurrent(m.totalCurrent)}, V=${m.totalVoltage.toFixed(2)} V, Req=${m.equivalentResistance.toFixed(1)} Ω`;
     }
     if (simResult.status === "completed") {
@@ -157,6 +162,16 @@ function WorkspaceMentorPanel({
     }
     const chips: string[] = [];
     const m = simResult.measurements;
+    if (m.rc) {
+      chips.push(m.rc.mode);
+      chips.push(`τ ${m.rc.tauTheoretical.toFixed(3)} s`);
+      chips.push(`Vc ${m.rc.Vc.toFixed(2)} V`);
+      chips.push(`Ic ${formatCurrent(m.rc.Ic)}`);
+      if (m.rc.tauSimulated != null) {
+        chips.push(`τ_sim ${m.rc.tauSimulated.toFixed(3)} s`);
+      }
+      return chips.slice(0, 6);
+    }
     chips.push(`I ${formatCurrent(m.totalCurrent)}`);
     for (const c of m.componentMeasurements) {
       if (c.componentId.startsWith("__")) continue;
@@ -192,6 +207,13 @@ function WorkspaceMentorPanel({
       ];
     }
     if (simResult.status === "completed") {
+      if (experimentId === "rc-circuit" || simResult.measurements?.rc) {
+        return [
+          "Compare my simulated τ with RC.",
+          "Is this charging or discharging right now?",
+          "Why is Ic falling while Vc rises?",
+        ];
+      }
       return [
         "Explain what is happening in my circuit.",
         "Why is my voltmeter showing this value?",
@@ -261,6 +283,30 @@ function WorkspaceMentorPanel({
       );
     }
 
+    const baseSnapshot = live ? compactCircuitForMentor(live) : null;
+    const rcState = simResultRef.current?.measurements?.rc;
+    const circuitSnapshot =
+      baseSnapshot && rcState
+        ? {
+            ...baseSnapshot,
+            simulationState: {
+              experiment: "rc-circuit",
+              mode: rcState.mode,
+              R: rcState.R,
+              C: rcState.C,
+              Vin: rcState.Vin,
+              V0: rcState.V0,
+              time: rcState.time,
+              Vc: rcState.Vc,
+              Ic: rcState.Ic,
+              Ic0: rcState.Ic0,
+              tauTheoretical: rcState.tauTheoretical,
+              tauSimulated: rcState.tauSimulated,
+              tauErrorPercent: rcState.tauErrorPercent,
+            },
+          }
+        : baseSnapshot;
+
     cancelRef.current?.();
     cancelRef.current = mentorService.sendMessage(
       activeId,
@@ -269,7 +315,7 @@ function WorkspaceMentorPanel({
         experimentId: experimentIdRef.current,
         stage: "simulation",
         simulationId: latestRunId,
-        circuitSnapshot: live ? compactCircuitForMentor(live) : null,
+        circuitSnapshot,
         emitUserMessage: false,
         persistUser: true,
       },

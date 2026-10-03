@@ -25,6 +25,23 @@ export interface TimeSeriesSample {
   values: Record<string, number>;
 }
 
+/** RC charging/discharging lab metrics (from real transient samples). */
+export interface RcLabMeasurements {
+  mode: "charging" | "discharging";
+  R: number;
+  C: number;
+  Vin: number;
+  V0: number;
+  tauTheoretical: number;
+  tauSimulated: number | null;
+  tauErrorPercent: number | null;
+  time: number;
+  Vc: number;
+  Ic: number;
+  Ic0: number;
+  sampleCount: number;
+}
+
 export interface Measurements {
   totalVoltage: number;
   totalCurrent: number;
@@ -33,6 +50,8 @@ export interface Measurements {
   componentMeasurements: ComponentMeasurement[];
   /** Present only when the run actually recorded time-domain samples. */
   timeSeries?: TimeSeriesSample[];
+  /** Present for RC charge/discharge runs with dynamic elements. */
+  rc?: RcLabMeasurements;
 }
 
 export interface SimulationResult {

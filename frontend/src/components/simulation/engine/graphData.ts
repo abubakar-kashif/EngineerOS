@@ -789,6 +789,22 @@ export function generateGraphsFromMeasurements(
   }
 
   const cap = physical.find((cm) => cm.type === 'capacitor');
+  const rcMeta = measurements.rc
+    ? {
+        mode: measurements.rc.mode,
+        R: measurements.rc.R,
+        C: measurements.rc.C,
+        Vin: measurements.rc.Vin,
+        V0: measurements.rc.V0,
+        tauTheoretical: measurements.rc.tauTheoretical,
+        tauSimulated: measurements.rc.tauSimulated,
+        tauErrorPercent: measurements.rc.tauErrorPercent,
+        Vc: measurements.rc.Vc,
+        Ic: measurements.rc.Ic,
+        Ic0: measurements.rc.Ic0,
+        time: measurements.rc.time,
+      }
+    : undefined;
   const rcPoints =
     cap && hasRunTimeSeries(measurements)
       ? measurements.timeSeries!
@@ -807,11 +823,34 @@ export function generateGraphsFromMeasurements(
     graphs.push({
       id: 'rc_time',
       type: 'line',
-      title: 'RC (Time vs Capacitor voltage)',
+      title: 'Time vs Vc',
       xAxis: { label: 'Time', unit: 's' },
       yAxis: { label: 'Capacitor voltage', unit: 'V' },
       series: [{ name: 'Vc', color: COLORS[0], points: rcPoints }],
-      metadata: { source: 'measurements', timeSeries: true },
+      metadata: { source: 'measurements', timeSeries: true, ...rcMeta },
+    });
+  }
+
+  const icPoints =
+    cap && hasRunTimeSeries(measurements)
+      ? measurements.timeSeries!
+          .map((sample) => {
+            const ic = sample.values[`I_${cap.componentId}`];
+            return Number.isFinite(sample.t) && Number.isFinite(ic)
+              ? { x: sample.t, y: ic as number }
+              : null;
+          })
+          .filter((p): p is GraphPoint => p !== null)
+      : [];
+  if (icPoints.length > 0) {
+    graphs.push({
+      id: 'rc_current_time',
+      type: 'line',
+      title: 'Time vs Ic',
+      xAxis: { label: 'Time', unit: 's' },
+      yAxis: { label: 'Capacitor current', unit: 'A' },
+      series: [{ name: 'Ic', color: COLORS[1], points: icPoints }],
+      metadata: { source: 'measurements', timeSeries: true, ...rcMeta },
     });
   }
 

@@ -162,7 +162,7 @@ describe("transientSolver — RC infrastructure", () => {
     circuit.experimentId = "rc-circuit";
     const R = 10_000;
     const C = 100e-6;
-    const Vs = 9;
+    const Vs = 5;
     const tau = R * C;
 
     const result = solveCircuit(circuit);
@@ -179,6 +179,7 @@ describe("transientSolver — RC infrastructure", () => {
 
     const graphs = result.graphs!;
     expect(getGraphById(graphs, "rc_time")).toBeDefined();
+    expect(getGraphById(graphs, "rc_current_time")).toBeDefined();
     expect(getGraphById(graphs, "power_time")).toBeDefined();
   });
 });

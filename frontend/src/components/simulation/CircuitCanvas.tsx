@@ -611,7 +611,15 @@ const CircuitCanvas = forwardRef<CircuitCanvasHandle, CircuitCanvasProps>(functi
         node = <LEDNode {...commonProps} color={comp.properties.color as string} />;
         break;
       case "switch":
-        node = <SwitchNode {...commonProps} closed={comp.properties.closed as boolean} />;
+        node = (
+          <SwitchNode
+            {...commonProps}
+            closed={
+              comp.properties.state === "closed" ||
+              comp.properties.closed === true
+            }
+          />
+        );
         break;
       case "ground":
         node = <GroundNode {...commonProps} />;

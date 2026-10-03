@@ -35,6 +35,10 @@ import {
   solveTransient,
   type TransientOptions,
 } from './transientSolver';
+import {
+  extractRcCircuitMetrics,
+  prepareRcTransientCircuit,
+} from './rcCircuitAnalysis';
 
 export interface SolveOptions {
   /**
@@ -67,7 +71,16 @@ export function solveCircuit(
   options?: SolveOptions,
 ): SimulationResult {
   const binding = solveBinding(circuit);
-  const validation = validateCircuit(circuit);
+  const transientOpts = resolveTransientOptions(circuit, options);
+  const isRcLab = circuit.experimentId === 'rc-circuit';
+  /** Discharge opens the charge switch; remap before validate/solve so the R–C loop exists. */
+  const prepared =
+    isRcLab && transientOpts
+      ? prepareRcTransientCircuit(circuit)
+      : { circuit, mode: 'charging' as const };
+  const active = prepared.circuit;
+
+  const validation = validateCircuit(active);
 
   if (!validation.valid) {
     return {
@@ -79,7 +92,7 @@ export function solveCircuit(
   }
 
   try {
-    const dcResult = solveDC(circuit);
+    const dcResult = solveDC(active);
 
     if (!dcResult.success) {
       return {
@@ -102,12 +115,28 @@ export function solveCircuit(
       };
     }
 
-    const measurements = generateMeasurementsFromDCResult(circuit, dcResult);
-    const transientOpts = resolveTransientOptions(circuit, options);
+    const measurements = generateMeasurementsFromDCResult(active, dcResult);
     const meta: Record<string, unknown> = { ...binding };
 
     if (transientOpts) {
-      const transient = solveTransient(circuit, transientOpts);
+      const optsForSolve =
+        isRcLab && prepared.mode === 'discharging'
+          ? {
+              ...transientOpts,
+              capacitorVoltage: Object.fromEntries(
+                active.components
+                  .filter((c) => c.type === 'capacitor')
+                  .map((c) => [
+                    c.id,
+                    typeof c.properties.initialVoltage === 'number'
+                      ? c.properties.initialVoltage
+                      : 0,
+                  ]),
+              ),
+            }
+          : transientOpts;
+
+      const transient = solveTransient(active, optsForSolve);
       meta.transient = {
         requested: true,
         success: transient.success,
@@ -115,6 +144,7 @@ export function solveCircuit(
         timeStep: transient.timeStep,
         steps: transient.steps,
         error: transient.error,
+        mode: isRcLab ? prepared.mode : undefined,
       };
       if (transient.success && transient.timeSeries.length > 0) {
         measurements.timeSeries = transient.timeSeries;
@@ -128,6 +158,18 @@ export function solveCircuit(
           error: transient.error || 'Transient solver failed',
           metadata: meta,
         };
+      }
+    }
+
+    if (
+      isRcLab ||
+      (measurements.timeSeries &&
+        circuit.components.some((c) => c.type === 'capacitor'))
+    ) {
+      const rc = extractRcCircuitMetrics(circuit, measurements);
+      if (rc) {
+        measurements.rc = rc;
+        meta.rc = rc;
       }
     }
 

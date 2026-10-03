@@ -42,6 +42,7 @@ export * from './portEquivalentAnalysis';
 export * from './theveninAnalysis';
 export * from './nortonAnalysis';
 export * from './maxPowerTransferAnalysis';
+export * from './rcCircuitAnalysis';
 
 // Phase A9 - Types (Single Source of Truth)
 export * from './types';

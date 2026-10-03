@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { CircuitDefinition, SimulationResult } from "./engine";
 import type { SimulationError } from "./engine/errors";
 import { labelForComponent } from "./engine/graphData";
+import { formatWithPrefix } from "./engine/units";
 
 type AnalysisTab = "results" | "measurements" | "validation";
 
@@ -82,8 +83,48 @@ function ResultsTab({
     { label: "Equivalent Resistance", value: `${measurements.equivalentResistance.toFixed(2)} Ω` },
   ];
 
+  const rc = measurements.rc;
+
   return (
     <div className="sim2-results-table">
+      {rc && (
+        <>
+          <h4 className="sim2-results-heading">RC transient</h4>
+          {(
+            [
+              { label: "Mode", value: rc.mode },
+              { label: "R", value: formatWithPrefix(rc.R, "Ω") },
+              { label: "C", value: formatWithPrefix(rc.C, "F") },
+              { label: "Vin", value: `${rc.Vin.toFixed(3)} V` },
+              { label: "V0 (t=0)", value: `${rc.V0.toFixed(3)} V` },
+              { label: "time (last)", value: `${rc.time.toFixed(4)} s` },
+              { label: "Vc", value: `${rc.Vc.toFixed(3)} V` },
+              { label: "Ic", value: formatWithPrefix(rc.Ic, "A") },
+              { label: "Ic(0+)", value: formatWithPrefix(rc.Ic0, "A") },
+              { label: "τ theoretical", value: `${rc.tauTheoretical.toFixed(4)} s` },
+              {
+                label: "τ simulated",
+                value:
+                  rc.tauSimulated != null
+                    ? `${rc.tauSimulated.toFixed(4)} s`
+                    : "—",
+              },
+              {
+                label: "τ error",
+                value:
+                  rc.tauErrorPercent != null
+                    ? `${rc.tauErrorPercent.toFixed(2)} %`
+                    : "—",
+              },
+            ] as const
+          ).map((r) => (
+            <div key={r.label} className="sim2-result-row">
+              <span className="sim2-result-label">{r.label}</span>
+              <span className="sim2-result-value">{r.value}</span>
+            </div>
+          ))}
+        </>
+      )}
       <h4 className="sim2-results-heading">Global Measurements</h4>
       {rows.map((r) => (
         <div key={r.label} className="sim2-result-row">

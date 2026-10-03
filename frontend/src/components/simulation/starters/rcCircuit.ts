@@ -1,11 +1,16 @@
 /**
- * RC circuit starter — series R–C charging (catalog Experiment rc-circuit).
+ * RC charging / discharging starter (Experiment rc-circuit).
  *
- *   V1+ ── R1 ── C1 ── GND
- *   V1− ──────────────┘
+ *   V1+ ── SW1 ── R1 ── AM1 ── mid ── C1 ── GND
+ *   V1− ──────────────────────────────┘
+ *                              VM1 across C1
  *
- * Values match the published catalog: 9 V, 10 kΩ, 100 µF (τ = RC = 1 s).
- * Capacitor starts uncharged (Vc(0) = 0).
+ * Recommended: Vin = 5 V, R = 10 kΩ, C = 100 µF (τ = 1 s).
+ * SW1 closed → charging (Vc starts at 0).
+ * SW1 open  → discharging (solver zeros Vin and keeps an R–C path; V0 = Vin).
+ *
+ * Ideal capacitor model in the engine. For electrolytic lab parts, observe
+ * polarity: positive plate toward the higher potential when charging.
  */
 import type {
   ComponentInstance,
@@ -64,29 +69,49 @@ function wireBetween(
 }
 
 export function createRcCircuitStarter(): EditorCircuit {
+  const Vin = 5;
+  const R = 10_000;
+  const C = 100e-6;
+
   const components: ComponentInstance[] = [
-    component("V1", "voltage_source", 100, 160, { voltage: 9 }),
-    component("R1", "resistor", 260, 160, { resistance: 10000 }),
-    component("C1", "capacitor", 420, 160, {
-      capacitance: 100e-6,
+    component("V1", "voltage_source", 80, 160, { voltage: Vin }),
+    component("SW1", "switch", 180, 160, { state: "closed" }),
+    component("R1", "resistor", 300, 160, { resistance: R }),
+    component("AM1", "ammeter", 400, 160, {}),
+    component("C1", "capacitor", 520, 160, {
+      capacitance: C,
       initialVoltage: 0,
     }),
-    component("GND1", "ground", 100, 300, {}),
-    component("VM1", "voltmeter", 420, 260, {}),
+    component("GND1", "ground", 80, 300, {}),
+    component("VM1", "voltmeter", 520, 280, {}),
   ];
 
   const wires: WireSegment[] = [
     wireBetween(
-      "w_v_r",
+      "w_v_sw",
       "net_src",
       { componentId: "V1", terminalId: "positive" },
+      { componentId: "SW1", terminalId: "A" },
+      components,
+    ),
+    wireBetween(
+      "w_sw_r",
+      "net_sw",
+      { componentId: "SW1", terminalId: "B" },
       { componentId: "R1", terminalId: "A" },
       components,
     ),
     wireBetween(
-      "w_r_c",
-      "net_mid",
+      "w_r_am",
+      "net_r",
       { componentId: "R1", terminalId: "B" },
+      { componentId: "AM1", terminalId: "input" },
+      components,
+    ),
+    wireBetween(
+      "w_am_c",
+      "net_mid",
+      { componentId: "AM1", terminalId: "output" },
       { componentId: "C1", terminalId: "A" },
       components,
     ),
