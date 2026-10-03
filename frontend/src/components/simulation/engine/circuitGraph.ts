@@ -45,6 +45,10 @@ export interface ComponentProperties {
   current?: number;         // A
   capacitance?: number;     // F
   inductance?: number;      // H
+  /** Capacitor initial voltage Vc(0) for transient solves (V). */
+  initialVoltage?: number;
+  /** Inductor initial current iL(0) for transient solves (A). */
+  initialCurrent?: number;
   forwardVoltage?: number;  // V
   state?: SwitchState;
   [key: string]: string | number | boolean | SwitchState | undefined;

@@ -14,6 +14,8 @@ const ELECTRICAL_KEYS = [
   'current',
   'capacitance',
   'inductance',
+  'initialVoltage',
+  'initialCurrent',
   'forwardVoltage',
   'state',
 ] as const;

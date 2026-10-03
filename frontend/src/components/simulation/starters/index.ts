@@ -23,6 +23,10 @@ import {
   createMaxPowerTransferStarter,
   MAX_POWER_TRANSFER_EXPERIMENT_ID,
 } from "./maxPowerTransfer";
+import {
+  createRcCircuitStarter,
+  RC_CIRCUIT_EXPERIMENT_ID,
+} from "./rcCircuit";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
@@ -32,6 +36,7 @@ const STARTERS: Record<string, () => EditorCircuit> = {
   [THEVENIN_THEOREM_EXPERIMENT_ID]: createTheveninTheoremStarter,
   [NORTON_THEOREM_EXPERIMENT_ID]: createNortonTheoremStarter,
   [MAX_POWER_TRANSFER_EXPERIMENT_ID]: createMaxPowerTransferStarter,
+  [RC_CIRCUIT_EXPERIMENT_ID]: createRcCircuitStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -56,4 +61,6 @@ export {
   NORTON_THEOREM_EXPERIMENT_ID,
   createMaxPowerTransferStarter,
   MAX_POWER_TRANSFER_EXPERIMENT_ID,
+  createRcCircuitStarter,
+  RC_CIRCUIT_EXPERIMENT_ID,
 };

@@ -75,6 +75,19 @@ describe("real measurement graphs", () => {
     expect(getGraphById(result.graphs!, "power_time")).toBeUndefined();
   });
 
+  it("emits RC time graphs only from a real transient solve (opt-in)", () => {
+    const circuit = seriesRC();
+    const result = solveCircuit(circuit, { transient: true });
+    expect(result.status).toBe("completed");
+    expect(result.measurements?.timeSeries?.length).toBeGreaterThan(2);
+    const rc = getGraphById(result.graphs!, "rc_time")!;
+    expect(rc.unavailableReason).toBeUndefined();
+    expect(rc.series[0].points.length).toBeGreaterThan(2);
+    expect(rc.series[0].points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(
+      true,
+    );
+  });
+
   it("omits the voltage-divider graph when R2 is missing", () => {
     const graphs = solveCircuit(ohmsLaw(5, 1000)).graphs!;
     expect(getGraphById(graphs, "voltage_divider")).toBeUndefined();

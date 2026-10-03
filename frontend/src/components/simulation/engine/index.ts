@@ -20,6 +20,7 @@ export * from './linearAlgebra';
 export * from './netlist';
 export * from './electricalSnapshot';
 export * from './dcSolver';
+export * from './transientSolver';
 export * from './circuitSolver';
 
 // Phase A6 - Component Models

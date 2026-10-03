@@ -1,6 +1,6 @@
 /**
  * Circuit Solver - Main Interface
- * Orchestrates validation, DC solve, and measurements bound to that solve.
+ * Orchestrates validation, DC solve, optional transient, and measurements.
  */
 
 import type {
@@ -29,8 +29,43 @@ import {
   electricalFingerprint,
   serializeNetlistSnapshot,
 } from './electricalSnapshot';
+import {
+  circuitHasDynamicElements,
+  inferTransientOptions,
+  solveTransient,
+  type TransientOptions,
+} from './transientSolver';
 
-export function solveCircuit(circuit: CircuitDefinition): SimulationResult {
+export interface SolveOptions {
+  /**
+   * Transient integration options.
+   * - object: use as-is
+   * - true: infer duration/Δt from RC/RL
+   * - omitted: auto-run only for experimentId === 'rc-circuit' when C/L present
+   */
+  transient?: TransientOptions | boolean;
+}
+
+function resolveTransientOptions(
+  circuit: CircuitDefinition,
+  options?: SolveOptions,
+): TransientOptions | null {
+  if (!circuitHasDynamicElements(circuit)) return null;
+
+  if (options?.transient === false) return null;
+  if (options?.transient && typeof options.transient === 'object') {
+    return options.transient;
+  }
+  if (options?.transient === true || circuit.experimentId === 'rc-circuit') {
+    return inferTransientOptions(circuit);
+  }
+  return null;
+}
+
+export function solveCircuit(
+  circuit: CircuitDefinition,
+  options?: SolveOptions,
+): SimulationResult {
   const binding = solveBinding(circuit);
   const validation = validateCircuit(circuit);
 
@@ -68,6 +103,34 @@ export function solveCircuit(circuit: CircuitDefinition): SimulationResult {
     }
 
     const measurements = generateMeasurementsFromDCResult(circuit, dcResult);
+    const transientOpts = resolveTransientOptions(circuit, options);
+    const meta: Record<string, unknown> = { ...binding };
+
+    if (transientOpts) {
+      const transient = solveTransient(circuit, transientOpts);
+      meta.transient = {
+        requested: true,
+        success: transient.success,
+        duration: transient.duration,
+        timeStep: transient.timeStep,
+        steps: transient.steps,
+        error: transient.error,
+      };
+      if (transient.success && transient.timeSeries.length > 0) {
+        measurements.timeSeries = transient.timeSeries;
+      } else if (!transient.success) {
+        return {
+          status: 'failed',
+          validation,
+          dcResult,
+          measurements,
+          graphs: [],
+          error: transient.error || 'Transient solver failed',
+          metadata: meta,
+        };
+      }
+    }
+
     const graphs: GraphData[] = generateGraphsFromMeasurements(measurements, circuit);
 
     return {
@@ -76,7 +139,7 @@ export function solveCircuit(circuit: CircuitDefinition): SimulationResult {
       dcResult,
       measurements,
       graphs,
-      metadata: binding,
+      metadata: meta,
     };
   } catch (error) {
     return {
