@@ -473,9 +473,10 @@ export function generateGraphsFromMeasurements(
 
   const fs = measurements.frequencySweep;
   const sr = measurements.seriesResonance;
+  const lp = measurements.rcLowPass;
   if (fs && fs.response.length >= 2) {
     const peakSeries =
-      fs.peakCurrentFrequency != null && fs.peakCurrentMag != null
+      sr && fs.peakCurrentFrequency != null && fs.peakCurrentMag != null
         ? [
             {
               name: 'Simulated f₀ (max |I|)',
@@ -525,6 +526,37 @@ export function generateGraphsFromMeasurements(
         })),
       },
     });
+    const theoreticalGain =
+      lp && lp.fcTheoretical > 0
+        ? [
+            {
+              name: 'Theoretical |H|',
+              color: COLORS[3] ?? COLORS[0],
+              points: fs.response.map((p) => {
+                const ratio = p.frequency / lp.fcTheoretical;
+                return { x: p.frequency, y: 1 / Math.sqrt(1 + ratio * ratio) };
+              }),
+            },
+          ]
+        : [];
+    const cutoffMarkers = lp
+      ? [
+          ...(lp.fcSimulated != null
+            ? [
+                {
+                  name: 'Simulated fc (gain = 1/√2)',
+                  color: COLORS[2] ?? COLORS[1],
+                  points: [{ x: lp.fcSimulated, y: 1 / Math.sqrt(2) }],
+                },
+              ]
+            : []),
+          {
+            name: 'Theoretical fc',
+            color: COLORS[4] ?? COLORS[0],
+            points: [{ x: lp.fcTheoretical, y: 1 / Math.sqrt(2) }],
+          },
+        ]
+      : [];
     graphs.push({
       id: 'frequency_response_gain',
       type: 'line',
@@ -533,17 +565,51 @@ export function generateGraphsFromMeasurements(
       yAxis: { label: 'Voltage gain', unit: '' },
       series: [
         {
-          name: '|Vout|/|Vin|',
+          name: 'Simulated |Vout|/|Vin|',
           color: COLORS[1],
           points: fs.response.map((p) => ({ x: p.frequency, y: p.gain })),
         },
+        ...theoreticalGain,
+        ...cutoffMarkers,
       ],
       metadata: {
         source: 'ac_frequency_sweep',
         pointCount: fs.response.length,
         probeId: fs.probeId,
+        fcTheoretical: lp?.fcTheoretical,
+        fcSimulated: lp?.fcSimulated,
       },
     });
+    if (lp) {
+      graphs.push({
+        id: 'rc_low_pass_phase',
+        type: 'line',
+        title: 'Phase vs Frequency',
+        xAxis: { label: 'Frequency', unit: 'Hz' },
+        yAxis: { label: 'Phase', unit: 'deg' },
+        series: [
+          {
+            name: 'Simulated phase',
+            color: COLORS[0],
+            points: fs.response.map((p) => ({ x: p.frequency, y: p.phaseDeg })),
+          },
+          {
+            name: 'Theoretical phase',
+            color: COLORS[3] ?? COLORS[1],
+            points: fs.response.map((p) => ({
+              x: p.frequency,
+              y: (-Math.atan2(p.frequency, lp.fcTheoretical) * 180) / Math.PI,
+            })),
+          },
+        ],
+        metadata: {
+          source: 'ac_frequency_sweep',
+          pointCount: fs.response.length,
+          fcTheoretical: lp.fcTheoretical,
+          fcSimulated: lp.fcSimulated,
+        },
+      });
+    }
   }
 
   const ohmsOk =

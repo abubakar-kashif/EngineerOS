@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, MessageSquare, Pencil, Trash2, X, MessageSquarePlus } from "lucide-react";
+import { Plus, Search, MessageSquare, Pencil, Trash2, X, MessageSquarePlus, Pin } from "lucide-react";
 import type { ConversationSummary } from "../../types/chat";
 
 interface ConversationSidebarProps {
@@ -58,6 +58,27 @@ function ConversationSidebar({
   onDrawerClose,
 }: ConversationSidebarProps) {
   const [query, setQuery] = useState("");
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    try {
+      const raw = window.localStorage.getItem("engineeros:mentor-pins");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const togglePin = (id: string) => {
+    setPinnedIds((current) => {
+      const next = current.includes(id) ? current.filter((item) => item !== id) : [id, ...current];
+      try {
+        window.localStorage.setItem("engineeros:mentor-pins", JSON.stringify(next));
+      } catch {
+        /* storage unavailable */
+      }
+      return next;
+    });
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -129,6 +150,29 @@ function ConversationSidebar({
             </div>
           )}
 
+          {!loading && pinnedIds.some((id) => filtered.some((item) => item.id === id)) && (
+            <div className="mentor-sidebar-group">
+              <div className="mentor-sidebar-group-label">Pinned</div>
+              {filtered
+                .filter((item) => pinnedIds.includes(item.id))
+                .map((c) => (
+                  <div
+                    key={`pin-${c.id}`}
+                    className={`mentor-conversation ${c.id === activeId ? "mentor-conversation--active" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      className="mentor-conversation-btn"
+                      onClick={() => onSelect(c.id)}
+                    >
+                      <Pin size={13} className="mentor-conversation-icon" />
+                      <span className="mentor-conversation-title">{c.title}</span>
+                    </button>
+                  </div>
+                ))}
+            </div>
+          )}
+
           {!loading &&
             groups.map(({ group, conversations: items }) => (
               <div key={group} className="mentor-sidebar-group">
@@ -152,6 +196,15 @@ function ConversationSidebar({
                     </button>
 
                     <div className="mentor-conversation-actions">
+                      <button
+                        type="button"
+                        className="mentor-conversation-action"
+                        onClick={() => togglePin(c.id)}
+                        aria-pressed={pinnedIds.includes(c.id)}
+                        aria-label={pinnedIds.includes(c.id) ? `Unpin ${c.title}` : `Pin ${c.title}`}
+                      >
+                        <Pin size={12} />
+                      </button>
                       <button
                         type="button"
                         className="mentor-conversation-action"

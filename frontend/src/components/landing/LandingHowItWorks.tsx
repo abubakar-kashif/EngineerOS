@@ -4,7 +4,6 @@
 import {
   ArrowRight,
   Bot,
-  BookOpen,
   ChartNoAxesCombined,
   CircuitBoard,
   FlaskConical,
@@ -15,20 +14,31 @@ import { Reveal } from "./Reveal";
 import { EASE_OUT, VIEWPORT } from "./landingMotion";
 
 const STEPS = [
-  { icon: BookOpen, title: "Learn", description: "Read the theory and understand the concept." },
+  {
+    icon: CircuitBoard,
+    title: "Build",
+    description: "Place the parts from the lab palette and wire the starter circuit.",
+  },
+  {
+    icon: Play,
+    title: "Run",
+    description: "Solve the circuit you built. The engine, not a drawing, produces the result.",
+  },
   {
     icon: FlaskConical,
-    title: "Experiment",
-    description: "Follow guided experiments and instructions.",
+    title: "Measure",
+    description: "Read the voltmeter, ammeter, and oscilloscope samples from that run.",
   },
-  { icon: CircuitBoard, title: "Build", description: "Build the circuit in the workspace." },
-  { icon: Play, title: "Simulate", description: "Run the simulation and see what happens." },
   {
     icon: ChartNoAxesCombined,
-    title: "Analyze",
-    description: "Check measurements, graphs and results.",
+    title: "Validate",
+    description: "Compare the simulated curve with the theoretical reference for the same R, C, or L.",
   },
-  { icon: Bot, title: "Understand", description: "Ask AI Mentor and understand why." },
+  {
+    icon: Bot,
+    title: "Understand",
+    description: "Ask AI Mentor what the measurements mean. It does not invent the waveform.",
+  },
 ];
 
 function LandingHowItWorks() {

@@ -55,6 +55,7 @@ EXPERIMENT_IDS = [
     "norton-theorem",
     "maximum-power-transfer",
     "capacitor-charging",
+    "rc-low-pass-filter",
 ]
 
 

@@ -123,6 +123,7 @@ class Measurements:
     half_wave_rectifier: Optional[Dict[str, Any]] = None
     full_wave_bridge: Optional[Dict[str, Any]] = None
     frequency_sweep: Optional[Dict[str, Any]] = None
+    rc_low_pass: Optional[Dict[str, Any]] = None
 
 
 @dataclass

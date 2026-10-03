@@ -261,7 +261,11 @@ def _verification_html(code: str) -> str:
 
 
 def build_verification_message(to: str, code: str) -> EmailMessage:
-    """MIME message for account verification (plain + HTML, no tracking)."""
+    """MIME message for account verification (plain + HTML, no tracking).
+
+    Inbox placement also depends on SPF, DKIM, and DMARC for the sending
+    domain. Those DNS records are outside this process and are not verified here.
+    """
     return _build_message(
         to,
         VERIFICATION_SUBJECT,

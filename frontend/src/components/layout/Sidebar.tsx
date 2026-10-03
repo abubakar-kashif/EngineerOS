@@ -1,9 +1,15 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { BookOpen } from "lucide-react";
+import { BookOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import EngineerOSMark from "../branding/EngineerOSMark";
 import { isActiveRoute, menuGroups } from "./navConfig";
 
-function Sidebar() {
+function Sidebar({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const location = useLocation();
 
   return (
@@ -13,6 +19,15 @@ function Sidebar() {
         <div className="brand-text">
           <div className="brand-name">EngineerOS</div>
         </div>
+        <button
+          type="button"
+          className="sidebar-collapse"
+          onClick={onToggle}
+          aria-pressed={collapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+        </button>
       </div>
 
       <nav className="sidebar-nav" aria-label="Main navigation">
@@ -30,6 +45,7 @@ function Sidebar() {
                   to={item.path}
                   end={item.path === "/"}
                   className={`nav-item${active ? " nav-item-active" : ""}`}
+                  title={item.label}
                 >
                   <span className="nav-icon">
                     <Icon size={18} strokeWidth={2} />

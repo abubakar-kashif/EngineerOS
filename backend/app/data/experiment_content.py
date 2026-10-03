@@ -1230,7 +1230,7 @@ EXPERIMENTS: list[dict] = [
             "Low-pass filters smooth PWM into DC in motor drivers and LED dimmers.",
             "Camera flashes store energy in a capacitor and dump it through a lamp.",
         ],
-        "related_experiments": ["ohms-law", "series-circuit", "capacitor-charging", "rl-circuit"],
+        "related_experiments": ["ohms-law", "series-circuit", "capacitor-charging", "rl-circuit", "rc-low-pass-filter"],
         "simulation_configuration": {"mode": "series", "parameters": {"voltage": 9, "r1": 10000}},
     },
     {
@@ -3149,6 +3149,134 @@ EXPERIMENTS: list[dict] = [
         "simulation_configuration": {
             "mode": "full-wave-bridge-rectifier",
             "parameters": {"voltage": 10, "frequency": 50, "rl": 1000, "vf": 0.7},
+        },
+    },
+    {
+        "id": "rc-low-pass-filter",
+        "title": "RC Low-Pass Filter",
+        "slug": "rc-low-pass-filter",
+        "short_description": "Measure the frequency response of a series RC low-pass filter.",
+        "description": (
+            "Drive a series resistor and capacitor with a sine source. The output "
+            "is the capacitor voltage. Sweep frequency with the AC solver, compare "
+            "the simulated cutoff with fc = 1/(2πRC), and inspect Vin and Vout on "
+            "the oscilloscope."
+        ),
+        "objective": (
+            "Build a series RC low-pass filter, run a real frequency sweep, and "
+            "separate theoretical cutoff, simulated gain, and measured waveforms."
+        ),
+        "theory": (
+            "A low-pass filter passes low frequencies and attenuates high ones. "
+            "In this series RC circuit the capacitor's impedance Xc = 1/(2πfC) is "
+            "large at low frequency, so most of the input appears across C. At "
+            "high frequency Xc shrinks, the resistor drops more of Vin, and Vout "
+            "falls. The cutoff is fc = 1/(2πRC), where the ideal voltage gain "
+            "|Vout/Vin| = 1/√2 (about −3 dB) and the output lags the input by 45°. "
+            "The ideal magnitude is 1/√(1+(f/fc)²) and the ideal phase is "
+            "−arctan(f/fc). Those expressions are the theoretical reference. "
+            "The graph and the cutoff reported as simulated come from repeated "
+            "AC solutions of the circuit the student built."
+        ),
+        "difficulty": "Advanced",
+        "category": "AC Circuits",
+        "duration_minutes": 45,
+        "status": "published",
+        "historical_background": (
+            "RC low-pass sections are the first-order building block of analog "
+            "filters, anti-alias filters, and tone controls. The same RC product "
+            "that sets the transient time constant sets the cutoff."
+        ),
+        "learning_outcomes": [
+            "Compute fc = 1/(2πRC) and relate it to τ = RC",
+            "Read simulated cutoff from the gain curve where |Vout/Vin| crosses 1/√2",
+            "Explain why a higher drive frequency increases attenuation",
+            "Tell a wiring mistake apart from expected high-frequency roll-off",
+        ],
+        "prerequisites": ["rc-circuit", "series-resonance"],
+        "formulas": [
+            {
+                "name": "Cutoff frequency",
+                "expression": "fc = 1 / (2πRC)",
+                "variables": [
+                    {"symbol": "fc", "name": "Cutoff frequency"},
+                    {"symbol": "R", "name": "Series resistance"},
+                    {"symbol": "C", "name": "Capacitance to ground"},
+                ],
+            },
+            {
+                "name": "Ideal magnitude",
+                "expression": "|H| = 1 / sqrt(1 + (f/fc)^2)",
+                "variables": [
+                    {"symbol": "f", "name": "Drive frequency"},
+                    {"symbol": "fc", "name": "Cutoff frequency"},
+                ],
+            },
+            {
+                "name": "Ideal phase",
+                "expression": "φ = −arctan(f/fc)",
+                "variables": [
+                    {"symbol": "φ", "name": "Vout phase relative to Vin"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "R", "name": "Series resistance", "unit": "ohm (Ω)", "description": "1 kΩ in the starter"},
+            {"symbol": "C", "name": "Shunt capacitance", "unit": "farad (F)", "description": "100 nF in the starter"},
+            {"symbol": "fc", "name": "Cutoff frequency", "unit": "hertz (Hz)", "description": "1/(2πRC)"},
+            {"symbol": "Vin", "name": "Source amplitude", "unit": "volt (V)", "description": "Function-generator sine"},
+            {"symbol": "Vout", "name": "Capacitor voltage", "unit": "volt (V)", "description": "Measured across C"},
+        ],
+        "components": [
+            {"name": "Function generator", "quantity": 1, "spec": "5 V peak sine, 500 Hz"},
+            {"name": "Resistor", "quantity": 1, "spec": "1 kΩ"},
+            {"name": "Capacitor", "quantity": 1, "spec": "100 nF"},
+            {"name": "Ground", "quantity": 1, "spec": "Source and capacitor return"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Across the capacitor (Vout)"},
+        ],
+        "circuit_diagram": {
+            "art": "FG+ — R — Vout — C — GND; FG− to GND; probe across C.",
+            "caption": "Series RC low-pass. Output is the capacitor voltage, not the resistor voltage.",
+        },
+        "procedure": [
+            "Load the RC low-pass starter (R = 1 kΩ, C = 100 nF, 5 V sine at 500 Hz).",
+            "Run the simulation. Read theoretical fc and the simulated cutoff from the sweep.",
+            "Open the frequency-response graph and the oscilloscope. Channel A is Vin; the capacitor voltmeter is Vout.",
+            "Change the source frequency, run again, and compare gain and the two waveforms.",
+            "Change R or C, run again, and confirm the cutoff moves with 1/(2πRC).",
+        ],
+        "expected_results": [
+            "Starter theoretical fc is about 1.59 kHz.",
+            "At 500 Hz the simulated gain is close to 1 and Vout nearly follows Vin.",
+            "Well above fc the simulated gain falls and Vout is smaller than Vin.",
+            "Increasing R or C lowers both the theoretical and simulated cutoff.",
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Measuring the resistor voltage and calling it Vout",
+                "consequence": "That node is a high-pass response, so high frequencies grow instead of falling.",
+            },
+            {
+                "mistake": "Leaving the capacitor disconnected",
+                "consequence": "There is no low-pass output. The solver will not show a capacitor voltage to ground.",
+            },
+            {
+                "mistake": "Treating the current peak as a resonant frequency",
+                "consequence": "A series RC circuit has no LC resonance. Cutoff is the half-power gain, not a current maximum.",
+            },
+            {
+                "mistake": "Copying a textbook Bode plot when R or C was changed",
+                "consequence": "The report will not match the circuit that was actually solved.",
+            },
+        ],
+        "safety_precautions": [
+            "Real capacitors can hold a charge after the source is removed. Discharge them before handling.",
+            "Keep resistor dissipation within its rating when amplitude is increased.",
+        ],
+        "related_experiments": ["rc-circuit", "series-resonance", "capacitor-charging"],
+        "simulation_configuration": {
+            "mode": "rc-low-pass-filter",
+            "parameters": {"voltage": 5, "frequency": 500, "r": 1000, "c": 1e-7},
         },
     },
 ]

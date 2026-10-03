@@ -411,6 +411,7 @@ def parse_simulation_result_dict(data: Dict[str, Any]) -> Optional[SimulationRes
         hw_raw = _pick(meas_raw, "halfWaveRectifier", "half_wave_rectifier")
         fw_raw = _pick(meas_raw, "fullWaveBridge", "full_wave_bridge")
         fs_raw = _pick(meas_raw, "frequencySweep", "frequency_sweep")
+        lp_raw = _pick(meas_raw, "rcLowPass", "rc_low_pass")
         measurements = Measurements(
             total_voltage=float(_pick(meas_raw, "totalVoltage", "total_voltage", default=0.0) or 0.0),
             total_current=float(_pick(meas_raw, "totalCurrent", "total_current", default=0.0) or 0.0),
@@ -423,6 +424,7 @@ def parse_simulation_result_dict(data: Dict[str, Any]) -> Optional[SimulationRes
             half_wave_rectifier=hw_raw if isinstance(hw_raw, dict) else None,
             full_wave_bridge=fw_raw if isinstance(fw_raw, dict) else None,
             frequency_sweep=fs_raw if isinstance(fs_raw, dict) else None,
+            rc_low_pass=lp_raw if isinstance(lp_raw, dict) else None,
         )
 
     graphs: Optional[List[GraphData]] = None
@@ -752,6 +754,10 @@ class SimulationContext:
 
         if measurements.series_resonance:
             context["series_resonance"] = measurements.series_resonance
+        if measurements.full_wave_bridge:
+            context["full_wave_bridge"] = measurements.full_wave_bridge
+        if measurements.rc_low_pass:
+            context["rc_low_pass"] = measurements.rc_low_pass
         if measurements.half_wave_rectifier:
             context["half_wave_rectifier"] = measurements.half_wave_rectifier
         if measurements.frequency_sweep:

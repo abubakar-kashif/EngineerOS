@@ -55,6 +55,10 @@ beforeEach(() => {
 });
 
 describe("public landing page", () => {
+  beforeEach(() => {
+    setReducedMotion(true);
+  });
+
   it("presents a pre-login navbar instead of the app shell", () => {
     renderLanding();
 
@@ -105,7 +109,7 @@ describe("public landing page", () => {
     }
 
     expect(screen.getByRole("heading", { name: "How EngineerOS works" })).toBeInTheDocument();
-    for (const step of ["Learn", "Experiment", "Build", "Simulate", "Analyze", "Understand"]) {
+    for (const step of ["Build", "Run", "Measure", "Validate", "Understand"]) {
       expect(screen.getByRole("heading", { name: step })).toBeInTheDocument();
     }
   });

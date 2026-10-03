@@ -944,6 +944,14 @@
   z-index: 1;
 }
 
+/* Portaled to document.body so overflow/stacking on .landing-page cannot pin it to the top. */
+.landing-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: #05070d;
+}
+
 /* ----- Decorative glows ----- */
 .landing-glow {
   position: absolute;

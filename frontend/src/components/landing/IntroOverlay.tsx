@@ -10,6 +10,7 @@
  * - single rAF loop, always cancelled on unmount
  */
 import { useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { BOLT_PATH, BOLT_VIEWBOX, sampleBoltOutline } from "./boltGeometry";
 import { EASE_OUT, INTRO_TIMING } from "./landingMotion";
@@ -227,9 +228,9 @@ function IntroOverlay({ onFinish }: IntroOverlayProps) {
   const words = ["Learn", "Electrical", "Engineering", "by"];
   const accentWords = ["Building", "It."];
 
-  return (
+  const overlay = (
     <motion.div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden bg-[#05070D]"
+      className="landing-intro fixed inset-0 z-[200] flex flex-col items-center justify-center overflow-hidden bg-[#05070D]"
       initial={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.985 }}
       transition={{ duration: INTRO_TIMING.handoff, ease: EASE_OUT }}
@@ -339,6 +340,9 @@ function IntroOverlay({ onFinish }: IntroOverlayProps) {
       </button>
     </motion.div>
   );
+
+  if (typeof document === "undefined") return overlay;
+  return createPortal(overlay, document.body);
 }
 
 export default IntroOverlay;

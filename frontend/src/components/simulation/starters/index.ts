@@ -48,6 +48,10 @@ import {
   createFullWaveBridgeStarter,
   FULL_WAVE_BRIDGE_EXPERIMENT_ID,
 } from "./fullWaveBridge";
+import {
+  createRcLowPassStarter,
+  RC_LOW_PASS_EXPERIMENT_ID,
+} from "./rcLowPass";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
@@ -64,6 +68,7 @@ const STARTERS: Record<string, () => EditorCircuit> = {
   [SERIES_RESONANCE_EXPERIMENT_ID]: createSeriesResonanceStarter,
   [HALF_WAVE_RECTIFIER_EXPERIMENT_ID]: createHalfWaveRectifierStarter,
   [FULL_WAVE_BRIDGE_EXPERIMENT_ID]: createFullWaveBridgeStarter,
+  [RC_LOW_PASS_EXPERIMENT_ID]: createRcLowPassStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -101,4 +106,6 @@ export {
   HALF_WAVE_RECTIFIER_EXPERIMENT_ID,
   createFullWaveBridgeStarter,
   FULL_WAVE_BRIDGE_EXPERIMENT_ID,
+  createRcLowPassStarter,
+  RC_LOW_PASS_EXPERIMENT_ID,
 };

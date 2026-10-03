@@ -2,6 +2,7 @@
 # The seed process imports this bank and inserts it into SQLite.
 
 from app.data.quiz_bank_extra import merge_quiz_bank
+from app.data.rc_low_pass_quiz import RC_LOW_PASS_BASE
 
 _QUIZ_BANK_BASE = {
     "ohms-law": [
@@ -937,6 +938,8 @@ _QUIZ_BANK_BASE = {
     ],
 
 }
+
+_QUIZ_BANK_BASE["rc-low-pass-filter"] = RC_LOW_PASS_BASE
 
 # Phase 2: each experiment bank is base (40) + extras (≥15) → typically 55.
 QUIZ_BANK = merge_quiz_bank(_QUIZ_BANK_BASE)

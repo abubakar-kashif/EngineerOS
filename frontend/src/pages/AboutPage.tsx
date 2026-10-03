@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Card from "../components/ui/Card";
+import { CATALOG_EXPERIMENT_COUNT } from "../data/experimentCatalog";
 import {
   ArrowRight,
   Cpu,
@@ -46,29 +47,27 @@ const pipeline: PipelineStage[] = [
   {
     stage: "01",
     icon: <Lightbulb size={18} />,
-    title: "Theory before simulation",
-    description:
-      "Every experiment starts with the underlying concept before students touch a circuit.",
+    title: "Theory",
+    description: "Read the model, the cutoff or the time constant, and the expected behavior.",
   },
   {
     stage: "02",
     icon: <FlaskConical size={18} />,
-    title: "Learn by doing",
-    description:
-      "Students build, run, and validate circuits instead of only reading about them.",
+    title: "Build and simulate",
+    description: "Wire the starter and run the solver. Changing a part changes the result.",
   },
   {
     stage: "03",
     icon: <Sparkles size={18} />,
-    title: "Feedback that explains why",
+    title: "Measure and learn",
     description:
-      "Quizzes and results are built to reinforce understanding, not just record a score.",
+      "Use the scope, meters, quiz, and report. The mentor explains the run it was given.",
   },
 ];
 const stats: Stat[] = [
-  { value: "08", label: "Technologies" },
-  { value: "05", label: "Team members" },
-  { value: "01", label: "Shared architecture" },
+  { value: String(CATALOG_EXPERIMENT_COUNT).padStart(2, "0"), label: "Experiments" },
+  { value: "01", label: "Solver" },
+  { value: "01", label: "Mentor" },
 ];
 function AboutPage() {
   return (
@@ -125,11 +124,12 @@ function AboutPage() {
               About EngineerOS
             </span>
             <h1 style={{ fontSize: "2.25rem", fontWeight: 700, margin: 0, lineHeight: 1.15 }}>
-              A learning environment built like an engineering project.
+              A digital engineering laboratory.
             </h1>
             <p style={{ fontSize: "1rem", lineHeight: 1.7, margin: 0, opacity: 0.85 }}>
-              EngineerOS connects theory, hands-on experiments, and feedback into one
-              continuous learning loop for electrical engineering students.
+              EngineerOS combines circuit simulation, measurement, calculations,{" "}
+              {CATALOG_EXPERIMENT_COUNT} experiments, graphs, quizzes, and reports.
+              Simulation determines what happened. AI determines what it means.
             </p>
           </div>
           {/* Signal-trace stat bar */}
@@ -256,7 +256,7 @@ function AboutPage() {
             <div style={{ fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.6 }}>
               Learning loop
             </div>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0.25rem 0 0" }}>A three-stage pipeline</h3>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0.25rem 0 0" }}>Theory, then the lab, then the meaning</h3>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.5rem" }}>
             {pipeline.map((point) => (
@@ -301,11 +301,11 @@ function AboutPage() {
                 <Users size={22} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", maxWidth: "520px" }}>
-                <h3 style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>The team</h3>
+                <h3 style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>Instruments and learning</h3>
                 <p style={{ fontSize: "0.9rem", lineHeight: 1.65, margin: 0, opacity: 0.9 }}>
-                  EngineerOS is built by a five-person student team covering
-                  frontend, backend, and integration, working toward a shared
-                  architecture rather than five separate projects.
+                  The lab includes a function generator, voltmeter, ammeter, oscilloscope
+                  traces from the solver, and a digital multimeter panel that reads those
+                  measurements. Experiments, quizzes, reports, and AI Mentor use the same run.
                 </p>
               </div>
             </div>

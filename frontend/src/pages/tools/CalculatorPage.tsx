@@ -7,6 +7,8 @@ import {
   evaluateExpression,
   formatResult,
   numberToExpression,
+  numericalDerivative,
+  numericalIntegral,
   type AngleMode,
 } from "../../services/tools/toolsService";
 
@@ -52,6 +54,14 @@ const SCIENTIFIC: KeyDef[] = [
   { label: "π", value: "π", kind: "fn", ariaLabel: "Pi" },
   { label: "e", value: "e", kind: "fn", ariaLabel: "Euler's number" },
   { label: "x²", value: "^2", kind: "fn", ariaLabel: "Square" },
+  { label: "asin", value: "asin(", kind: "fn", ariaLabel: "Inverse sine" },
+  { label: "acos", value: "acos(", kind: "fn", ariaLabel: "Inverse cosine" },
+  { label: "atan", value: "atan(", kind: "fn", ariaLabel: "Inverse tangent" },
+  { label: "sinh", value: "sinh(", kind: "fn", ariaLabel: "Hyperbolic sine" },
+  { label: "cosh", value: "cosh(", kind: "fn", ariaLabel: "Hyperbolic cosine" },
+  { label: "tanh", value: "tanh(", kind: "fn", ariaLabel: "Hyperbolic tangent" },
+  { label: "n!", value: "fact(", kind: "fn", ariaLabel: "Factorial" },
+  { label: "%", value: "pct(", kind: "fn", ariaLabel: "Percent as a fraction" },
 ];
 
 const OPERATORS = ["+", "−", "×", "÷", "^"];
@@ -62,6 +72,11 @@ function CalculatorPage() {
   const [justEvaluated, setJustEvaluated] = useState(false);
   const [lastValue, setLastValue] = useState<number | null>(null);
   const [mode, setMode] = useState<AngleMode>("deg");
+  const [fx, setFx] = useState("x^2");
+  const [x0, setX0] = useState("2");
+  const [aLimit, setALimit] = useState("0");
+  const [bLimit, setBLimit] = useState("1");
+  const [calculusNote, setCalculusNote] = useState<string | null>(null);
 
   /** Live preview of the expression, when it can be evaluated. */
   const preview = (() => {
@@ -234,6 +249,57 @@ function CalculatorPage() {
           </button>
         </div>
       </div>
+
+      <section className="calc-calculus" aria-label="Numerical calculus">
+        <h2>Numerical calculus</h2>
+        <p>
+          These use a central difference and the trapezoidal rule on an expression in x.
+          They are numerical approximations, not symbolic calculus.
+        </p>
+        <label>
+          f(x)
+          <input value={fx} onChange={(event) => setFx(event.target.value)} aria-label="Expression in x" />
+        </label>
+        <label>
+          x
+          <input value={x0} onChange={(event) => setX0(event.target.value)} inputMode="decimal" aria-label="Derivative point" />
+        </label>
+        <label>
+          a
+          <input value={aLimit} onChange={(event) => setALimit(event.target.value)} inputMode="decimal" aria-label="Integral start" />
+        </label>
+        <label>
+          b
+          <input value={bLimit} onChange={(event) => setBLimit(event.target.value)} inputMode="decimal" aria-label="Integral end" />
+        </label>
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              const slope = numericalDerivative(fx, Number(x0), mode);
+              setCalculusNote(`Numerical derivative at x = ${x0}: ${formatResult(slope)}`);
+            } catch (cause) {
+              setCalculusNote(cause instanceof Error ? cause.message : "Derivative failed");
+            }
+          }}
+        >
+          Derivative
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              const area = numericalIntegral(fx, Number(aLimit), Number(bLimit), mode);
+              setCalculusNote(`Numerical integral from ${aLimit} to ${bLimit}: ${formatResult(area)}`);
+            } catch (cause) {
+              setCalculusNote(cause instanceof Error ? cause.message : "Integral failed");
+            }
+          }}
+        >
+          Integral
+        </button>
+        {calculusNote && <p role="status">{calculusNote}</p>}
+      </section>
 
       <p className="tools-back-note">
         <Link to="/tools" className="tools-back-link">

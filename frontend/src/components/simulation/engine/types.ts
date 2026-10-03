@@ -103,10 +103,30 @@ export interface Measurements {
   frequencySweep?: FrequencySweepLabMeasurements;
   /** Present for the series-resonance lab (driven AC + sweep). */
   seriesResonance?: SeriesResonanceLabMeasurements;
+  /** Present for the series RC low-pass lab (driven AC + sweep). */
+  rcLowPass?: RcLowPassLabMeasurements;
   /** Present for half-wave rectifier (AC + diode transient). */
   halfWaveRectifier?: HalfWaveRectifierLabMeasurements;
   /** Present for a four-diode full-wave bridge (AC + diode transient). */
   fullWaveBridge?: FullWaveBridgeLabMeasurements;
+}
+
+/** Series RC low-pass — cutoff from theory and from the AC sweep crossing. */
+export interface RcLowPassLabMeasurements {
+  R: number;
+  C: number;
+  Vin: number;
+  driveFrequency: number;
+  fcTheoretical: number;
+  /** Frequency where simulated |Vout|/|Vin| crosses 1/√2. Null if the sweep does not cross. */
+  fcSimulated: number | null;
+  gainAtDrive: number | null;
+  phaseAtDriveDeg: number | null;
+  attenuationDbAtDrive: number | null;
+  fStart: number;
+  fStop: number;
+  points: number;
+  scale: string;
 }
 
 /** Half-wave rectifier lab — metrics from a real AC+diode time series. */

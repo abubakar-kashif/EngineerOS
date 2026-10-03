@@ -73,9 +73,18 @@ const COMPONENTS: PaletteEntry[] = [
   { id: "led", type: "led", label: "LED", icon: "LED", keywords: ["light"] },
   { id: "ground", type: "ground", label: "Ground", icon: "GND", keywords: ["gnd", "earth"] },
   { id: "switch", type: "switch", label: "Switch", icon: "SW", keywords: ["sw"] },
-  { id: "voltmeter", type: "voltmeter", label: "Voltmeter", icon: "VM", keywords: ["meter", "vm", "voltage", "scope", "oscilloscope"] },
+  {
+    id: "voltmeter",
+    type: "voltmeter",
+    label: "Voltmeter",
+    icon: "VM",
+    keywords: ["meter", "vm", "voltage", "scope", "oscilloscope", "dmm", "multimeter"],
+  },
   { id: "ammeter", type: "ammeter", label: "Ammeter", icon: "AM", keywords: ["meter", "am"] },
 ];
+
+/** Placeable palette entries the solver actually accepts. */
+export const PALETTE_ENTRY_COUNT = COMPONENTS.length;
 
 function matchesQuery(entry: PaletteEntry, q: string): boolean {
   if (!q) return true;

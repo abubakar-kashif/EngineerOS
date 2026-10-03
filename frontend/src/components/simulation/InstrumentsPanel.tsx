@@ -53,10 +53,21 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
 
   const status = result?.status ?? "idle";
   const ready = status === "completed" && Boolean(measurements);
+  const series = measurements?.timeSeries ?? [];
+  const meterId = (selectedVolt ?? (voltmeters.length === 1 ? voltmeters[0] : undefined))?.componentId;
+  const acSamples = meterId
+    ? series
+        .map((sample) => sample.values[`V_${meterId}`])
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    : [];
+  const acRms =
+    acSamples.length > 1
+      ? Math.sqrt(acSamples.reduce((sum, value) => sum + value * value, 0) / acSamples.length)
+      : null;
 
   return (
     <div className="sim-instruments-panel">
-      <h4 className="sim-instruments-title">Instruments</h4>
+      <h4 className="sim-instruments-title">Digital multimeter</h4>
       {!ready ? (
         <p className="sim-measurements-empty" role="status">
           {status === "invalid"
@@ -66,7 +77,7 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
       ) : (
         <div className="sim-instruments-grid">
           <div className="sim-instrument-card">
-            <span className="sim-instrument-name">Voltmeter</span>
+            <span className="sim-instrument-name">DC voltage</span>
             <span className="sim-instrument-reading">
               {voltReading !== undefined && Number.isFinite(voltReading)
                 ? formatVoltage(voltReading)
@@ -76,7 +87,7 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
             </span>
           </div>
           <div className="sim-instrument-card">
-            <span className="sim-instrument-name">Ammeter</span>
+            <span className="sim-instrument-name">Current</span>
             <span className="sim-instrument-reading">
               {ampReading !== undefined && Number.isFinite(ampReading)
                 ? formatCurrent(ampReading)
@@ -86,7 +97,7 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
             </span>
           </div>
           <div className="sim-instrument-card">
-            <span className="sim-instrument-name">Ohmmeter</span>
+            <span className="sim-instrument-name">Resistance</span>
             <span className="sim-instrument-reading">
               {ohmReading !== undefined && Number.isFinite(ohmReading) && ohmReading > 0
                 ? formatResistance(ohmReading)
@@ -94,7 +105,15 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
             </span>
           </div>
           <div className="sim-instrument-card">
-            <span className="sim-instrument-name">Power Meter</span>
+            <span className="sim-instrument-name">AC voltage</span>
+            <span className="sim-instrument-reading">
+              {acRms != null
+                ? `RMS = ${acRms.toFixed(3)} V`
+                : "— (no time-series samples on the selected voltmeter)"}
+            </span>
+          </div>
+          <div className="sim-instrument-card">
+            <span className="sim-instrument-name">Power</span>
             <span className="sim-instrument-reading">
               {powerReading !== undefined && Number.isFinite(powerReading)
                 ? formatPower(powerReading)

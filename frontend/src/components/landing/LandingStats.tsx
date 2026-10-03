@@ -1,15 +1,16 @@
 /**
- * Stats band with accurate product numbers.
- * 10 guided experiments and 11 palette component types ship in the current build.
+ * Stats band. Counts come from the experiment catalog and the palette.
  */
 import CountUp from "./CountUp";
 import { RevealGroup, RevealItem } from "./Reveal";
+import { CATALOG_EXPERIMENT_COUNT } from "../../data/experimentCatalog";
+import { PALETTE_ENTRY_COUNT } from "../simulation/paletteCatalog";
 
 type Stat = { value: number; suffix?: string; label: string } | { text: string; label: string };
 
 const STATS: Stat[] = [
-  { value: 10, label: "Experiments" },
-  { value: 11, label: "Components" },
+  { value: CATALOG_EXPERIMENT_COUNT, label: "Experiments" },
+  { value: PALETTE_ENTRY_COUNT, label: "Components" },
   { text: "Unlimited", label: "Simulations" },
   { text: "Real-time", label: "Measurements" },
   { text: "24/7", label: "AI Mentor" },

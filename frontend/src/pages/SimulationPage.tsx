@@ -20,7 +20,6 @@ import WorkspaceCircuitCanvas, {
   type CircuitCanvasHandle,
 } from "../components/simulation/WorkspaceCircuitCanvas";
 import WorkspaceMentorPanel from "../components/simulation/WorkspaceMentorPanel";
-import MeasurementsPanel from "../components/simulation/MeasurementsPanel";
 import PanelResizeHandle from "../components/simulation/PanelResizeHandle";
 import { getExperimentById } from "../services/experimentService";
 import { persistAndRunSimulation } from "../services/simulationPersistence";
@@ -40,6 +39,7 @@ import {
 } from "../services/workspaceCircuitStorage";
 import type { Experiment } from "../types/experiment";
 import { getExperimentStarterCircuit } from "../components/simulation/starters";
+import { CATALOG_EXPERIMENT_IDS } from "../data/experimentCatalog";
 
 const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 360;
@@ -51,31 +51,6 @@ const ANALYSIS_DEFAULT = 280;
 const RESULTS_RATIO_MIN = 0.28;
 const RESULTS_RATIO_MAX = 0.72;
 const COMPACT_LAB_MQ = "(max-width: 1100px)";
-
-const CATALOG_EXPERIMENT_IDS = [
-  "ohms-law",
-  "series-circuit",
-  "parallel-circuit",
-  "kvl",
-  "kcl",
-  "voltage-divider",
-  "current-divider",
-  "rc-circuit",
-  "rl-circuit",
-  "rlc-circuit",
-  "series-resonance",
-  "half-wave-rectifier",
-  "full-wave-bridge-rectifier",
-  "diode-characteristics",
-  "led-circuit",
-  "wheatstone-bridge",
-  "potentiometer",
-  "superposition-theorem",
-  "thevenin-theorem",
-  "norton-theorem",
-  "maximum-power-transfer",
-  "capacitor-charging",
-] as const;
 
 function SimulationPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -789,18 +764,20 @@ function SimulationPage() {
                       <X size={14} />
                     </button>
                   </div>
-                  {isRunning ? (
+                  {isRunning && !displayedResult ? (
                     <p className="sim2-analysis-empty" role="status">
                       Simulation running…
                     </p>
                   ) : displayedResult ? (
-                    <MeasurementsPanel result={displayedResult} circuit={liveEngineCircuit} />
-                  ) : (
                     <AnalysisPanel
                       circuit={liveEngineCircuit}
                       result={displayedResult}
                       selectedComponentId={state.selectedComponentId}
                     />
+                  ) : (
+                    <p className="sim2-analysis-empty" role="status">
+                      Run the simulation to see results.
+                    </p>
                   )}
                 </div>
               )}
@@ -828,7 +805,7 @@ function SimulationPage() {
                       <X size={14} />
                     </button>
                   </div>
-                  {isRunning ? (
+                  {isRunning && !displayedResult?.measurements ? (
                     <p className="sim2-analysis-empty" role="status">
                       Waiting for solver graphs…
                     </p>

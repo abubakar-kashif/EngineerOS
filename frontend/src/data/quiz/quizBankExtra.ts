@@ -1,5 +1,6 @@
 import type { AnswerLetter } from "../../types/quiz";
 import type { SeedQuizQuestion } from "./quizBank";
+import { RC_LOW_PASS_EXTRA } from "./rcLowPassQuiz";
 
 /** Phase 2 extras — kept in sync with backend quiz_bank_extra.py. */
 export const QUIZ_BANK_EXTRA: Record<string, SeedQuizQuestion[]> = {
@@ -383,4 +384,6 @@ export const QUIZ_BANK_EXTRA: Record<string, SeedQuizQuestion[]> = {
   ],
 
 };
+
+QUIZ_BANK_EXTRA["rc-low-pass-filter"] = RC_LOW_PASS_EXTRA;
 

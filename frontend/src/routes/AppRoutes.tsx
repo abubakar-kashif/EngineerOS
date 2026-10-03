@@ -21,6 +21,8 @@ import FormulaReferencePage from "../pages/tools/FormulaReferencePage";
 import AboutPage from "../pages/AboutPage";
 import SimulationPage from "../pages/SimulationPage";
 import EngineeringCalculatorsPage from "../pages/tools/EngineeringCalculatorsPage";
+import NumberSystemsPage from "../pages/tools/NumberSystemsPage";
+import MatrixPage from "../pages/tools/MatrixPage";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import VerifyPage from "../pages/auth/VerifyPage";
@@ -84,6 +86,8 @@ function AppRoutes() {
         <Route path="/resources" element={<ResourcesPage />} />
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/tools/calculator" element={<CalculatorPage />} />
+        <Route path="/tools/number-systems" element={<NumberSystemsPage />} />
+        <Route path="/tools/matrix" element={<MatrixPage />} />
         <Route path="/tools/engineering-calculators" element={<EngineeringCalculatorsPage />} />
         <Route path="/tools/unit-converter" element={<UnitConverterPage />} />
         <Route path="/tools/formulas" element={<FormulaReferencePage />} />

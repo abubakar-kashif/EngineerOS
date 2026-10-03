@@ -60,6 +60,11 @@ import {
   extractSeriesResonanceMetrics,
   seriesResonanceSweepOptions,
 } from './seriesResonanceAnalysis';
+import {
+  extractRcLowPassMetrics,
+  rcLowPassScopeOptions,
+  rcLowPassSweepOptions,
+} from './rcLowPassAnalysis';
 
 export interface SolveOptions {
   /**
@@ -105,6 +110,9 @@ function resolveTransientOptions(
   if (options?.transient && typeof options.transient === 'object') {
     return options.transient;
   }
+  if (circuit.experimentId === 'rc-low-pass-filter') {
+    return rcLowPassScopeOptions(circuit);
+  }
   const resistiveAc =
     circuitHasAcSource(circuit) && !circuitHasDynamicElements(circuit);
   const auto =
@@ -138,6 +146,9 @@ function resolveFrequencySweepOptions(
   if (circuit.experimentId === 'series-resonance') {
     return seriesResonanceSweepOptions(circuit) ?? true;
   }
+  if (circuit.experimentId === 'rc-low-pass-filter') {
+    return rcLowPassSweepOptions(circuit) ?? true;
+  }
   if (options?.frequencySweep === true || circuitHasAcSource(circuit)) {
     return true;
   }
@@ -155,6 +166,7 @@ export function solveCircuit(
   const isRlLab = circuit.experimentId === 'rl-circuit';
   const isRlcLab = circuit.experimentId === 'rlc-circuit';
   const isSeriesResonanceLab = circuit.experimentId === 'series-resonance';
+  const isRcLowPassLab = circuit.experimentId === 'rc-low-pass-filter';
   const isHalfWaveLab = circuit.experimentId === 'half-wave-rectifier';
   const isFullWaveLab = circuit.experimentId === 'full-wave-bridge-rectifier';
   /** Open charge switch remaps to a solvable R–C / R–L loop before validate/solve. */
@@ -279,7 +291,10 @@ export function solveCircuit(
         measurements.rlc = rlc;
         meta.rlc = rlc;
       }
-    } else if (isRcLab || (measurements.timeSeries && hasC)) {
+    } else if (
+      circuit.experimentId !== 'rc-low-pass-filter' &&
+      (isRcLab || (measurements.timeSeries && hasC))
+    ) {
       const rc = extractRcCircuitMetrics(circuit, measurements);
       if (rc) {
         measurements.rc = rc;
@@ -344,6 +359,23 @@ export function solveCircuit(
             peakCurrentMag: resonance.peakCurrentMag,
             bandwidth: resonance.bandwidth,
             Q: resonance.Q,
+          };
+        }
+      }
+      if (isRcLowPassLab && sweep) {
+        const lowPass = extractRcLowPassMetrics(active, sweep);
+        if (lowPass) {
+          measurements.rcLowPass = lowPass;
+          meta.rcLowPass = {
+            R: lowPass.R,
+            C: lowPass.C,
+            Vin: lowPass.Vin,
+            driveFrequency: lowPass.driveFrequency,
+            fcTheoretical: lowPass.fcTheoretical,
+            fcSimulated: lowPass.fcSimulated,
+            gainAtDrive: lowPass.gainAtDrive,
+            phaseAtDriveDeg: lowPass.phaseAtDriveDeg,
+            attenuationDbAtDrive: lowPass.attenuationDbAtDrive,
           };
         }
       }

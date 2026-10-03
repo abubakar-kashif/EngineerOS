@@ -17,7 +17,8 @@ export type FormulaCategory =
   | "Signals"
   | "Electronics"
   | "Machines"
-  | "Control";
+  | "Control"
+  | "Filters";
 
 export const FORMULA_CATEGORIES: FormulaCategory[] = [
   "Circuits",
@@ -28,6 +29,7 @@ export const FORMULA_CATEGORIES: FormulaCategory[] = [
   "Electronics",
   "Machines",
   "Control",
+  "Filters",
 ];
 
 export interface FormulaVariable {

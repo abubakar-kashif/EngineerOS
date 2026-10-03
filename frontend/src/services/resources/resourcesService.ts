@@ -80,6 +80,16 @@ const RESOURCE_LIBRARY: Resource[] = [
     source: "seed",
   },
   {
+    id: "rc-low-pass-reference",
+    title: "RC Low-Pass Filter",
+    description:
+      "First-order low-pass theory: cutoff fc = 1/(2πRC), magnitude, and phase. Use it beside the EngineerOS sweep, not instead of it.",
+    category: "reference",
+    type: "reference",
+    url: "https://www.electronics-tutorials.ws/filter/filter_2.html",
+    source: "seed",
+  },
+  {
     id: "ee-units-reference",
     title: "SI Units for Electrical Engineering",
     description:

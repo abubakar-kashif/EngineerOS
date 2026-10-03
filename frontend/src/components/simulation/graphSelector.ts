@@ -50,6 +50,7 @@ const ANALYSIS_LABELS: Record<string, string> = {
   max_power_transfer: "Load resistance vs load power",
   frequency_response: "Frequency vs Circuit Current",
   frequency_response_gain: "Frequency vs voltage gain",
+  rc_low_pass_phase: "Phase vs frequency",
   half_wave_rectifier_scope: "Oscilloscope (Vin / Vout)",
   full_wave_bridge_scope: "Oscilloscope (Vin / Vout)",
   function_generator_scope: "Oscilloscope",
@@ -137,9 +138,15 @@ export function flattenSelectorOptions(groups: GraphSelectorGroup[]): GraphSelec
   return groups.flatMap((group) => group.options);
 }
 
-/** Prefer the first analysis plot (Ohm's Law when present), else the first real option. */
+const PREFERRED_ANALYSIS_GRAPH_IDS = ["frequency_response_gain", "function_generator_scope"];
+
+/** Prefer the frequency-response or scope plot when the solver produced one, else the first analysis plot. */
 export function defaultSelectorOptionId(groups: GraphSelectorGroup[]): string {
   const analysis = groups.find((group) => group.id === "analysis");
+  const preferred = analysis?.options.find(
+    (option) => option.graphId != null && PREFERRED_ANALYSIS_GRAPH_IDS.includes(option.graphId),
+  );
+  if (preferred) return preferred.id;
   if (analysis?.options[0]) return analysis.options[0].id;
   return groups[0]?.options[0]?.id ?? "";
 }

@@ -28,6 +28,20 @@ export const TOOLS: ToolEntry[] = [
     icon: "converter",
   },
   {
+    id: "number-systems",
+    title: "Number Systems",
+    description: "Convert integers between binary, octal, decimal, and hexadecimal.",
+    path: "/tools/number-systems",
+    icon: "converter",
+  },
+  {
+    id: "matrix",
+    title: "Matrix Calculator",
+    description: "Add, multiply, transpose, and invert matrices up to 3×3.",
+    path: "/tools/matrix",
+    icon: "calculator",
+  },
+  {
     id: "formula-reference",
     title: "Formula Reference",
     description:
@@ -211,6 +225,28 @@ export const FORMULA_LIBRARY: Formula[] = [
       { symbol: "R", name: "Resistance (ohms)" },
       { symbol: "X_L", name: "Inductive reactance" },
       { symbol: "X_C", name: "Capacitive reactance" },
+    ],
+  },
+  {
+    id: "rc-low-pass-cutoff",
+    name: "RC Low-Pass Cutoff",
+    expression: "fc = 1 / (2πRC)",
+    category: "Filters",
+    variables: [
+      { symbol: "fc", name: "Cutoff frequency (hertz)" },
+      { symbol: "R", name: "Series resistance (ohms)" },
+      { symbol: "C", name: "Capacitance to ground (farads)" },
+    ],
+  },
+  {
+    id: "rc-low-pass-gain",
+    name: "RC Low-Pass Gain",
+    expression: "|H| = 1 / √(1 + (f/fc)²)",
+    category: "Filters",
+    variables: [
+      { symbol: "|H|", name: "Theoretical voltage gain" },
+      { symbol: "f", name: "Frequency (hertz)" },
+      { symbol: "fc", name: "Cutoff frequency (hertz)" },
     ],
   },
   {
@@ -597,6 +633,56 @@ export const UNIT_CATEGORIES: UnitCategory[] = [
       { id: "d", label: "Day", symbol: "d", factor: 86400 },
     ],
   },
+  {
+    id: "charge",
+    label: "Charge",
+    base_unit: "C",
+    units: [
+      { id: "uc", label: "Microcoulomb", symbol: "µC", factor: 1e-6 },
+      { id: "mc", label: "Millicoulomb", symbol: "mC", factor: 0.001 },
+      { id: "c", label: "Coulomb", symbol: "C", factor: 1 },
+    ],
+  },
+  {
+    id: "conductance",
+    label: "Conductance",
+    base_unit: "S",
+    units: [
+      { id: "us", label: "Microsiemens", symbol: "µS", factor: 1e-6 },
+      { id: "ms", label: "Millisiemens", symbol: "mS", factor: 0.001 },
+      { id: "s", label: "Siemens", symbol: "S", factor: 1 },
+    ],
+  },
+  {
+    id: "angle",
+    label: "Angle",
+    base_unit: "rad",
+    units: [
+      { id: "deg", label: "Degree", symbol: "°", factor: Math.PI / 180 },
+      { id: "rad", label: "Radian", symbol: "rad", factor: 1 },
+    ],
+  },
+  {
+    id: "data",
+    label: "Data",
+    base_unit: "B",
+    units: [
+      { id: "bit", label: "Bit", symbol: "bit", factor: 0.125 },
+      { id: "byte", label: "Byte", symbol: "B", factor: 1 },
+      { id: "kb", label: "Kilobyte", symbol: "kB", factor: 1000 },
+      { id: "mb", label: "Megabyte", symbol: "MB", factor: 1e6 },
+    ],
+  },
+  {
+    id: "mass",
+    label: "Mass",
+    base_unit: "kg",
+    units: [
+      { id: "g", label: "Gram", symbol: "g", factor: 0.001 },
+      { id: "kg", label: "Kilogram", symbol: "kg", factor: 1 },
+      { id: "lb", label: "Pound", symbol: "lb", factor: 0.45359237 },
+    ],
+  },
 ];
 
 /** Converts temperature units through a Celsius pivot. */
@@ -721,8 +807,70 @@ const FUNCTIONS: Record<string, (x: number, mode: AngleMode) => number> = {
     if (x <= 0) throw new Error("Invalid log");
     return Math.log(x);
   },
+  asin: (x, mode) => {
+    if (x < -1 || x > 1) throw new Error("Invalid domain");
+    const rad = Math.asin(x);
+    return mode === "deg" ? (rad * 180) / Math.PI : rad;
+  },
+  acos: (x, mode) => {
+    if (x < -1 || x > 1) throw new Error("Invalid domain");
+    const rad = Math.acos(x);
+    return mode === "deg" ? (rad * 180) / Math.PI : rad;
+  },
+  atan: (x, mode) => {
+    const rad = Math.atan(x);
+    return mode === "deg" ? (rad * 180) / Math.PI : rad;
+  },
+  sinh: (x) => Math.sinh(x),
+  cosh: (x) => Math.cosh(x),
+  tanh: (x) => Math.tanh(x),
+  fact: (x) => {
+    if (!Number.isInteger(x) || x < 0 || x > 170) throw new Error("Invalid factorial");
+    let value = 1;
+    for (let n = 2; n <= x; n += 1) value *= n;
+    return value;
+  },
+  pct: (x) => x / 100,
   neg: (x) => -x,
 };
+
+/** Central-difference derivative. Numerical, not symbolic. */
+export function numericalDerivative(
+  expression: string,
+  x: number,
+  mode: AngleMode = "deg",
+  step = 1e-6,
+): number {
+  if (!(step > 0)) throw new Error("Invalid step");
+  const left = evaluateExpression(expression.replace(/\bx\b/g, `(${x - step})`), mode);
+  const right = evaluateExpression(expression.replace(/\bx\b/g, `(${x + step})`), mode);
+  const slope = (right - left) / (2 * step);
+  if (!Number.isFinite(slope)) throw new Error("Derivative did not converge");
+  return slope;
+}
+
+/** Trapezoidal integral of an expression in x. Numerical, not symbolic. */
+export function numericalIntegral(
+  expression: string,
+  a: number,
+  b: number,
+  mode: AngleMode = "deg",
+  intervals = 200,
+): number {
+  if (!Number.isInteger(intervals) || intervals < 2) throw new Error("Need at least 2 intervals");
+  if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Error("Invalid limits");
+  const width = (b - a) / intervals;
+  let sum = 0;
+  for (let i = 0; i <= intervals; i += 1) {
+    const x = a + i * width;
+    const y = evaluateExpression(expression.replace(/\bx\b/g, `(${x})`), mode);
+    const weight = i === 0 || i === intervals ? 0.5 : 1;
+    sum += weight * y;
+  }
+  const value = sum * width;
+  if (!Number.isFinite(value)) throw new Error("Integral did not converge");
+  return value;
+}
 
 const PRECEDENCE: Record<string, number> = {
   "+": 1,

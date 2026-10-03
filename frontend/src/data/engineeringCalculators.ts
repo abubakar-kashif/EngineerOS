@@ -177,6 +177,24 @@ export const CALCULATORS: CalculatorDef[] = [
     },
   },
   {
+    id: "rc-low-pass-cutoff",
+    name: "RC Low-Pass Cutoff",
+    category: "Filters",
+    formula: "fc = 1 / (2πRC)",
+    fields: [
+      { id: "R", label: "Resistance", symbol: "R", unit: "Ω" },
+      { id: "C", label: "Capacitance", symbol: "C", unit: "F" },
+      { id: "fc", label: "Cutoff frequency", symbol: "fc", unit: "Hz" },
+    ],
+    solvableFor: ["fc", "R", "C"],
+    compute: (k, solveFor) => {
+      const twoPi = 2 * Math.PI;
+      if (solveFor === "fc") return div(1, twoPi * k.R * k.C, "2πRC");
+      if (solveFor === "R") return div(1, twoPi * k.fc * k.C, "2π·fc·C");
+      return div(1, twoPi * k.fc * k.R, "2π·fc·R");
+    },
+  },
+  {
     id: "rl-time-constant",
     name: "RL Time Constant",
     category: "Signals",

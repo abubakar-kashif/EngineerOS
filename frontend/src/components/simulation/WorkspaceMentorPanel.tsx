@@ -145,6 +145,12 @@ function WorkspaceMentorPanel({
     }
     if (simResult.status === "completed" && simResult.measurements) {
       const m = simResult.measurements;
+      if (m.rcLowPass) {
+        const lp = m.rcLowPass;
+        const fcSim = lp.fcSimulated != null ? `${lp.fcSimulated.toFixed(2)} Hz` : "n/a";
+        const gain = lp.gainAtDrive != null ? lp.gainAtDrive.toFixed(3) : "n/a";
+        return `RC low-pass: R=${lp.R} Ω, C=${lp.C} F, Vin=${lp.Vin} V, f=${lp.driveFrequency.toFixed(2)} Hz, fc_th=${lp.fcTheoretical.toFixed(2)} Hz, fc_sim=${fcSim}, gain=${gain}`;
+      }
       if (m.rc) {
         const tauSim =
           m.rc.tauSimulated != null ? `${m.rc.tauSimulated.toFixed(3)} s` : "n/a";
@@ -200,6 +206,16 @@ function WorkspaceMentorPanel({
     }
     const chips: string[] = [];
     const m = simResult.measurements;
+    if (m.rcLowPass) {
+      const lp = m.rcLowPass;
+      chips.push("low-pass");
+      chips.push(`fc_th ${lp.fcTheoretical.toFixed(1)} Hz`);
+      if (lp.fcSimulated != null) chips.push(`fc_sim ${lp.fcSimulated.toFixed(1)} Hz`);
+      chips.push(`R ${lp.R} Ω`);
+      chips.push(`C ${lp.C} F`);
+      if (lp.gainAtDrive != null) chips.push(`gain ${lp.gainAtDrive.toFixed(3)}`);
+      return chips.slice(0, 6);
+    }
     if (m.rc) {
       chips.push(m.rc.mode);
       chips.push(`τ ${m.rc.tauTheoretical.toFixed(3)} s`);
@@ -300,6 +316,16 @@ function WorkspaceMentorPanel({
       ];
     }
     if (simResult.status === "completed") {
+      if (
+        experimentId === "rc-low-pass-filter" ||
+        simResult.measurements?.rcLowPass
+      ) {
+        return [
+          "Compare my simulated cutoff with 1/(2πRC).",
+          "Why is the output smaller at this frequency?",
+          "Is this attenuation expected, or a wiring mistake?",
+        ];
+      }
       if (experimentId === "rc-circuit" || simResult.measurements?.rc) {
         return [
           "Compare my simulated τ with RC.",
@@ -481,6 +507,29 @@ function WorkspaceMentorPanel({
           sampleCount: rlc.sampleCount,
           duration: rlc.duration,
           timeStep: rlc.timeStep,
+        },
+      };
+    } else if (baseSnapshot && simResultRef.current?.measurements?.rcLowPass) {
+      const lp = simResultRef.current.measurements.rcLowPass;
+      circuitSnapshot = {
+        ...baseSnapshot,
+        simulationState: {
+          experiment: "rc-low-pass-filter",
+          R: lp.R,
+          C: lp.C,
+          Vin: lp.Vin,
+          driveFrequency: lp.driveFrequency,
+          fcTheoretical: lp.fcTheoretical,
+          fcSimulated: lp.fcSimulated,
+          gainAtDrive: lp.gainAtDrive,
+          phaseAtDriveDeg: lp.phaseAtDriveDeg,
+          attenuationDbAtDrive: lp.attenuationDbAtDrive,
+          frequencySweep: {
+            fStart: lp.fStart,
+            fStop: lp.fStop,
+            points: lp.points,
+            scale: lp.scale,
+          },
         },
       };
     } else if (baseSnapshot && simResultRef.current?.measurements?.seriesResonance) {

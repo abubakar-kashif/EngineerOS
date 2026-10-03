@@ -87,6 +87,7 @@ function ResultsTab({
   const rl = measurements.rl;
   const rlc = measurements.rlc;
   const sr = measurements.seriesResonance;
+  const lp = measurements.rcLowPass;
   const hw = measurements.halfWaveRectifier;
   const fw = measurements.fullWaveBridge;
 
@@ -151,6 +152,47 @@ function ResultsTab({
             ] as const
           ).map((r) => (
             <div key={`fw-${r.label}`} className="sim2-result-row">
+              <span className="sim2-result-label">{r.label}</span>
+              <span className="sim2-result-value">{r.value}</span>
+            </div>
+          ))}
+        </>
+      )}
+      {lp && (
+        <>
+          <h4 className="sim2-results-heading">RC low-pass (from sweep)</h4>
+          <p className="sim2-analysis-empty">
+            Theoretical fc is 1/(2πRC). Simulated fc, gain, and phase come from the AC sweep. The DC totals below are the bias point, not the AC output.
+          </p>
+          {(
+            [
+              { label: "R", value: formatWithPrefix(lp.R, "Ω") },
+              { label: "C", value: formatWithPrefix(lp.C, "F") },
+              { label: "Vin", value: `${lp.Vin.toFixed(3)} V` },
+              { label: "drive frequency", value: `${lp.driveFrequency.toFixed(2)} Hz` },
+              { label: "theoretical fc", value: `${lp.fcTheoretical.toFixed(2)} Hz` },
+              {
+                label: "simulated fc",
+                value: lp.fcSimulated != null ? `${lp.fcSimulated.toFixed(2)} Hz` : "—",
+              },
+              {
+                label: "gain at drive",
+                value: lp.gainAtDrive != null ? lp.gainAtDrive.toFixed(3) : "—",
+              },
+              {
+                label: "attenuation at drive",
+                value:
+                  lp.attenuationDbAtDrive != null
+                    ? `${lp.attenuationDbAtDrive.toFixed(2)} dB`
+                    : "—",
+              },
+              {
+                label: "phase at drive",
+                value: lp.phaseAtDriveDeg != null ? `${lp.phaseAtDriveDeg.toFixed(1)}°` : "—",
+              },
+            ] as const
+          ).map((r) => (
+            <div key={`lp-${r.label}`} className="sim2-result-row">
               <span className="sim2-result-label">{r.label}</span>
               <span className="sim2-result-value">{r.value}</span>
             </div>

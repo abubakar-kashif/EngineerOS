@@ -93,6 +93,9 @@ class ExperimentContext:
             )
             if full_wave:
                 context["theoretical_full_wave_bridge"] = full_wave
+            low_pass = _rc_low_pass_theoretical(experiment.simulation_configuration)
+            if low_pass:
+                context["theoretical_rc_low_pass"] = low_pass
 
         context["guidance_boundary"] = (
             "Experiment catalog data is for instructional guidance only. "
@@ -271,6 +274,43 @@ def _half_wave_rectifier_theoretical(config: Dict[str, Any]) -> Optional[Dict[st
             "Catalog theory for the starter. Prefer attached transient "
             "measurements (VinPeak, VoutPeak, averageOutput, rippleFrequency) "
             "from the real diode solve — do not invent waveforms."
+        ),
+    }
+
+
+def _rc_low_pass_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(config, dict) or config.get("mode") != "rc-low-pass-filter":
+        return None
+    params = config.get("parameters")
+    if not isinstance(params, dict):
+        return None
+    try:
+        vin = float(params["voltage"])
+        frequency = float(params["frequency"])
+        resistance = float(params["r"])
+        capacitance = float(params["c"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if min(vin, resistance, capacitance) <= 0 or frequency < 0:
+        return None
+    import math
+
+    fc = 1.0 / (2.0 * math.pi * resistance * capacitance)
+    ratio = frequency / fc if fc > 0 else 0.0
+    gain = 1.0 / math.sqrt(1.0 + ratio * ratio)
+    phase = -math.degrees(math.atan2(frequency, fc)) if fc > 0 else 0.0
+    return {
+        "R": resistance,
+        "C": capacitance,
+        "Vin": vin,
+        "drive_frequency": frequency,
+        "theoretical_fc": fc,
+        "theoretical_gain_at_drive": gain,
+        "theoretical_phase_deg_at_drive": phase,
+        "relation": "fc = 1/(2πRC); |H| = 1/sqrt(1+(f/fc)^2)",
+        "note": (
+            "Catalog theory for the starter. Prefer attached sweep measurements "
+            "(fcSimulated, gainAtDrive) from the AC solve. Do not invent a Bode plot."
         ),
     }
 

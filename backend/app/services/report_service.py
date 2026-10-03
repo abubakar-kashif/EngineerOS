@@ -259,7 +259,53 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
             if not any(r["label"] == fw_row["label"] for r in rows):
                 rows.append(fw_row)
 
+        for lp_row in _rc_low_pass_measured_rows(results):
+            if not any(r["label"] == lp_row["label"] for r in rows):
+                rows.append(lp_row)
+
     return rows or None
+
+
+def _fmt_num(value: object, digits: int = 3) -> str:
+    if isinstance(value, (int, float)) and value == value:
+        return f"{float(value):.{digits}f}"
+    return "—"
+
+
+def _rc_low_pass_measured_rows(results: dict) -> list[dict]:
+    """R, C, theoretical fc, and simulated sweep gain. No invented Bode values."""
+    measurements = results.get("measurements")
+    if not isinstance(measurements, dict):
+        return []
+    lp = measurements.get("rcLowPass") or measurements.get("rc_low_pass")
+    if not isinstance(lp, dict):
+        return []
+    rows = [
+        {"label": "R", "value": _fmt_num(lp.get("R"), 4), "unit": "Ω"},
+        {"label": "C", "value": _fmt_num(lp.get("C"), 12), "unit": "F"},
+        {"label": "Vin", "value": _fmt_num(lp.get("Vin")), "unit": "V"},
+        {"label": "Drive frequency", "value": _fmt_num(lp.get("driveFrequency"), 2), "unit": "Hz"},
+        {"label": "Theoretical fc", "value": _fmt_num(lp.get("fcTheoretical"), 2), "unit": "Hz"},
+        {"label": "Simulated fc", "value": _fmt_num(lp.get("fcSimulated"), 2), "unit": "Hz"},
+        {"label": "Gain at drive", "value": _fmt_num(lp.get("gainAtDrive")), "unit": ""},
+        {
+            "label": "Attenuation at drive",
+            "value": _fmt_num(lp.get("attenuationDbAtDrive"), 2),
+            "unit": "dB",
+        },
+    ]
+    sweep = measurements.get("frequencySweep") or measurements.get("frequency_sweep")
+    if isinstance(sweep, dict):
+        response = sweep.get("response")
+        if isinstance(response, list) and response:
+            rows.append(
+                {
+                    "label": "Sweep points",
+                    "value": str(len(response)),
+                    "unit": "",
+                }
+            )
+    return rows
 
 
 def _half_wave_rectifier_measured_rows(results: dict) -> list[dict]:

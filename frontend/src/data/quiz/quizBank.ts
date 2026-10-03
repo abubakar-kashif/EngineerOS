@@ -1,5 +1,6 @@
 import type { AnswerLetter, QuizAttemptDifficulty, QuizCategory, QuizQuestionCount } from "../../types/quiz";
 import { QUIZ_BANK_EXTRA } from "./quizBankExtra";
+import { RC_LOW_PASS_BASE } from "./rcLowPassQuiz";
 
 /**
  * Client-side mirror of the backend quiz seed (backend/app/data/quiz_bank.py).
@@ -952,6 +953,8 @@ const QUIZ_BANK_BASE: Record<string, SeedQuizQuestion[]> = {
   ],
 
 };
+
+QUIZ_BANK_BASE["rc-low-pass-filter"] = RC_LOW_PASS_BASE;
 
 /** Phase 2: base bank + extras (backend quiz_bank_extra.py / quizBankExtra.ts). */
 export const QUIZ_BANK: Record<string, SeedQuizQuestion[]> = Object.fromEntries(

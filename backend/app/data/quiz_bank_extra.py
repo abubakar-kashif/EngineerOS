@@ -1,5 +1,7 @@
 """Additional quiz questions appended to QUIZ_BANK (Phase 2: ≥50 per experiment)."""
 
+from app.data.rc_low_pass_quiz import RC_LOW_PASS_EXTRA
+
 # Each experiment gains 15 new items → 55 total when merged with the base bank.
 QUIZ_BANK_EXTRA = {
     "ohms-law": [
@@ -384,6 +386,9 @@ QUIZ_BANK_EXTRA = {
     ],
 
 }
+
+
+QUIZ_BANK_EXTRA["rc-low-pass-filter"] = RC_LOW_PASS_EXTRA
 
 
 def merge_quiz_bank(base: dict) -> dict:
