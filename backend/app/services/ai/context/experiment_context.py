@@ -83,6 +83,11 @@ class ExperimentContext:
             resonance = _series_resonance_theoretical(experiment.simulation_configuration)
             if resonance:
                 context["theoretical_series_resonance"] = resonance
+            half_wave = _half_wave_rectifier_theoretical(
+                experiment.simulation_configuration
+            )
+            if half_wave:
+                context["theoretical_half_wave_rectifier"] = half_wave
 
         context["guidance_boundary"] = (
             "Experiment catalog data is for instructional guidance only. "
@@ -224,6 +229,43 @@ def _series_resonance_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, 
             "Catalog theory for the starter. Simulated f0 must come from the "
             "AC frequency sweep (max |I|). Report Q/BW only when half-power "
             "points are found on that sweep."
+        ),
+    }
+
+
+def _half_wave_rectifier_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(config, dict) or config.get("mode") != "half-wave-rectifier":
+        return None
+    params = config.get("parameters")
+    if not isinstance(params, dict):
+        return None
+    try:
+        vin = float(params["voltage"])
+        freq = float(params["frequency"])
+        rl = float(params["rl"])
+        vf = float(params.get("vf", 0.7))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if min(vin, freq, rl) <= 0 or vf < 0:
+        return None
+    import math
+
+    vout_peak_ideal = max(vin - vf, 0.0)
+    # Ideal half-sine average uses the load peak; with Vf, ≈ (Vin − Vf)/π.
+    vavg_ideal = vout_peak_ideal / math.pi
+    return {
+        "Vin_peak": vin,
+        "frequency": freq,
+        "RL": rl,
+        "Vf": vf,
+        "theoretical_Vout_peak": vout_peak_ideal,
+        "theoretical_average_ideal": vavg_ideal,
+        "theoretical_ripple_frequency": freq,
+        "relation": "Vout ≈ Vin − Vf when conducting; f_ripple = f_line (unfiltered)",
+        "note": (
+            "Catalog theory for the starter. Prefer attached transient "
+            "measurements (VinPeak, VoutPeak, averageOutput, rippleFrequency) "
+            "from the real diode solve — do not invent waveforms."
         ),
     }
 

@@ -87,9 +87,47 @@ function ResultsTab({
   const rl = measurements.rl;
   const rlc = measurements.rlc;
   const sr = measurements.seriesResonance;
+  const hw = measurements.halfWaveRectifier;
 
   return (
     <div className="sim2-results-table">
+      {hw && (
+        <>
+          <h4 className="sim2-results-heading">Half-wave rectifier</h4>
+          {(
+            [
+              { label: "Vin peak", value: `${hw.VinPeak.toFixed(3)} V` },
+              { label: "Vout peak", value: `${hw.VoutPeak.toFixed(3)} V` },
+              {
+                label: "input frequency",
+                value:
+                  hw.inputFrequency != null
+                    ? `${hw.inputFrequency.toFixed(2)} Hz`
+                    : "—",
+              },
+              {
+                label: "ripple frequency",
+                value:
+                  hw.rippleFrequency != null
+                    ? `${hw.rippleFrequency.toFixed(2)} Hz`
+                    : "—",
+              },
+              {
+                label: "average output",
+                value: `${hw.averageOutput.toFixed(3)} V`,
+              },
+              { label: "diode Vf", value: `${hw.forwardVoltage.toFixed(3)} V` },
+              { label: "RL", value: formatWithPrefix(hw.RL, "Ω") },
+              { label: "samples", value: String(hw.sampleCount) },
+            ] as const
+          ).map((r) => (
+            <div key={`hw-${r.label}`} className="sim2-result-row">
+              <span className="sim2-result-label">{r.label}</span>
+              <span className="sim2-result-value">{r.value}</span>
+            </div>
+          ))}
+        </>
+      )}
       {sr && (
         <>
           <h4 className="sim2-results-heading">Series resonance (from sweep)</h4>

@@ -23,6 +23,7 @@ import {
 import type { ErrorCode } from "./errors";
 import type { TimeSeriesSample } from "./types";
 import { timeConstant } from "./capacitorAnalysis";
+import { acSourceAmplitude, isAcVoltageSource } from "./acSolver";
 
 export interface TransientOptions {
   /** Total simulation window (seconds). */
@@ -56,6 +57,31 @@ interface DynamicState {
 
 const VOLTMETER_CONDUCTANCE = 1e-12;
 const MAX_STEPS = 200_000;
+const DIODE_MAX_ITERS = 16;
+
+interface DiodeState {
+  id: string;
+  on: boolean;
+  nAnode: string;
+  nCathode: string;
+  vf: number;
+}
+
+/** Instantaneous voltage for DC or sine AC sources at time t. */
+export function instantaneousSourceVoltage(
+  circuit: CircuitDefinition,
+  sourceId: string,
+  dcVoltage: number,
+  t: number,
+): number {
+  const comp = circuit.components.find((c) => c.id === sourceId);
+  if (!comp || !isAcVoltageSource(comp.properties)) return dcVoltage;
+  const amp = acSourceAmplitude(comp.properties);
+  const f = typeof comp.properties.frequency === "number" ? comp.properties.frequency : 0;
+  const phaseDeg =
+    typeof comp.properties.phase === "number" ? comp.properties.phase : 0;
+  return amp * Math.sin(2 * Math.PI * f * t + (phaseDeg * Math.PI) / 180);
+}
 
 function fail(error: string, errorCode: ErrorCode = "SOLVER_FAILED"): TransientResult {
   return {
@@ -107,12 +133,19 @@ function netV(voltages: Map<string, number>, net: string): number {
 function collectVoltageSources(
   netlist: Netlist,
   skipIds: Set<string>,
+  diodes: DiodeState[],
+  sourceVoltageAtT: Map<string, number>,
 ): { id: string; nPos: string; nNeg: string; voltage: number }[] {
   const list: { id: string; nPos: string; nNeg: string; voltage: number }[] = [];
   for (const el of netlist.elements) {
     if (skipIds.has(el.id)) continue;
     if (el.kind === "voltage_source") {
-      list.push({ id: el.id, nPos: el.nPos, nNeg: el.nNeg, voltage: el.voltage });
+      list.push({
+        id: el.id,
+        nPos: el.nPos,
+        nNeg: el.nNeg,
+        voltage: sourceVoltageAtT.get(el.id) ?? el.voltage,
+      });
     } else if (el.kind === "switch" && el.closed) {
       list.push({ id: el.id, nPos: el.n1, nNeg: el.n2, voltage: 0 });
     } else if (el.kind === "ammeter") {
@@ -120,10 +153,19 @@ function collectVoltageSources(
     }
     // Inductors use companion stamps — not ideal shorts.
   }
+  for (const d of diodes) {
+    if (d.on) {
+      list.push({ id: d.id, nPos: d.nAnode, nNeg: d.nCathode, voltage: d.vf });
+    }
+  }
   return list;
 }
 
-function activeNets(netlist: Netlist, skipIds: Set<string>): string[] {
+function activeNets(
+  netlist: Netlist,
+  skipIds: Set<string>,
+  diodes: DiodeState[],
+): string[] {
   const nets = new Set<string>();
   const add = (...ids: string[]) => {
     for (const id of ids) nets.add(id);
@@ -150,11 +192,15 @@ function activeNets(netlist: Netlist, skipIds: Set<string>): string[] {
         break;
       case "diode":
       case "led":
+        // Included when ON via diode state below; always keep nets for indexing.
         add(el.nAnode, el.nCathode);
         break;
       default:
         break;
     }
+  }
+  for (const d of diodes) {
+    if (d.on) add(d.nAnode, d.nCathode);
   }
   return [...nets].filter((n) => n !== netlist.groundNet);
 }
@@ -164,6 +210,8 @@ function solveCompanionStep(
   skipIds: Set<string>,
   state: DynamicState,
   dt: number,
+  sourceVoltageAtT: Map<string, number>,
+  diodes: DiodeState[],
 ):
   | {
       voltages: Map<string, number>;
@@ -171,8 +219,13 @@ function solveCompanionStep(
       branchCurrent: Map<string, number>;
     }
   | { error: string } {
-  const voltageSources = collectVoltageSources(netlist, skipIds);
-  const nodes = activeNets(netlist, skipIds);
+  const voltageSources = collectVoltageSources(
+    netlist,
+    skipIds,
+    diodes,
+    sourceVoltageAtT,
+  );
+  const nodes = activeNets(netlist, skipIds, diodes);
   const n = nodes.length;
   const m = voltageSources.length;
   const dim = n + m;
@@ -264,10 +317,93 @@ function solveCompanionStep(
     } else if (el.kind === "resistor") {
       const v = netV(voltages, el.n1) - netV(voltages, el.n2);
       branchCurrent.set(el.id, v / el.resistance);
+    } else if (el.kind === "diode" || el.kind === "led") {
+      const iMna = extraCurrent.get(el.id);
+      if (iMna !== undefined) {
+        branchCurrent.set(el.id, Math.max(iMna, 0));
+      } else {
+        branchCurrent.set(el.id, 0);
+      }
+    } else if (el.kind === "voltmeter") {
+      const v = netV(voltages, el.nPos) - netV(voltages, el.nNeg);
+      branchCurrent.set(el.id, 0);
+      // Store reading on a side channel via voltages map key — sampled below.
+      void v;
     }
   }
 
   return { voltages, extraCurrent, branchCurrent };
+}
+
+function iterateDiodesStep(
+  netlist: Netlist,
+  skipIds: Set<string>,
+  state: DynamicState,
+  dt: number,
+  sourceVoltageAtT: Map<string, number>,
+):
+  | {
+      voltages: Map<string, number>;
+      extraCurrent: Map<string, number>;
+      branchCurrent: Map<string, number>;
+    }
+  | { error: string } {
+  const diodes: DiodeState[] = netlist.elements
+    .filter(
+      (e): e is Extract<NetlistElement, { kind: "diode" | "led" }> =>
+        e.kind === "diode" || e.kind === "led",
+    )
+    .map((e) => ({
+      id: e.id,
+      on: false,
+      nAnode: e.nAnode,
+      nCathode: e.nCathode,
+      vf: e.vf,
+    }));
+
+  let last = solveCompanionStep(
+    netlist,
+    skipIds,
+    state,
+    dt,
+    sourceVoltageAtT,
+    diodes,
+  );
+  if ("error" in last) return last;
+
+  if (diodes.length === 0) return last;
+
+  for (let iter = 0; iter < DIODE_MAX_ITERS; iter++) {
+    let changed = false;
+    for (const d of diodes) {
+      const vak =
+        netV(last.voltages, d.nAnode) - netV(last.voltages, d.nCathode);
+      if (!d.on && vak > d.vf - 1e-9) {
+        d.on = true;
+        changed = true;
+      } else if (d.on) {
+        const i = last.extraCurrent.get(d.id) ?? 0;
+        if (i < -1e-12) {
+          d.on = false;
+          changed = true;
+        }
+      }
+    }
+    last = solveCompanionStep(
+      netlist,
+      skipIds,
+      state,
+      dt,
+      sourceVoltageAtT,
+      diodes,
+    );
+    if ("error" in last) return last;
+    if (!changed) break;
+    if (iter === DIODE_MAX_ITERS - 1) {
+      return { error: "Diode model did not converge in transient step" };
+    }
+  }
+  return last;
 }
 
 function readInitialVoltage(
@@ -301,6 +437,7 @@ function sampleValues(
   voltages: Map<string, number>,
   branchCurrent: Map<string, number>,
   extraCurrent: Map<string, number>,
+  sourceVoltageAtT: Map<string, number>,
 ): Record<string, number> {
   const values: Record<string, number> = {};
   let pTotal = 0;
@@ -329,8 +466,22 @@ function sampleValues(
     } else if (el.kind === "voltage_source") {
       const iMna = extraCurrent.get(el.id) ?? 0;
       const delivered = -iMna;
-      values[`V_${el.id}`] = el.voltage;
+      const vInst = sourceVoltageAtT.get(el.id) ?? el.voltage;
+      values[`V_${el.id}`] = vInst;
       values[`I_${el.id}`] = delivered;
+      values.vin = vInst;
+    } else if (el.kind === "diode" || el.kind === "led") {
+      const v = netV(voltages, el.nAnode) - netV(voltages, el.nCathode);
+      const i = branchCurrent.get(el.id) ?? 0;
+      values[`V_${el.id}`] = v;
+      values[`I_${el.id}`] = i;
+    } else if (el.kind === "voltmeter") {
+      const v = netV(voltages, el.nPos) - netV(voltages, el.nNeg);
+      values[`V_${el.id}`] = v;
+      values.vout = v;
+    } else if (el.kind === "ammeter") {
+      const i = extraCurrent.get(el.id) ?? 0;
+      values[`I_${el.id}`] = i;
     }
   }
 
@@ -339,11 +490,35 @@ function sampleValues(
   return values;
 }
 
-/** Infer a stable window from RC / RL / RLC dynamics. */
+/** Infer a stable window from RC / RL / RLC dynamics or AC line frequency. */
 export function inferTransientOptions(circuit: CircuitDefinition): TransientOptions | null {
   const resistors = circuit.components.filter((c) => c.type === "resistor");
   const capacitors = circuit.components.filter((c) => c.type === "capacitor");
   const inductors = circuit.components.filter((c) => c.type === "inductor");
+  const acSrc = circuit.components.find(
+    (c) => c.type === "voltage_source" && isAcVoltageSource(c.properties),
+  );
+  const hasDiode = circuit.components.some(
+    (c) => c.type === "diode" || c.type === "led",
+  );
+
+  // AC + diode (e.g. rectifier): window from several line-frequency cycles.
+  if (
+    capacitors.length === 0 &&
+    inductors.length === 0 &&
+    acSrc &&
+    hasDiode
+  ) {
+    const f =
+      typeof acSrc.properties.frequency === "number" && acSrc.properties.frequency > 0
+        ? acSrc.properties.frequency
+        : 50;
+    const T = 1 / f;
+    const duration = 5 * T;
+    const timeStep = T / 100;
+    return { duration, timeStep, t0: 0 };
+  }
+
   if (capacitors.length === 0 && inductors.length === 0) return null;
 
   const rVals = resistors
@@ -395,6 +570,18 @@ export function circuitHasDynamicElements(circuit: CircuitDefinition): boolean {
   return circuit.components.some(
     (c) => c.type === "capacitor" || c.type === "inductor",
   );
+}
+
+/** True when a time-domain solve is needed (L/C dynamics or AC+diode switching). */
+export function circuitNeedsTimeDomain(circuit: CircuitDefinition): boolean {
+  if (circuitHasDynamicElements(circuit)) return true;
+  const hasAc = circuit.components.some(
+    (c) => c.type === "voltage_source" && isAcVoltageSource(c.properties),
+  );
+  const hasDiode = circuit.components.some(
+    (c) => c.type === "diode" || c.type === "led",
+  );
+  return hasAc && hasDiode;
 }
 
 export function solveTransient(
@@ -465,29 +652,57 @@ export function solveTransient(
   const t0 = options.t0 ?? 0;
   const timeSeries: TimeSeriesSample[] = [];
 
-  // Sample initial conditions at t0 (before the first integration step).
-  const initialValues: Record<string, number> = { P_total: 0, power: 0 };
-  for (const el of netlist.elements) {
-    if (el.kind === "capacitor") {
-      const v = state.vc.get(el.id) ?? 0;
-      initialValues[`V_${el.id}`] = v;
-      initialValues[`I_${el.id}`] = 0;
-      initialValues.vc = v;
-      initialValues.capacitorVoltage = v;
-    } else if (el.kind === "inductor") {
-      const i = state.il.get(el.id) ?? 0;
-      initialValues[`V_${el.id}`] = 0;
-      initialValues[`I_${el.id}`] = i;
+  const buildSourceMap = (t: number): Map<string, number> => {
+    const map = new Map<string, number>();
+    for (const el of netlist.elements) {
+      if (el.kind === "voltage_source") {
+        map.set(
+          el.id,
+          instantaneousSourceVoltage(circuit, el.id, el.voltage, t),
+        );
+      }
     }
+    return map;
+  };
+
+  // Sample operating point at t0 (includes AC phase and diode state).
+  {
+    const src0 = buildSourceMap(t0);
+    const solved0 = iterateDiodesStep(
+      netlist,
+      skipIds,
+      state,
+      Math.max(timeStep, 1e-12),
+      src0,
+    );
+    if ("error" in solved0) {
+      return fail(solved0.error);
+    }
+    timeSeries.push({
+      t: t0,
+      values: sampleValues(
+        netlist,
+        solved0.voltages,
+        solved0.branchCurrent,
+        solved0.extraCurrent,
+        src0,
+      ),
+    });
   }
-  timeSeries.push({ t: t0, values: initialValues });
 
   let tPrev = t0;
   for (let step = 1; step <= steps; step++) {
     const t = Math.min(t0 + step * timeStep, t0 + duration);
     const dt = Math.max(t - tPrev, timeStep * 1e-12);
+    const sourceVoltageAtT = buildSourceMap(t);
 
-    const solved = solveCompanionStep(netlist, skipIds, state, dt);
+    const solved = iterateDiodesStep(
+      netlist,
+      skipIds,
+      state,
+      dt,
+      sourceVoltageAtT,
+    );
     if ("error" in solved) {
       return fail(solved.error);
     }
@@ -511,6 +726,7 @@ export function solveTransient(
         solved.voltages,
         solved.branchCurrent,
         solved.extraCurrent,
+        sourceVoltageAtT,
       ),
     });
     tPrev = t;

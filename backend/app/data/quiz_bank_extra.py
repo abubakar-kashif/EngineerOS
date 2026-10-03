@@ -293,6 +293,26 @@ QUIZ_BANK_EXTRA = {
         {"question": "The frequency-response gain graph shows:", "option_a": "|Vout|/|Vin| vs frequency when available", "option_b": "Only R", "option_c": "Only time", "option_d": "Only DC power", "correct_answer": "A", "explanation": "Secondary graph."},
     ],
 
+    "half-wave-rectifier": [
+        {"question": "Blocking means diode reverse current is:", "option_a": "Negligible until breakdown", "option_b": "Equal to forward current", "option_c": "Infinite", "option_d": "Equal to RL", "correct_answer": "A", "explanation": "Ideal reverse open."},
+        {"question": "Conducting means the diode drop is near:", "option_a": "Its modeled Vf", "option_b": "Exactly 0 always", "option_c": "Vin peak always", "option_d": "RL", "correct_answer": "A", "explanation": "Forward model."},
+        {"question": "VM_in and VM_out in the starter probe:", "option_a": "Source and load voltages for the scope series", "option_b": "Only ground ohms", "option_c": "Only frequency", "option_d": "Only theme", "correct_answer": "A", "explanation": "Meter probes."},
+        {"question": "If average is much higher than Vp/π, check for:", "option_a": "Wrong polarity, shorted diode, or DC bias", "option_b": "Theme contrast", "option_c": "Font size", "option_d": "Email", "correct_answer": "A", "explanation": "Debug."},
+        {"question": "If ripple frequency reads ~2f on half-wave wiring, suspect:", "option_a": "Misidentified pulses or a full-wave topology", "option_b": "Correct half-wave behavior", "option_c": "Vf=0 only", "option_d": "RL infinite", "correct_answer": "A", "explanation": "Topology check."},
+        {"question": "Rectifiers convert:", "option_a": "AC to pulsating DC", "option_b": "DC to AC only", "option_c": "Resistance to capacitance", "option_d": "Frequency to ohms", "correct_answer": "A", "explanation": "Purpose."},
+        {"question": "Power supplies often start with:", "option_a": "Rectification then filtering", "option_b": "Only LEDs", "option_c": "Only CSS", "option_d": "Only quizzes", "correct_answer": "A", "explanation": "Application chain."},
+        {"question": "Without a filter capacitor, Vout:", "option_a": "Falls to ~0 between pulses", "option_b": "Holds forever at Vp", "option_c": "Equals Vf always", "option_d": "Is pure AC sine", "correct_answer": "A", "explanation": "Unfiltered."},
+        {"question": "Mentor must not invent scope traces; it should:", "option_a": "Discuss attached simulation peaks/averages/frequencies", "option_b": "Always invent Vavg=5", "option_c": "Ignore Vf", "option_d": "Only discuss CSS", "correct_answer": "A", "explanation": "Grounding."},
+        {"question": "Increasing RL with fixed Vin:", "option_a": "Does not raise Vout peak much (set by diode/Vin) but lowers load current", "option_b": "Always doubles f_line", "option_c": "Removes Vf", "option_d": "Shorts the diode", "correct_answer": "A", "explanation": "Voltage vs current."},
+        {"question": "Phase of Vin relative to Vout pulses shows:", "option_a": "Pulses align with the conducting polarity of Vin", "option_b": "Random unrelated timing", "option_c": "Only RL color", "option_d": "Quiz timing", "correct_answer": "A", "explanation": "Time domain."},
+        {"question": "Germanium Vf would make Vout peak:", "option_a": "Slightly higher than with silicon Vf (lower drop)", "option_b": "Always lower", "option_c": "Exactly 10 V", "option_d": "Negative forever", "correct_answer": "A", "explanation": "Lower cut-in."},
+        {"question": "Safety in a physical AC lab:", "option_a": "Use isolated low-voltage AC — do not probe mains", "option_b": "Probe live mains freely", "option_c": "Ignore isolation", "option_d": "Short the supply", "correct_answer": "A", "explanation": "Safety."},
+        {"question": "Breadboard and DMM appear in:", "option_a": "Optional physical procedure notes", "option_b": "Required simulation components", "option_c": "The diode model equations", "option_d": "Oscilloscope firmware", "correct_answer": "A", "explanation": "Catalog."},
+        {"question": "Sample count in Results indicates:", "option_a": "How many transient points were averaged/analyzed", "option_b": "Quiz length", "option_c": "Theme tokens", "option_d": "Wire count only", "correct_answer": "A", "explanation": "Metrics metadata."},
+    ],
+
+
+
 
 
 }

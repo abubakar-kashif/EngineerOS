@@ -408,6 +408,7 @@ def parse_simulation_result_dict(data: Dict[str, Any]) -> Optional[SimulationRes
                 )
             )
         sr_raw = _pick(meas_raw, "seriesResonance", "series_resonance")
+        hw_raw = _pick(meas_raw, "halfWaveRectifier", "half_wave_rectifier")
         fs_raw = _pick(meas_raw, "frequencySweep", "frequency_sweep")
         measurements = Measurements(
             total_voltage=float(_pick(meas_raw, "totalVoltage", "total_voltage", default=0.0) or 0.0),
@@ -418,6 +419,7 @@ def parse_simulation_result_dict(data: Dict[str, Any]) -> Optional[SimulationRes
             ),
             component_measurements=component_measurements,
             series_resonance=sr_raw if isinstance(sr_raw, dict) else None,
+            half_wave_rectifier=hw_raw if isinstance(hw_raw, dict) else None,
             frequency_sweep=fs_raw if isinstance(fs_raw, dict) else None,
         )
 
@@ -748,6 +750,8 @@ class SimulationContext:
 
         if measurements.series_resonance:
             context["series_resonance"] = measurements.series_resonance
+        if measurements.half_wave_rectifier:
+            context["half_wave_rectifier"] = measurements.half_wave_rectifier
         if measurements.frequency_sweep:
             context["frequency_sweep"] = {
                 key: measurements.frequency_sweep[key]

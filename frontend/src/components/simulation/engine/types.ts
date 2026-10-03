@@ -103,6 +103,25 @@ export interface Measurements {
   frequencySweep?: FrequencySweepLabMeasurements;
   /** Present for the series-resonance lab (driven AC + sweep). */
   seriesResonance?: SeriesResonanceLabMeasurements;
+  /** Present for half-wave rectifier (AC + diode transient). */
+  halfWaveRectifier?: HalfWaveRectifierLabMeasurements;
+}
+
+/** Half-wave rectifier lab — metrics from a real AC+diode time series. */
+export interface HalfWaveRectifierLabMeasurements {
+  VinAmplitude: number;
+  VinPeak: number;
+  VoutPeak: number;
+  /** Configured (or measured) input frequency (Hz). */
+  inputFrequency: number | null;
+  inputFrequencyMeasured: number | null;
+  /** Output pulse / ripple frequency from the waveform (Hz). */
+  rippleFrequency: number | null;
+  averageOutput: number;
+  forwardVoltage: number;
+  RL: number;
+  sampleCount: number;
+  duration: number;
 }
 
 /** Series resonance lab — f0 from sweep; BW/Q only when half-power flanks exist. */

@@ -870,6 +870,56 @@ export function generateGraphsFromMeasurements(
     Boolean(measurements.rlc) ||
     (Boolean(cap) && Boolean(ind) && hasRunTimeSeries(measurements));
 
+  const hw = measurements.halfWaveRectifier;
+  if (hw && hasRunTimeSeries(measurements) && circuit) {
+    const vs = circuit.components.find((c) => c.type === 'voltage_source');
+    const load = circuit.components.find((c) => c.type === 'resistor');
+    const vmIn = circuit.components.find((c) => c.id === 'VM_in');
+    const vmOut = circuit.components.find((c) => c.id === 'VM_out');
+    const vinKey = vmIn ? `V_${vmIn.id}` : vs ? `V_${vs.id}` : 'vin';
+    const voutKey = vmOut ? `V_${vmOut.id}` : load ? `V_${load.id}` : 'vout';
+    const chA = measurements.timeSeries!
+      .map((s) => {
+        const y = s.values[vinKey] ?? s.values.vin;
+        return Number.isFinite(s.t) && Number.isFinite(y)
+          ? { x: s.t, y: y as number }
+          : null;
+      })
+      .filter((p): p is GraphPoint => p !== null);
+    const chB = measurements.timeSeries!
+      .map((s) => {
+        const y = s.values[voutKey] ?? s.values.vout;
+        return Number.isFinite(s.t) && Number.isFinite(y)
+          ? { x: s.t, y: y as number }
+          : null;
+      })
+      .filter((p): p is GraphPoint => p !== null);
+    if (chA.length > 0 && chB.length > 0) {
+      graphs.push({
+        id: 'half_wave_rectifier_scope',
+        type: 'line',
+        title: 'Oscilloscope (Vin / Vout)',
+        xAxis: { label: 'Time', unit: 's' },
+        yAxis: { label: 'Voltage', unit: 'V' },
+        series: [
+          { name: 'Channel A (input)', color: COLORS[0], points: chA },
+          { name: 'Channel B (output)', color: COLORS[1], points: chB },
+        ],
+        metadata: {
+          source: 'measurements',
+          timeSeries: true,
+          VinPeak: hw.VinPeak,
+          VoutPeak: hw.VoutPeak,
+          inputFrequency: hw.inputFrequency,
+          rippleFrequency: hw.rippleFrequency,
+          averageOutput: hw.averageOutput,
+          forwardVoltage: hw.forwardVoltage,
+          RL: hw.RL,
+        },
+      });
+    }
+  }
+
   if (isRlcRun && cap && ind && hasRunTimeSeries(measurements)) {
     const rlcMeta = measurements.rlc
       ? {

@@ -1301,7 +1301,7 @@ EXPERIMENTS: list[dict] = [
             {"name": "SPST switch", "quantity": 1, "spec": "Charge path control"},
             {"name": "Voltmeter", "quantity": 1, "spec": "Across resistor"},
             {"name": "Ammeter", "quantity": 1, "spec": "Series with inductor"},
-            {"name": "Breadboard", "quantity": 1, "spec": null},
+            {"name": "Breadboard", "quantity": 1, "spec": None},
         ],
         "circuit_diagram": {
             "art": (
@@ -1527,6 +1527,136 @@ EXPERIMENTS: list[dict] = [
                 "f_start": 15.9,
                 "f_stop": 1590,
                 "points": 81,
+            },
+        },
+    },
+    {
+        "id": "half-wave-rectifier",
+        "title": "Half-Wave Rectifier",
+        "slug": "half-wave-rectifier",
+        "short_description": (
+            "Rectify AC with a single diode and observe Vin vs Vout on the scope."
+        ),
+        "description": (
+            "Drive a diode and load resistor with a sine AC function generator. "
+            "Use a real diode model in transient analysis so the positive "
+            "half-cycle conducts and the negative half-cycle blocks — do not "
+            "fake the waveform mathematically."
+        ),
+        "objective": (
+            "Build a half-wave rectifier, capture Channel A (input) and "
+            "Channel B (output) on the oscilloscope, and report Vin peak, "
+            "Vout peak, input frequency, ripple frequency, and average output "
+            "from the simulation."
+        ),
+        "theory": (
+            "A half-wave rectifier passes one polarity of an AC waveform through "
+            "a diode to a resistive load. During the forward half-cycle the diode "
+            "conducts with its forward drop Vf, so Vout ≈ Vin − Vf when Vin > Vf. "
+            "During the reverse half-cycle the diode blocks and Vout ≈ 0 "
+            "(unfiltered). The pulse (ripple) rate equals the line frequency. "
+            "Ideal average for a pure half-sine is Vp/π; the lab average is taken "
+            "from the simulated samples and includes Vf."
+        ),
+        "difficulty": "Intermediate",
+        "category": "Electronics",
+        "duration_minutes": 40,
+        "status": "published",
+        "historical_background": (
+            "Half-wave rectifiers were early AC-to-pulsating-DC converters in "
+            "power supplies and detectors; full-wave and bridge topologies "
+            "improve utilization but share the same diode conduction idea."
+        ),
+        "learning_outcomes": [
+            "Explain half-wave conduction and blocking using a real diode forward drop",
+            "Read Vin and Vout together on a dual-channel oscilloscope view",
+            "Measure peak, average, and ripple frequency from a transient rectified waveform",
+        ],
+        "prerequisites": ["diode-characteristics", "ohms-law"],
+        "formulas": [
+            {
+                "expression": "Vout(t) ≈ Vin(t) − Vf  (diode conducting)",
+                "variables": [
+                    {"symbol": "Vin", "name": "Instantaneous AC input"},
+                    {"symbol": "Vf", "name": "Diode forward voltage"},
+                    {"symbol": "Vout", "name": "Load voltage"},
+                ],
+            },
+            {
+                "expression": "Vavg ≈ Vp / π  (ideal diode, unfiltered)",
+                "variables": [
+                    {"symbol": "Vavg", "name": "Average DC output"},
+                    {"symbol": "Vp", "name": "Peak of the half-sine at the load"},
+                ],
+            },
+            {
+                "expression": "f_ripple = f_line  (half-wave, no filter)",
+                "variables": [
+                    {"symbol": "f_ripple", "name": "Output pulse / ripple frequency"},
+                    {"symbol": "f_line", "name": "AC input frequency"},
+                ],
+            },
+        ],
+        "variables": [
+            {
+                "symbol": "Vin(t)",
+                "name": "AC input voltage",
+                "unit": "volt (V)",
+                "description": "Sine from the function generator (Channel A)",
+            },
+            {
+                "symbol": "Vout(t)",
+                "name": "Load / rectified voltage",
+                "unit": "volt (V)",
+                "description": "Across RL after the diode (Channel B)",
+            },
+        ],
+        "components": [
+            {"name": "AC function generator", "quantity": 1, "spec": "Sine, ~10 V peak, 50/60 Hz"},
+            {"name": "Diode", "quantity": 1, "spec": "Silicon, Vf ≈ 0.7 V"},
+            {"name": "Load resistor RL", "quantity": 1, "spec": "1 kΩ"},
+            {"name": "Ground", "quantity": 1, "spec": None},
+            {"name": "Oscilloscope", "quantity": 1, "spec": "Ch A = Vin, Ch B = Vout"},
+            {"name": "Breadboard", "quantity": 1, "spec": "Physical lab (optional)"},
+            {"name": "Digital multimeter", "quantity": 1, "spec": "Physical lab (optional)"},
+        ],
+        "circuit_diagram": {
+            "art": "Vin~ -- D -- RL -- GND",
+            "caption": "Half-wave rectifier: sine AC, series diode, load to ground; scope on Vin and Vout.",
+        },
+        "procedure": [
+            "Load the half-wave-rectifier starter (Vin=10 V peak sine @ 50 Hz, D1 Vf=0.7 V, RL=1 kΩ).",
+            "Run the simulation (time-domain solve with the real diode model).",
+            "Open Oscilloscope (Vin / Vout): Channel A = input, Channel B = output.",
+            "Confirm conduction on the positive half-cycle and blocking on the negative half-cycle.",
+            "Record Vin peak, Vout peak, input frequency, ripple frequency, and average output for the report.",
+        ],
+        "expected_results": [
+            "Channel B shows positive pulses; near zero on the negative half-cycle.",
+            "Vout peak ≈ Vin peak − Vf (about 9.3 V for the starter).",
+            "Ripple / pulse frequency ≈ input frequency (50 Hz).",
+        ],
+        "safety_notes": [
+            "In a physical lab, isolate mains with a suitable low-voltage AC source; do not probe live mains.",
+        ],
+        "common_mistakes": [
+            "Drawing a mathematical |sin| curve instead of solving the diode circuit",
+            "Ignoring diode forward drop when comparing Vin peak to Vout peak",
+            "Expecting double-line ripple frequency (that is full-wave / bridge)",
+        ],
+        "related_experiments": [
+            "diode-characteristics",
+            "led-circuit",
+            "ohms-law",
+            "series-resonance",
+        ],
+        "simulation_configuration": {
+            "mode": "half-wave-rectifier",
+            "parameters": {
+                "voltage": 10,
+                "frequency": 50,
+                "rl": 1000,
+                "vf": 0.7,
             },
         },
     },

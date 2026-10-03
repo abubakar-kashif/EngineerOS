@@ -50,6 +50,7 @@ const ANALYSIS_LABELS: Record<string, string> = {
   max_power_transfer: "Load resistance vs load power",
   frequency_response: "Frequency vs Circuit Current",
   frequency_response_gain: "Frequency vs voltage gain",
+  half_wave_rectifier_scope: "Oscilloscope (Vin / Vout)",
   rc_time: "Time vs Vc",
   rc_current_time: "Time vs Ic",
   rl_current_time: "Time vs Inductor Current",

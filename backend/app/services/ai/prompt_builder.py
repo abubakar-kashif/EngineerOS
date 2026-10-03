@@ -503,6 +503,22 @@ Never present old conversation numbers as the current result."""
                         f"  - bandwidth={sr.get('bandwidth')} Hz, Q={sr.get('Q')} "
                         "(from half-power on the sweep)"
                     )
+            hw = meas.get("half_wave_rectifier")
+            if isinstance(hw, dict):
+                lines.append("Half-wave rectifier (from AC + diode transient):")
+                lines.append(
+                    f"  - VinPeak={hw.get('VinPeak')} V, "
+                    f"VoutPeak={hw.get('VoutPeak')} V, "
+                    f"averageOutput={hw.get('averageOutput')} V"
+                )
+                lines.append(
+                    f"  - inputFrequency={hw.get('inputFrequency')} Hz, "
+                    f"rippleFrequency={hw.get('rippleFrequency')} Hz"
+                )
+                lines.append(
+                    f"  - diode Vf={hw.get('forwardVoltage')} V, "
+                    f"RL={hw.get('RL')} Ω"
+                )
             if meas.get('component_measurements'):
                 lines.append("Component Measurements:")
                 for cm in meas['component_measurements']:

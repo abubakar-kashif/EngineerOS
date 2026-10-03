@@ -39,6 +39,10 @@ import {
   createSeriesResonanceStarter,
   SERIES_RESONANCE_EXPERIMENT_ID,
 } from "./seriesResonance";
+import {
+  createHalfWaveRectifierStarter,
+  HALF_WAVE_RECTIFIER_EXPERIMENT_ID,
+} from "./halfWaveRectifier";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
@@ -52,6 +56,7 @@ const STARTERS: Record<string, () => EditorCircuit> = {
   [RL_CIRCUIT_EXPERIMENT_ID]: createRlCircuitStarter,
   [RLC_CIRCUIT_EXPERIMENT_ID]: createRlcCircuitStarter,
   [SERIES_RESONANCE_EXPERIMENT_ID]: createSeriesResonanceStarter,
+  [HALF_WAVE_RECTIFIER_EXPERIMENT_ID]: createHalfWaveRectifierStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -84,4 +89,6 @@ export {
   RLC_CIRCUIT_EXPERIMENT_ID,
   createSeriesResonanceStarter,
   SERIES_RESONANCE_EXPERIMENT_ID,
+  createHalfWaveRectifierStarter,
+  HALF_WAVE_RECTIFIER_EXPERIMENT_ID,
 };

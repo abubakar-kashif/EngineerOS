@@ -251,7 +251,59 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
             if not any(r["label"] == sr_row["label"] for r in rows):
                 rows.append(sr_row)
 
+        for hw_row in _half_wave_rectifier_measured_rows(results):
+            if not any(r["label"] == hw_row["label"] for r in rows):
+                rows.append(hw_row)
+
     return rows or None
+
+
+def _half_wave_rectifier_measured_rows(results: dict) -> list[dict]:
+    """Vin/Vout peaks, frequencies, average output, Vf, RL from transient lab."""
+    measurements = results.get("measurements")
+    if not isinstance(measurements, dict):
+        return []
+    hw = measurements.get("halfWaveRectifier") or measurements.get(
+        "half_wave_rectifier"
+    )
+    if not isinstance(hw, dict):
+        for graph in results.get("graphs") or []:
+            if not isinstance(graph, dict):
+                continue
+            if graph.get("id") != "half_wave_rectifier_scope":
+                continue
+            meta = (
+                graph.get("metadata") if isinstance(graph.get("metadata"), dict) else {}
+            )
+            rows: list[dict] = []
+            for field, label, unit in (
+                ("VinPeak", "Vin peak", "V"),
+                ("VoutPeak", "Vout peak", "V"),
+                ("inputFrequency", "input frequency", "Hz"),
+                ("rippleFrequency", "ripple frequency", "Hz"),
+                ("averageOutput", "average output", "V"),
+            ):
+                value = _numeric(meta.get(field))
+                if value is not None:
+                    rows.append({"label": label, "value": value, "unit": unit})
+            return rows
+        return []
+
+    rows: list[dict] = []
+    mapping = (
+        ("VinPeak", "Vin peak", "V"),
+        ("VoutPeak", "Vout peak", "V"),
+        ("inputFrequency", "input frequency", "Hz"),
+        ("rippleFrequency", "ripple frequency", "Hz"),
+        ("averageOutput", "average output", "V"),
+        ("forwardVoltage", "diode Vf", "V"),
+        ("RL", "RL", "Ω"),
+    )
+    for field, label, unit in mapping:
+        value = _numeric(hw.get(field))
+        if value is not None:
+            rows.append({"label": label, "value": value, "unit": unit})
+    return rows
 
 
 def _series_resonance_measured_rows(results: dict) -> list[dict]:

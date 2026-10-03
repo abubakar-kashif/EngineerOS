@@ -120,6 +120,7 @@ class Measurements:
     component_measurements: List[ComponentMeasurement] = field(default_factory=list)
     # Lab-specific blocks from the engine (camelCase keys preserved as dicts).
     series_resonance: Optional[Dict[str, Any]] = None
+    half_wave_rectifier: Optional[Dict[str, Any]] = None
     frequency_sweep: Optional[Dict[str, Any]] = None
 
 

@@ -161,6 +161,16 @@ function WorkspaceMentorPanel({
           sr.f0Simulated != null ? `${sr.f0Simulated.toFixed(2)} Hz` : "n/a";
         return `Series resonance: R=${sr.R} Ω, L=${sr.L} H, C=${sr.C} F, Vin=${sr.Vin} V, sweep ${sr.fStart.toFixed(1)}–${sr.fStop.toFixed(1)} Hz (${sr.points} pts), f0_th=${sr.f0Theoretical.toFixed(2)} Hz, f0_sim(max|I|)=${fSim}`;
       }
+      if (m.halfWaveRectifier) {
+        const hw = m.halfWaveRectifier;
+        const fin =
+          hw.inputFrequency != null ? `${hw.inputFrequency.toFixed(2)} Hz` : "n/a";
+        const fr =
+          hw.rippleFrequency != null
+            ? `${hw.rippleFrequency.toFixed(2)} Hz`
+            : "n/a";
+        return `Half-wave rectifier: Vin_pk=${hw.VinPeak.toFixed(3)} V, Vout_pk=${hw.VoutPeak.toFixed(3)} V, Vavg=${hw.averageOutput.toFixed(3)} V, f_in=${fin}, f_ripple=${fr}, Vf=${hw.forwardVoltage.toFixed(2)} V, RL=${hw.RL} Ω`;
+      }
       if (m.rlc) {
         return `RLC: R=${m.rlc.R} Ω, L=${m.rlc.L} H, C=${m.rlc.C} F, Vin=${m.rlc.Vin} V, t=${m.rlc.time.toFixed(6)} s, i=${formatCurrent(m.rlc.i)}, Vc=${m.rlc.Vc.toFixed(3)} V, |i|_pk=${formatCurrent(m.rlc.iPeak)}, |Vc|_pk=${m.rlc.vcPeak.toFixed(3)} V, crossings=${m.rlc.zeroCrossings}`;
       }
@@ -211,6 +221,20 @@ function WorkspaceMentorPanel({
       chips.push(`R ${sr.R} Ω`);
       chips.push(`L ${formatHenry(sr.L)}`);
       chips.push(`C ${sr.C} F`);
+      return chips.slice(0, 6);
+    }
+    if (m.halfWaveRectifier) {
+      const hw = m.halfWaveRectifier;
+      chips.push("rectifier");
+      chips.push(`Vin ${hw.VinPeak.toFixed(2)} V`);
+      chips.push(`Vout ${hw.VoutPeak.toFixed(2)} V`);
+      chips.push(`Vavg ${hw.averageOutput.toFixed(2)} V`);
+      if (hw.inputFrequency != null) {
+        chips.push(`fin ${hw.inputFrequency.toFixed(0)} Hz`);
+      }
+      if (hw.rippleFrequency != null) {
+        chips.push(`fr ${hw.rippleFrequency.toFixed(0)} Hz`);
+      }
       return chips.slice(0, 6);
     }
     if (m.rlc) {
@@ -286,6 +310,16 @@ function WorkspaceMentorPanel({
           "Compare my simulated f0 to 1/(2π√LC).",
           "Where is the maximum-current frequency on my sweep?",
           "What do R, L, and C do to the resonance peak?",
+        ];
+      }
+      if (
+        experimentId === "half-wave-rectifier" ||
+        simResult.measurements?.halfWaveRectifier
+      ) {
+        return [
+          "Why is Vout peak lower than Vin peak?",
+          "Why is the ripple frequency equal to the line frequency?",
+          "What happens on the negative half-cycle of Vin?",
         ];
       }
       return [
@@ -446,6 +480,25 @@ function WorkspaceMentorPanel({
           peakCurrentMag: sr.peakCurrentMag,
           bandwidth: sr.bandwidth,
           Q: sr.Q,
+        },
+      };
+    } else if (baseSnapshot && simResultRef.current?.measurements?.halfWaveRectifier) {
+      const hw = simResultRef.current.measurements.halfWaveRectifier;
+      circuitSnapshot = {
+        ...baseSnapshot,
+        simulationState: {
+          experiment: "half-wave-rectifier",
+          VinPeak: hw.VinPeak,
+          VinAmplitude: hw.VinAmplitude,
+          VoutPeak: hw.VoutPeak,
+          averageOutput: hw.averageOutput,
+          inputFrequency: hw.inputFrequency,
+          inputFrequencyMeasured: hw.inputFrequencyMeasured,
+          rippleFrequency: hw.rippleFrequency,
+          forwardVoltage: hw.forwardVoltage,
+          RL: hw.RL,
+          sampleCount: hw.sampleCount,
+          duration: hw.duration,
         },
       };
     }
