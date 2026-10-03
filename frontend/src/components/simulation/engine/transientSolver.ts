@@ -90,7 +90,9 @@ export function instantaneousSourceVoltage(
   t: number,
 ): number {
   const comp = circuit.components.find((c) => c.id === sourceId);
-  if (!comp || !isAcVoltageSource(comp.properties)) return dcVoltage;
+  if (!comp) return dcVoltage;
+  if (comp.properties.outputEnabled === false) return 0;
+  if (!isAcVoltageSource(comp.properties)) return dcVoltage;
   const amp = acSourceAmplitude(comp.properties);
   const f = typeof comp.properties.frequency === "number" ? comp.properties.frequency : 0;
   const phaseDeg =

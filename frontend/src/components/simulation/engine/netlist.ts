@@ -180,7 +180,8 @@ export function buildNetlist(
           id: component.id,
           nPos: n.n1,
           nNeg: n.n2,
-          voltage: component.properties.voltage ?? 0,
+          voltage:
+            component.properties.outputEnabled === false ? 0 : (component.properties.voltage ?? 0),
         });
         break;
       }

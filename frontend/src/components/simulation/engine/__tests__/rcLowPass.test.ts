@@ -4,7 +4,7 @@ import { createRcLowPassStarter } from "../../starters/rcLowPass";
 import { solveCircuit } from "../circuitSolver";
 import { generateGraphsFromMeasurements } from "../graphData";
 import { theoreticalRcCutoffHz } from "../rcLowPassAnalysis";
-import { QUIZ_BANK } from "../../../../data/quiz/quizBank";
+import { countSeedQuestionsByDifficulty } from "../../../../data/quiz/quizBank";
 
 function peakOf(samples: { t: number; values: Record<string, number> }[], key: string): number {
   let peak = 0;
@@ -83,7 +83,10 @@ describe("RC low-pass filter experiment", () => {
     expect(lp!.fcSimulated!).toBeLessThan(theoreticalRcCutoffHz(1000, 100e-9));
   });
 
-  it("has a 55-question bank so 10, 20, and 40 attempts fit", () => {
-    expect(QUIZ_BANK["rc-low-pass-filter"]).toHaveLength(55);
+  it("has enough questions in each difficulty for 10, 20, and 40 attempts", () => {
+    const counts = countSeedQuestionsByDifficulty("rc-low-pass-filter");
+    expect(counts.easy).toBeGreaterThanOrEqual(40);
+    expect(counts.medium).toBeGreaterThanOrEqual(40);
+    expect(counts.hard).toBeGreaterThanOrEqual(40);
   });
 });

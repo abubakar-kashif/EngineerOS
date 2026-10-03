@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.experiment import Experiment
-from app.models.quiz import QuizAttempt
+from app.models.quiz import QuizAttempt, QuizQuestion
 from app.models.report import Report
 from app.models.simulation import SimulationRun
 from app.models.user import User
@@ -1201,12 +1201,66 @@ def _theoretical_results(
     }
 
 
-def _quiz_performance(attempt: QuizAttempt) -> dict:
+_OPTION_FIELDS = {
+    "A": "option_a",
+    "B": "option_b",
+    "C": "option_c",
+    "D": "option_d",
+}
+
+
+def _option_text(question: QuizQuestion, letter: str | None) -> str | None:
+    field = _OPTION_FIELDS.get(letter or "")
+    if field is None:
+        return None
+    return getattr(question, field)
+
+
+def _quiz_performance(db: Session, attempt: QuizAttempt) -> dict:
+    """Copy the stored attempt. Missing answers stay empty — nothing is invented."""
+    incorrect = attempt.total_questions - attempt.correct_answers
+    raw_answers = attempt.answers if isinstance(attempt.answers, list) else []
+    question_ids = [
+        row.get("question_id")
+        for row in raw_answers
+        if isinstance(row, dict) and row.get("question_id") is not None
+    ]
+    by_id: dict[int, QuizQuestion] = {}
+    if question_ids:
+        rows = db.execute(
+            select(QuizQuestion).where(QuizQuestion.id.in_(question_ids))
+        ).scalars().all()
+        by_id = {row.id: row for row in rows}
+
+    items = []
+    for row in raw_answers:
+        if not isinstance(row, dict):
+            continue
+        question = by_id.get(row.get("question_id"))
+        if question is None:
+            continue
+        yours = row.get("answer")
+        items.append(
+            {
+                "question_id": question.id,
+                "question": question.question,
+                "your_answer": yours,
+                "correct_answer": question.correct_answer,
+                "is_correct": yours == question.correct_answer,
+                "your_answer_text": _option_text(question, yours),
+                "correct_answer_text": _option_text(question, question.correct_answer),
+                "explanation": question.explanation,
+            }
+        )
+
     return {
         "score": attempt.score,
         "correct_answers": attempt.correct_answers,
+        "incorrect_answers": incorrect,
         "total_questions": attempt.total_questions,
         "passed": attempt.passed,
+        "difficulty": attempt.difficulty,
+        "items": items,
     }
 
 
@@ -1267,7 +1321,7 @@ def create_report(
             measured_rows = _measured_rows(run)
         attempt = _latest_quiz_attempt(db, user.id, experiment.id)
         if attempt is not None:
-            quiz_performance = _quiz_performance(attempt)
+            quiz_performance = _quiz_performance(db, attempt)
 
     reference_rows = _reference_rows(experiment)
 

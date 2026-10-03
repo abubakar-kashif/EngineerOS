@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { solveCircuit } from "../engine/circuitSolver";
 import { displayableSimulationResult } from "../engine/electricalSnapshot";
 import { listAvailableSignals, selectableGraphs } from "../engine/graphData";
@@ -95,8 +94,7 @@ describe("graph selector UX", () => {
     expect(labels.some((l) => l.includes("comp_"))).toBe(false);
   });
 
-  it("marks the default analysis graph as selected and updates on switch", async () => {
-    const user = userEvent.setup();
+  it("marks the default analysis graph as selected and hides component signal radios", () => {
     const circuit = ohmsLaw(5, 1000);
     const result = solveCircuit(circuit);
     render(<GraphViewer result={result} graphs={result.graphs} circuit={circuit} />);
@@ -105,12 +103,7 @@ describe("graph selector UX", () => {
     expect(ohms).toHaveAttribute("aria-checked", "true");
     expect(ohms).toHaveClass("sim-graph-option--selected");
     expect(screen.getByRole("img", { name: /ohm's law/i })).toBeInTheDocument();
-
-    const currentR1 = screen.getByRole("radio", { name: "Current — R1" });
-    await user.click(currentR1);
-    expect(currentR1).toHaveAttribute("aria-checked", "true");
-    expect(ohms).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByRole("img", { name: "Current — R1" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Current — R1" })).not.toBeInTheDocument();
   });
 
   it("shows a clear empty state with no fake options when there is no run", () => {

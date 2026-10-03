@@ -34,7 +34,7 @@ export type QuizQuestionCount = 10 | 20 | 40;
 export const QUIZ_DIFFICULTY_LABELS: Record<QuizAttemptDifficulty, string> = {
   easy: "Easy",
   medium: "Medium",
-  hard: "Hard",
+  hard: "Difficult",
 };
 
 export const QUIZ_DIFFICULTY_DESCRIPTIONS: Record<QuizAttemptDifficulty, string> = {
@@ -85,6 +85,7 @@ export interface QuizResult {
   submitted_at: string;
   /** Which grading path produced the aggregate score. */
   graded_by: "api" | "local";
+  difficulty?: QuizAttemptDifficulty;
   feedback: QuestionFeedback[];
 }
 

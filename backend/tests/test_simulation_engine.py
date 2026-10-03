@@ -3,6 +3,7 @@ import json
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import app.models  # noqa: F401 — register every table before create_all/drop_all
 from app.main import app
 from app.db.database import get_db, Base
 from app.models.simulation import Simulation, SimulationStatus

@@ -42,4 +42,5 @@ class QuizAttempt(Base):
     correct_answers = Column(Integer, nullable=False)
     passed = Column(Boolean, nullable=False, default=False)
     answers = Column(JSON, nullable=True)
+    difficulty = Column(String(20), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

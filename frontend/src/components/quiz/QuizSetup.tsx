@@ -12,7 +12,6 @@ type QuizSetupProps = {
   difficulty: QuizAttemptDifficulty;
   questionCount: QuizQuestionCount;
   poolSize: number;
-  preferredCount: number;
   supportedCounts: QuizQuestionCount[];
   onDifficultyChange: (difficulty: QuizAttemptDifficulty) => void;
   onQuestionCountChange: (count: QuizQuestionCount) => void;
@@ -27,7 +26,6 @@ function QuizSetup({
   difficulty,
   questionCount,
   poolSize,
-  preferredCount,
   supportedCounts,
   onDifficultyChange,
   onQuestionCountChange,
@@ -111,13 +109,6 @@ function QuizSetup({
             <dd>{topic}</dd>
           </div>
         </dl>
-        {preferredCount < questionCount && (
-          <p className="quiz-setup-note">
-            This topic has {preferredCount} {QUIZ_DIFFICULTY_LABELS[difficulty].toLowerCase()}{" "}
-            questions. The remaining {questionCount - preferredCount} come from the same experiment,
-            without repeats.
-          </p>
-        )}
         <Button variant="primary" onClick={onStart} disabled={!canStart} loading={starting}>
           Start Quiz
         </Button>

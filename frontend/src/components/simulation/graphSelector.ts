@@ -138,14 +138,34 @@ export function flattenSelectorOptions(groups: GraphSelectorGroup[]): GraphSelec
   return groups.flatMap((group) => group.options);
 }
 
-/** Prefer the RC low-pass gain plot when that lab produced a phase graph; otherwise keep the first analysis plot. */
+/** Time or frequency plots that describe the lab, ahead of a generic DC chart. */
+const PREFERRED_GRAPH_IDS = [
+  "frequency_response_gain",
+  "rc_low_pass_phase",
+  "frequency_response",
+  "half_wave_rectifier_scope",
+  "full_wave_bridge_scope",
+  "function_generator_scope",
+  "rc_time",
+  "rl_current_time",
+  "rlc_current_time",
+  "wheatstone_bridge",
+  "thevenin_comparison",
+  "norton_comparison",
+  "max_power_transfer",
+  "superposition_comparison",
+  "potentiometer_wiper",
+  "voltage_divider",
+];
+
+/** Prefer the lab's own waveform or sweep; otherwise keep the first analysis plot. */
 export function defaultSelectorOptionId(groups: GraphSelectorGroup[]): string {
+  const options = flattenSelectorOptions(groups);
+  for (const graphId of PREFERRED_GRAPH_IDS) {
+    const match = options.find((option) => option.graphId === graphId);
+    if (match) return match.id;
+  }
   const analysis = groups.find((group) => group.id === "analysis");
-  const lowPass = analysis?.options.some((option) => option.graphId === "rc_low_pass_phase");
-  const gain = lowPass
-    ? analysis?.options.find((option) => option.graphId === "frequency_response_gain")
-    : undefined;
-  if (gain) return gain.id;
   if (analysis?.options[0]) return analysis.options[0].id;
   return groups[0]?.options[0]?.id ?? "";
 }

@@ -1,11 +1,15 @@
 /**
  * Right-rail instruments — readings come only from SimulationResult measurements.
  */
+import { useState } from "react";
 import type { SimulationResult } from "./engine";
+
+type DmmMode = "dc-voltage" | "ac-rms" | "current" | "resistance";
 
 interface InstrumentsPanelProps {
   result: SimulationResult | null;
   selectedComponentId?: string | null;
+  emphasized?: boolean;
 }
 
 function formatVoltage(v: number): string {
@@ -29,7 +33,8 @@ function formatPower(w: number): string {
   return `Power = ${w.toFixed(4)} W`;
 }
 
-function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps) {
+function InstrumentsPanel({ result, selectedComponentId, emphasized = false }: InstrumentsPanelProps) {
+  const [mode, setMode] = useState<DmmMode>("dc-voltage");
   const measurements = result?.measurements;
   const comps = measurements?.componentMeasurements ?? [];
 
@@ -68,9 +73,48 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
       ? Math.sqrt(acSamples.reduce((sum, value) => sum + value * value, 0) / acSamples.length)
       : null;
 
+  const reading =
+    mode === "dc-voltage"
+      ? voltReading !== undefined && Number.isFinite(voltReading)
+        ? formatVoltage(voltReading)
+        : voltmeters.length > 1
+          ? `${voltmeters.length} meters — select one on the canvas`
+          : "Connect a voltmeter across two nodes and Run."
+      : mode === "ac-rms"
+        ? acRms != null
+          ? `RMS = ${acRms.toFixed(3)} V`
+          : "No time-series samples on the selected voltmeter."
+        : mode === "current"
+          ? ampReading !== undefined && Number.isFinite(ampReading)
+            ? formatCurrent(ampReading)
+            : "Insert an ammeter in the current path and Run. Current is not inferred."
+          : dcOpen
+            ? "Open at DC — no component resistance was measured."
+            : ohmReading !== undefined && Number.isFinite(ohmReading) && ohmReading > 0 && ohmReading < 1e8
+              ? formatResistance(ohmReading)
+              : "Resistance is not valid for this circuit state.";
+
+  const overload =
+    (mode === "dc-voltage" && voltReading !== undefined && Math.abs(voltReading) > 1e6) ||
+    (mode === "current" && ampReading !== undefined && Math.abs(ampReading) > 1e6) ||
+    (mode === "ac-rms" && acRms != null && acRms > 1e6);
+
   return (
-    <div className="sim-instruments-panel">
+    <div className={`sim-instruments-panel${emphasized ? " sim-instruments-panel--focus" : ""}`}>
       <h4 className="sim-instruments-title">Digital multimeter</h4>
+      <label className="sim-inspector-field">
+        Mode
+        <select
+          aria-label="Multimeter mode"
+          value={mode}
+          onChange={(event) => setMode(event.target.value as DmmMode)}
+        >
+          <option value="dc-voltage">DC voltage</option>
+          <option value="ac-rms">AC voltage (RMS)</option>
+          <option value="current">Current</option>
+          <option value="resistance">Resistance</option>
+        </select>
+      </label>
       {!ready ? (
         <p className="sim-measurements-empty" role="status">
           {status === "invalid"
@@ -80,51 +124,23 @@ function InstrumentsPanel({ result, selectedComponentId }: InstrumentsPanelProps
       ) : (
         <div className="sim-instruments-grid">
           <div className="sim-instrument-card">
-            <span className="sim-instrument-name">DC voltage</span>
-            <span className="sim-instrument-reading">
-              {voltReading !== undefined && Number.isFinite(voltReading)
-                ? formatVoltage(voltReading)
-                : voltmeters.length > 1
-                  ? `${voltmeters.length} meters — select Results for each`
-                  : "— (connect a voltmeter across two nodes and Run)"}
+            <span className="sim-instrument-name">
+              {mode === "dc-voltage"
+                ? "DC voltage"
+                : mode === "ac-rms"
+                  ? "AC voltage"
+                  : mode === "current"
+                    ? "Current"
+                    : "Resistance"}
             </span>
+            <span className="sim-instrument-reading">{overload ? "Overload" : reading}</span>
           </div>
-          <div className="sim-instrument-card">
-            <span className="sim-instrument-name">Current</span>
-            <span className="sim-instrument-reading">
-              {ampReading !== undefined && Number.isFinite(ampReading)
-                ? formatCurrent(ampReading)
-                : ammeters.length > 1
-                  ? `${ammeters.length} meters — select Results for each`
-                  : "— (insert an ammeter in the branch and Run)"}
-            </span>
-          </div>
-          <div className="sim-instrument-card">
-            <span className="sim-instrument-name">Resistance</span>
-            <span className="sim-instrument-reading">
-              {dcOpen
-                ? "open at DC — no component resistance was measured"
-                : ohmReading !== undefined && Number.isFinite(ohmReading) && ohmReading > 0
-                  ? formatResistance(ohmReading)
-                  : "— (not valid for this circuit state)"}
-            </span>
-          </div>
-          <div className="sim-instrument-card">
-            <span className="sim-instrument-name">AC voltage</span>
-            <span className="sim-instrument-reading">
-              {acRms != null
-                ? `RMS = ${acRms.toFixed(3)} V`
-                : "— (no time-series samples on the selected voltmeter)"}
-            </span>
-          </div>
-          <div className="sim-instrument-card">
-            <span className="sim-instrument-name">Power</span>
-            <span className="sim-instrument-reading">
-              {powerReading !== undefined && Number.isFinite(powerReading)
-                ? formatPower(powerReading)
-                : "—"}
-            </span>
-          </div>
+          {powerMeter && powerReading !== undefined && Number.isFinite(powerReading) && (
+            <div className="sim-instrument-card">
+              <span className="sim-instrument-name">Power</span>
+              <span className="sim-instrument-reading">{formatPower(powerReading)}</span>
+            </div>
+          )}
         </div>
       )}
       {result?.status === "invalid" && result.validation?.errors?.[0] && (

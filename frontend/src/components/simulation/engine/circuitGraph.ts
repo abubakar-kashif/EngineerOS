@@ -63,6 +63,8 @@ export interface ComponentProperties {
   dutyCycle?: number;
   /** When true, treat voltage_source as an AC / function-generator drive. */
   acMode?: boolean;
+  /** When false, the source output is 0 V in both DC and transient solves. */
+  outputEnabled?: boolean;
   forwardVoltage?: number;  // V
   state?: SwitchState;
   [key: string]: string | number | boolean | SwitchState | undefined;

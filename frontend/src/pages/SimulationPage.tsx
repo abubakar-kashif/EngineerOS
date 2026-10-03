@@ -14,6 +14,9 @@ import AnalysisPanel from "../components/simulation/AnalysisPanel";
 import ComponentInspector from "../components/simulation/ComponentInspector";
 import ComponentPalette from "../components/simulation/ComponentPalette";
 import InstrumentsPanel from "../components/simulation/InstrumentsPanel";
+import VirtualLabInstruments, {
+  type LabInstrument,
+} from "../components/simulation/VirtualLabInstruments";
 import GraphViewer from "../components/simulation/GraphViewer";
 import SimToolbar, { type SimToolbarStatus } from "../components/simulation/SimToolbar";
 import WorkspaceCircuitCanvas, {
@@ -107,6 +110,7 @@ function SimulationPage() {
   const saveStatusTimerRef = useRef<number | null>(null);
 
   const [showSidebar, setShowSidebar] = useState(true);
+  const [instrumentFocus, setInstrumentFocus] = useState<LabInstrument | null>(null);
   const [showMentor, setShowMentor] = useState(true);
   const [showResults, setShowResults] = useState(true);
   const [showGraphs, setShowGraphs] = useState(true);
@@ -627,10 +631,21 @@ function SimulationPage() {
               <ComponentPalette
                 onSelectType={setPlacementType}
                 selectedType={state.placementType}
+                experimentId={experimentParam}
+                selectedInstrument={instrumentFocus}
+                onOpenInstrument={setInstrumentFocus}
+              />
+              <VirtualLabInstruments
+                experimentId={experimentParam}
+                components={state.circuit.components}
+                result={displayedResult}
+                focus={instrumentFocus}
+                onUpdateProperty={updateProperty}
               />
               <InstrumentsPanel
                 result={displayedResult}
                 selectedComponentId={state.selectedComponentId}
+                emphasized={instrumentFocus === "dmm"}
               />
             </aside>
           )}

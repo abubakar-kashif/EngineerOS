@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Bell, Palette, Shield, Sliders, User, type LucideIcon } from "lucide-react";
+import { Bell, Palette, Shield, User, type LucideIcon } from "lucide-react";
 import SectionHeading from "../../components/ui/SectionHeading";
 import { SETTINGS_SECTIONS } from "../../types/settings";
 import type { SettingsSectionId } from "../../types/settings";
@@ -7,7 +7,6 @@ import type { SettingsSectionId } from "../../types/settings";
 const SECTION_ICONS: Record<SettingsSectionId, LucideIcon> = {
   appearance: Palette,
   account: User,
-  preferences: Sliders,
   notifications: Bell,
   security: Shield,
 };

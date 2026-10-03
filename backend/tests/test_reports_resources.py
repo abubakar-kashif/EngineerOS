@@ -256,6 +256,8 @@ def test_report_attaches_user_simulation_and_quiz_data(phase9_client):
                 total_questions=20,
                 correct_answers=17,
                 passed=True,
+                difficulty="medium",
+                answers=[{"question_id": 1, "answer": "B"}],
             )
         )
         db.commit()
@@ -290,12 +292,19 @@ def test_report_attaches_user_simulation_and_quiz_data(phase9_client):
     assert errors["Total Current"]["error_percent"] == pytest.approx(100 / 9)
     assert errors["Total Power"]["error_percent"] == pytest.approx(100 / 9)
 
-    assert data["quiz_performance"] == {
-        "score": 85.0,
-        "correct_answers": 17,
-        "total_questions": 20,
-        "passed": True,
-    }
+    assert data["quiz_performance"]["score"] == 85.0
+    assert data["quiz_performance"]["correct_answers"] == 17
+    assert data["quiz_performance"]["incorrect_answers"] == 3
+    assert data["quiz_performance"]["total_questions"] == 20
+    assert data["quiz_performance"]["passed"] is True
+    assert data["quiz_performance"]["difficulty"] == "medium"
+    assert len(data["quiz_performance"]["items"]) == 1
+    item = data["quiz_performance"]["items"][0]
+    assert item["question_id"] == 1
+    assert item["your_answer"] == "B"
+    assert item["is_correct"] is (item["correct_answer"] == "B")
+    assert item["explanation"]
+    assert item["question"]
 
 
 def test_report_without_user_data_has_no_measurements(phase9_client):

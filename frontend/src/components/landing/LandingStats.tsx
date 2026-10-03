@@ -1,18 +1,17 @@
 /**
- * Stats band. Counts come from the experiment catalog and the palette.
+ * Stats band. The experiment count comes from the catalog.
+ * The component library is part of the lab, not a landing statistic.
  */
 import CountUp from "./CountUp";
 import { RevealGroup, RevealItem } from "./Reveal";
 import { CATALOG_EXPERIMENT_COUNT } from "../../data/experimentCatalog";
-import { PALETTE_ENTRY_COUNT } from "../simulation/paletteCatalog";
 
 type Stat = { value: number; suffix?: string; label: string } | { text: string; label: string };
 
 const STATS: Stat[] = [
   { value: CATALOG_EXPERIMENT_COUNT, label: "Experiments" },
-  { value: PALETTE_ENTRY_COUNT, label: "Components" },
   { text: "Unlimited", label: "Simulations" },
-  { text: "Real-time", label: "Measurements" },
+  { text: "Real-time", label: "Instruments" },
   { text: "24/7", label: "AI Mentor" },
 ];
 

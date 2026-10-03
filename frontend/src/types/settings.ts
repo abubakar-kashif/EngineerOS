@@ -113,7 +113,6 @@ export interface ActiveSession {
 export type SettingsSectionId =
   | "appearance"
   | "account"
-  | "preferences"
   | "notifications"
   | "security";
 
@@ -126,7 +125,6 @@ export const SETTINGS_SECTIONS: {
 }[] = [
   { id: "appearance", label: "Appearance", path: "/settings", end: true },
   { id: "account", label: "Account", path: "/settings/account", end: false },
-  { id: "preferences", label: "Preferences", path: "/settings/preferences", end: false },
   { id: "notifications", label: "Notifications", path: "/settings/notifications", end: false },
   { id: "security", label: "Security", path: "/settings/security", end: false },
 ];

@@ -5,6 +5,7 @@ import Button from "../../components/ui/Button";
 import Badge from "../../components/ui/Badge";
 import QuizReview from "../../components/quiz/QuizReview";
 import { clearQuizResult, getExperimentMeta, loadQuizResult } from "../../services/quiz/quizService";
+import { QUIZ_DIFFICULTY_LABELS } from "../../types/quiz";
 import type { Experiment } from "../../types/experiment";
 import type { QuizResult, QuizStatus } from "../../types/quiz";
 import { QUIZ_STATUS_LABELS, QUIZ_STATUS_MESSAGES } from "../../types/quiz";
@@ -144,6 +145,16 @@ function QuizResultPage() {
           <span className="quiz-result-stat-value">{result.unanswered}</span>
           <span className="quiz-result-stat-label">Unanswered</span>
         </div>
+        <div className="quiz-result-stat">
+          <span className="quiz-result-stat-value">{result.total_questions}</span>
+          <span className="quiz-result-stat-label">Questions</span>
+        </div>
+        {result.difficulty && (
+          <div className="quiz-result-stat">
+            <span className="quiz-result-stat-value">{QUIZ_DIFFICULTY_LABELS[result.difficulty]}</span>
+            <span className="quiz-result-stat-label">Difficulty</span>
+          </div>
+        )}
         <div className="quiz-result-stat">
           <span className="quiz-result-stat-value">{scorePct}%</span>
           <span className="quiz-result-stat-label">Score</span>

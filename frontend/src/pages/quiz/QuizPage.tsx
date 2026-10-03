@@ -139,16 +139,17 @@ function QuizIndex() {
 }
 
 function initialQuizSetup(experimentId: string): { difficulty: QuizAttemptDifficulty; questionCount: QuizQuestionCount } {
-  const allowed = getSupportedQuestionCounts(experimentId);
   const stored = loadQuizSetup(experimentId);
+  const difficulty = stored?.difficulty ?? "medium";
+  const allowed = getSupportedQuestionCounts(experimentId, difficulty);
   if (stored) {
     return {
-      difficulty: stored.difficulty,
+      difficulty,
       questionCount: allowed.includes(stored.questionCount) ? stored.questionCount : (allowed[0] ?? 10),
     };
   }
   return {
-    difficulty: "medium",
+    difficulty,
     questionCount: allowed.includes(10) ? 10 : (allowed[0] ?? 10),
   };
 }
@@ -177,13 +178,12 @@ function QuizRunner({ experimentId }: { experimentId: string }) {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [starting, setStarting] = useState(false);
 
-  const supportedCounts = getSupportedQuestionCounts(experimentId);
+  const supportedCounts = getSupportedQuestionCounts(experimentId, difficulty);
   const selectedQuestionCount =
     supportedCounts.length === 0 || supportedCounts.includes(questionCount)
       ? questionCount
       : supportedCounts[0]!;
-  const bankSize = getSeedQuestionCount(experimentId);
-  const preferredCount = getSeedDifficultyCounts(experimentId)[difficulty];
+  const poolSize = getSeedDifficultyCounts(experimentId)[difficulty];
 
   useEffect(() => {
     let cancelled = false;
@@ -362,10 +362,15 @@ function QuizRunner({ experimentId }: { experimentId: string }) {
           topic={topic}
           difficulty={difficulty}
           questionCount={selectedQuestionCount}
-          poolSize={bankSize}
-          preferredCount={preferredCount}
+          poolSize={poolSize}
           supportedCounts={supportedCounts}
-          onDifficultyChange={setDifficulty}
+          onDifficultyChange={(next) => {
+            setDifficulty(next);
+            const allowed = getSupportedQuestionCounts(experimentId, next);
+            setQuestionCount((current) =>
+              allowed.includes(current) ? current : (allowed[0] ?? 10),
+            );
+          }}
           onQuestionCountChange={setQuestionCount}
           onStart={() => void startQuiz()}
           starting={starting}

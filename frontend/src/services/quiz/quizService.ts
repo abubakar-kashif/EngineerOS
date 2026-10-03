@@ -167,13 +167,10 @@ function buildQuiz(
   source: QuizSource,
   options?: QuizLoadOptions,
 ): Quiz {
-  const { preferred, rest } = filterByDifficulty(experimentId, questions, options?.difficulty);
-  const attemptSize = resolveAttemptSize(options?.questionCount, questions.length);
-  const ordered = [
-    ...sampleAttemptQuestions(preferred, preferred.length),
-    ...sampleAttemptQuestions(rest, rest.length),
-  ];
-  const attempt = ordered.slice(0, attemptSize).map(shuffleQuestionOptions);
+  const { preferred } = filterByDifficulty(experimentId, questions, options?.difficulty);
+  const pool = options?.difficulty ? preferred : questions;
+  const attemptSize = resolveAttemptSize(options?.questionCount, pool.length);
+  const attempt = sampleAttemptQuestions(pool, attemptSize).map(shuffleQuestionOptions);
   return {
     experiment_id: experimentId,
     title: QUIZ_TITLE,
@@ -246,8 +243,14 @@ export function getSeedDifficultyCounts(experimentId: string) {
   return countSeedQuestionsByDifficulty(experimentId);
 }
 
-export function getSupportedQuestionCounts(experimentId: string): QuizQuestionCount[] {
-  return supportedQuestionCounts(getSeedQuestionCount(experimentId));
+export function getSupportedQuestionCounts(
+  experimentId: string,
+  difficulty?: QuizAttemptDifficulty,
+): QuizQuestionCount[] {
+  const poolSize = difficulty
+    ? getSeedDifficultyCounts(experimentId)[difficulty]
+    : getSeedQuestionCount(experimentId);
+  return supportedQuestionCounts(poolSize);
 }
 
 export function hasSeedQuiz(experimentId: string): boolean {
@@ -361,6 +364,7 @@ export async function submitQuiz(
                 answer: toBankAnswer(question, display ?? null, entry?.options) ?? display,
               };
             }),
+            ...(quiz.difficulty ? { difficulty: quiz.difficulty } : {}),
           }),
         },
       );
@@ -384,6 +388,7 @@ export async function submitQuiz(
     status: statusFor(score, unanswered, total),
     submitted_at: new Date().toISOString(),
     graded_by: gradedBy,
+    difficulty: quiz.difficulty,
     feedback,
   };
 }

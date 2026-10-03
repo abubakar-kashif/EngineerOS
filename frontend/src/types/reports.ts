@@ -44,11 +44,25 @@ export interface ReportCircuitDiagram {
   caption: string | null;
 }
 
+export interface ReportQuizItem {
+  question_id: number;
+  question: string;
+  your_answer: string | null;
+  correct_answer: string | null;
+  is_correct: boolean;
+  your_answer_text: string | null;
+  correct_answer_text: string | null;
+  explanation: string;
+}
+
 export interface ReportQuizPerformance {
   score: number;
   correct_answers: number;
+  incorrect_answers?: number | null;
   total_questions: number;
   passed: boolean;
+  difficulty?: "easy" | "medium" | "hard" | null;
+  items?: ReportQuizItem[];
 }
 
 export type ReportSource = "api";

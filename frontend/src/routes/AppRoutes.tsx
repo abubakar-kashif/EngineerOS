@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 import MainLayout from "../components/layout/MainLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
@@ -32,7 +32,6 @@ import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
 import SettingsPage from "../pages/settings/SettingsPage";
 import AppearanceSettings from "../pages/settings/AppearanceSettings";
 import AccountSettings from "../pages/settings/AccountSettings";
-import PreferencesSettings from "../pages/settings/PreferencesSettings";
 import NotificationSettings from "../pages/settings/NotificationSettings";
 import SecuritySettings from "../pages/settings/SecuritySettings";
 
@@ -98,7 +97,7 @@ function AppRoutes() {
         <Route path="/settings" element={<SettingsPage />}>
           <Route index element={<AppearanceSettings />} />
           <Route path="account" element={<AccountSettings />} />
-          <Route path="preferences" element={<PreferencesSettings />} />
+          <Route path="preferences" element={<Navigate to="/settings/account" replace />} />
           <Route path="notifications" element={<NotificationSettings />} />
           <Route path="security" element={<SecuritySettings />} />
         </Route>

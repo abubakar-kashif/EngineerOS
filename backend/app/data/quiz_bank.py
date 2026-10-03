@@ -941,8 +941,28 @@ _QUIZ_BANK_BASE = {
 
 _QUIZ_BANK_BASE["rc-low-pass-filter"] = RC_LOW_PASS_BASE
 
-# Phase 2: each experiment bank is base (40) + extras (≥15) → typically 55.
+# Phase 2: each experiment bank is base (40) + extras (≥15).
+# Top-up and band fill append real questions so Easy, Medium, and Difficult
+# each have a 40-question pool. Categories are stripped before storage.
+from app.data.quiz_band_fill import BAND_FILL
+from app.data.quiz_pool_topup import QUIZ_POOL_TOPUP
+
+_STORED_FIELDS = (
+    "question",
+    "option_a",
+    "option_b",
+    "option_c",
+    "option_d",
+    "correct_answer",
+    "explanation",
+)
+
 QUIZ_BANK = merge_quiz_bank(_QUIZ_BANK_BASE)
+for _source in (QUIZ_POOL_TOPUP, BAND_FILL):
+    for _experiment_id, _extra in _source.items():
+        QUIZ_BANK[_experiment_id] = list(QUIZ_BANK[_experiment_id]) + [
+            {key: item[key] for key in _STORED_FIELDS} for item in _extra
+        ]
 
 
 def iter_questions():
@@ -952,6 +972,6 @@ def iter_questions():
             yield {
                 "id": question_id,
                 "experiment_id": experiment_id,
-                **question,
+                **{key: question[key] for key in _STORED_FIELDS},
             }
             question_id += 1

@@ -692,17 +692,18 @@ def test_quiz_submission_records_attempt_progress_and_notification(phase9_client
     registered = register_user(client, "quiz@example.com")
     headers = bearer(registered["token"])
 
+    answers = perfect_quiz_answers(client)
     submission = client.post(
         "/api/quizzes/ohms-law/submit",
         headers=headers,
-        json={"answers": perfect_quiz_answers(client)},
+        json={"answers": answers, "difficulty": "easy"},
     )
 
     assert submission.status_code == 200
     assert submission.json() == {
         "score": 100.0,
-        "total_questions": 55,
-        "correct_answers": 55,
+        "total_questions": len(answers),
+        "correct_answers": len(answers),
         "passed": True,
     }
 
@@ -713,7 +714,8 @@ def test_quiz_submission_records_attempt_progress_and_notification(phase9_client
         assert attempt.experiment_id == "ohms-law"
         assert attempt.score == 100.0
         assert attempt.passed is True
-        assert len(attempt.answers) == 55
+        assert attempt.difficulty == "easy"
+        assert len(attempt.answers) == len(answers)
 
     # Passing completes the experiment for this user.
     progress_rows = client.get("/api/progress/me", headers=headers).json()

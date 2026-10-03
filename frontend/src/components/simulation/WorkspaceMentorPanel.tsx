@@ -608,11 +608,37 @@ function WorkspaceMentorPanel({
     }
 
     const diagnoses = diagnoseLab(live, simResultRef.current);
+    const generatorSources = (live?.components ?? [])
+      .filter((component) => component.type === "voltage_source")
+      .map((component) => ({
+        id: component.id,
+        label: component.label,
+        waveform: component.properties.waveform ?? "sine",
+        amplitude: component.properties.amplitude ?? component.properties.voltage ?? null,
+        frequency: component.properties.frequency ?? null,
+        phase: component.properties.phase ?? 0,
+        offset: component.properties.offset ?? 0,
+        outputEnabled: component.properties.outputEnabled !== false,
+      }));
+    const series = simResultRef.current?.measurements?.timeSeries ?? [];
+    const scopeSignals = series[0]
+      ? Object.keys(series[0].values).filter((key) => key.startsWith("V_") || key.startsWith("I_")).slice(0, 8)
+      : [];
+    const graphSummary = (simResultRef.current?.graphs ?? []).slice(0, 8).map((graph) => ({
+      id: graph.id,
+      title: graph.title,
+    }));
     if (circuitSnapshot) {
       const prior = circuitSnapshot.simulationState ?? {};
       circuitSnapshot = {
         ...circuitSnapshot,
-        simulationState: { ...prior, diagnoses },
+        simulationState: {
+          ...prior,
+          diagnoses,
+          functionGenerator: generatorSources,
+          oscilloscope: { sampleCount: series.length, signals: scopeSignals },
+          graphs: graphSummary,
+        },
       };
     }
 

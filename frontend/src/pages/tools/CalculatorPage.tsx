@@ -77,6 +77,7 @@ function CalculatorPage() {
   const [aLimit, setALimit] = useState("0");
   const [bLimit, setBLimit] = useState("1");
   const [calculusNote, setCalculusNote] = useState<string | null>(null);
+  const [toolMode, setToolMode] = useState<"scientific" | "calculus">("scientific");
 
   /** Live preview of the expression, when it can be evaluated. */
   const preview = (() => {
@@ -183,6 +184,32 @@ function CalculatorPage() {
         description="Basic arithmetic plus trig, roots, logs and powers. Press a function, enter the value, then = (closing ) is optional). Enter evaluates, Escape clears."
       />
 
+      <div className="calc-mode-row" role="tablist" aria-label="Calculator mode">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={toolMode === "scientific"}
+          className={`calc-mode-toggle${toolMode === "scientific" ? " calc-mode-toggle-active" : ""}`}
+          onClick={() => setToolMode("scientific")}
+        >
+          Scientific
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={toolMode === "calculus"}
+          className={`calc-mode-toggle${toolMode === "calculus" ? " calc-mode-toggle-active" : ""}`}
+          onClick={() => setToolMode("calculus")}
+        >
+          Calculus
+        </button>
+        <Link to="/tools/number-systems" className="calc-mode-toggle">Number system</Link>
+        <Link to="/tools/matrix" className="calc-mode-toggle">Matrix</Link>
+        <Link to="/tools/engineering-calculators" className="calc-mode-toggle">Engineering</Link>
+        <Link to="/tools/unit-converter" className="calc-mode-toggle">Units</Link>
+      </div>
+
+      {toolMode === "scientific" && (
       <div className="calc-shell">
         <div className="calc-display" aria-live="polite">
           <span className={`calc-expression${error ? " calc-expression-error" : ""}`}>
@@ -249,7 +276,9 @@ function CalculatorPage() {
           </button>
         </div>
       </div>
+      )}
 
+      {toolMode === "calculus" && (
       <section className="calc-calculus" aria-label="Numerical calculus">
         <h2>Numerical calculus</h2>
         <p>
@@ -300,6 +329,7 @@ function CalculatorPage() {
         </button>
         {calculusNote && <p role="status">{calculusNote}</p>}
       </section>
+      )}
 
       <p className="tools-back-note">
         <Link to="/tools" className="tools-back-link">

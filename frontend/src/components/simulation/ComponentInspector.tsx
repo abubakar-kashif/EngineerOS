@@ -59,7 +59,12 @@ function ComponentInspector({
       <div className="sim-inspector-header">
         <div className="sim-inspector-heading">
           <h4 className="sim-inspector-title">{component.label}</h4>
-          <span className="sim-inspector-type">{component.type.replace(/_/g, " ")}</span>
+          <span className="sim-inspector-type">
+            {component.type === "voltage_source" &&
+            (component.properties.acMode === true || typeof component.properties.waveform === "string")
+              ? "Function Generator"
+              : component.type.replace(/_/g, " ")}
+          </span>
         </div>
         {onClose && (
           <button
@@ -120,6 +125,8 @@ function ComponentInspector({
               </div>
             );
           }
+
+          if (typeof value === "boolean") return null;
 
           if (key === "waveform") {
             const current = String(value || "sine").toLowerCase();

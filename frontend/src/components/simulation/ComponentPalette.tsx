@@ -9,11 +9,24 @@ import { filterPaletteEntries } from "./paletteCatalog";
 interface ComponentPaletteProps {
   onSelectType: (type: ComponentType, propertyOverrides?: ComponentProperties) => void;
   selectedType: ComponentType | null;
+  experimentId?: string | null;
+  onOpenInstrument?: (instrument: "oscilloscope" | "dmm" | "generator") => void;
+  selectedInstrument?: "oscilloscope" | "dmm" | "generator" | null;
 }
 
-function ComponentPalette({ onSelectType, selectedType }: ComponentPaletteProps) {
+function ComponentPalette({
+  onSelectType,
+  selectedType,
+  experimentId,
+  onOpenInstrument,
+  selectedInstrument,
+}: ComponentPaletteProps) {
   const [query, setQuery] = useState("");
-  const visible = useMemo(() => filterPaletteEntries(query), [query]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const visible = useMemo(
+    () => filterPaletteEntries(query, experimentId),
+    [query, experimentId],
+  );
 
   return (
     <div className="sim-palette">
@@ -30,22 +43,33 @@ function ComponentPalette({ onSelectType, selectedType }: ComponentPaletteProps)
         {visible.length === 0 ? (
           <p className="sim-palette-empty">No components match.</p>
         ) : (
-          visible.map((comp) => (
+          visible.map((comp) => {
+            const pressed = comp.instrument
+              ? selectedInstrument === comp.instrument
+              : activeId === comp.id && selectedType === comp.type;
+            return (
             <button
               key={comp.id}
               type="button"
-              className={`sim-palette-item ${
-                selectedType === comp.type ? "sim-palette-item--active" : ""
-              }`}
-              onClick={() => onSelectType(comp.type, comp.propertyOverrides)}
-              title={comp.label}
+              className={`sim-palette-item ${pressed ? "sim-palette-item--active" : ""}`}
+              onClick={() => {
+                setActiveId(comp.id);
+                if (comp.instrument) {
+                  onOpenInstrument?.(comp.instrument);
+                  return;
+                }
+                onSelectType(comp.type, comp.propertyOverrides);
+                if (comp.id === "function_generator") onOpenInstrument?.("generator");
+              }}
+              title={comp.instrument ? `${comp.label} — instrument` : comp.label}
               aria-label={comp.label}
-              aria-pressed={selectedType === comp.type}
+              aria-pressed={pressed}
             >
               <span className="sim-palette-symbol">{comp.icon}</span>
               <span className="sim-palette-label">{comp.label}</span>
             </button>
-          ))
+            );
+          })
         )}
       </div>
     </div>

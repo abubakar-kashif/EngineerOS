@@ -91,7 +91,9 @@ export function isAcVoltageSource(props: {
   frequency?: number;
   waveform?: string | number | boolean;
   acMode?: string | number | boolean;
+  outputEnabled?: boolean;
 }): boolean {
+  if (props.outputEnabled === false) return false;
   const f = props.frequency;
   if (typeof f !== 'number' || !(f > 0)) return false;
   if (props.acMode === true || props.acMode === 1) return true;

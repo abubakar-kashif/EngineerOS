@@ -457,6 +457,58 @@ export function buildGraphFromSignals(
   };
 }
 
+/** Graphs that belong to one lab. Other experiments keep their own plots. */
+const GRAPH_OWNERS: Record<string, readonly string[]> = {
+  ohms_law: ["ohms-law", "series-circuit", "parallel-circuit"],
+  current_signals: ["kcl", "parallel-circuit", "current-divider"],
+  voltage_signals: ["kvl", "series-circuit", "voltage-divider"],
+  thevenin_comparison: ["thevenin-theorem"],
+  norton_comparison: ["norton-theorem"],
+  max_power_transfer: ["maximum-power-transfer"],
+  wheatstone_bridge: ["wheatstone-bridge"],
+  wheatstone_bridge_nodes: ["wheatstone-bridge"],
+  superposition_comparison: ["superposition-theorem"],
+  voltage_divider: ["voltage-divider"],
+  potentiometer_wiper: ["potentiometer"],
+  component_voltages: [
+    "ohms-law", "series-circuit", "parallel-circuit", "kvl", "kcl",
+    "voltage-divider", "current-divider", "wheatstone-bridge",
+    "thevenin-theorem", "norton-theorem", "superposition-theorem",
+    "maximum-power-transfer", "potentiometer",
+  ],
+  component_currents: [
+    "ohms-law", "series-circuit", "parallel-circuit", "kvl", "kcl",
+    "voltage-divider", "current-divider", "wheatstone-bridge",
+    "thevenin-theorem", "norton-theorem", "superposition-theorem",
+    "maximum-power-transfer", "potentiometer",
+  ],
+  component_power: [
+    "ohms-law", "series-circuit", "parallel-circuit", "kvl", "kcl",
+    "voltage-divider", "current-divider", "wheatstone-bridge",
+    "thevenin-theorem", "norton-theorem", "superposition-theorem",
+    "maximum-power-transfer", "potentiometer",
+  ],
+  measured_vi: [
+    "ohms-law", "series-circuit", "parallel-circuit", "kvl", "kcl",
+    "voltage-divider", "current-divider", "wheatstone-bridge",
+    "thevenin-theorem", "norton-theorem", "superposition-theorem",
+    "maximum-power-transfer", "potentiometer",
+  ],
+  power_time: [
+    "rc-circuit", "rl-circuit", "rlc-circuit", "capacitor-charging",
+    "half-wave-rectifier", "full-wave-bridge-rectifier",
+  ],
+};
+
+/** Drop theorem and DC bar charts that do not belong to this experiment. */
+function graphsForExperiment(graphs: GraphData[], experimentId?: string): GraphData[] {
+  if (!experimentId) return graphs;
+  return graphs.filter((graph) => {
+    const owners = GRAPH_OWNERS[graph.id];
+    return !owners || owners.includes(experimentId);
+  });
+}
+
 /**
  * Default graphs attached to a SimulationResult — derived from this run only.
  * Experiment catalog slots are included only when the required components and
@@ -1350,7 +1402,7 @@ export function generateGraphsFromMeasurements(
     });
   }
 
-  if (drops.length === 0) return graphs;
+  if (drops.length === 0) return graphsForExperiment(graphs, circuit?.experimentId);
 
   const labels = drops.map((cm) => labelForComponent(circuit, cm.componentId, cm.type));
 
@@ -1422,7 +1474,7 @@ export function generateGraphsFromMeasurements(
     metadata: { source: 'measurements', labels },
   });
 
-  return graphs;
+  return graphsForExperiment(graphs, circuit?.experimentId);
 }
 
 /**

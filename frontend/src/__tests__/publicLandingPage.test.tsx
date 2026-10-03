@@ -124,7 +124,8 @@ describe("public landing page", () => {
     expect(screen.getAllByText("Experiments").length).toBeGreaterThan(0);
     expect(screen.getByText("Unlimited")).toBeInTheDocument();
     expect(screen.getByText("Real-time")).toBeInTheDocument();
-    expect(screen.getByText("Components")).toBeInTheDocument();
+    expect(screen.getByText("Instruments")).toBeInTheDocument();
+    expect(screen.queryByText("Components")).not.toBeInTheDocument();
     // Inflated marketing stats must not appear.
     expect(screen.queryByText("50+")).not.toBeInTheDocument();
     expect(screen.queryByText("1000+")).not.toBeInTheDocument();

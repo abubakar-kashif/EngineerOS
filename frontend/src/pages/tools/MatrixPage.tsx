@@ -128,13 +128,30 @@ function MatrixPage() {
         description="Add, subtract, multiply, scale, transpose, and — for square matrices — determinant, inverse, and rank."
       />
       <label>
+        Order
+        <select
+          aria-label="Matrix order"
+          value={`${rows}x${cols}`}
+          onChange={(event) => {
+            const [nextRows, nextCols] = event.target.value.split("x").map(Number);
+            resize(nextRows, nextCols);
+          }}
+        >
+          {["1x1", "2x2", "2x3", "3x2", "3x3", "4x4"].map((order) => (
+            <option key={order} value={order}>
+              {order.replace("x", "×")}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
         Rows
         <select
           aria-label="Matrix rows"
           value={rows}
           onChange={(event) => resize(Number(event.target.value), cols)}
         >
-          {[1, 2, 3].map((size) => (
+          {[1, 2, 3, 4].map((size) => (
             <option key={size} value={size}>
               {size}
             </option>
@@ -148,7 +165,7 @@ function MatrixPage() {
           value={cols}
           onChange={(event) => resize(rows, Number(event.target.value))}
         >
-          {[1, 2, 3].map((size) => (
+          {[1, 2, 3, 4].map((size) => (
             <option key={size} value={size}>
               {size}
             </option>

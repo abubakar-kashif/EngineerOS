@@ -322,6 +322,190 @@ export const CALCULATORS: CalculatorDef[] = [
       return div(k.V2 * k.N1, k.V1, "V1");
     },
   },
+  {
+    id: "capacitor-charge",
+    name: "Capacitor Charge",
+    category: "Capacitors",
+    formula: "Q = C × V",
+    fields: [
+      { id: "Q", label: "Charge", symbol: "Q", unit: "C" },
+      { id: "C", label: "Capacitance", symbol: "C", unit: "F" },
+      { id: "V", label: "Voltage", symbol: "V", unit: "V" },
+    ],
+    solvableFor: ["Q", "C", "V"],
+    compute: (k, solveFor) => {
+      if (solveFor === "Q") return fin(k.C * k.V);
+      if (solveFor === "C") return div(k.Q, k.V, "V");
+      return div(k.Q, k.C, "C");
+    },
+  },
+  {
+    id: "capacitor-energy",
+    name: "Capacitor Energy",
+    category: "Capacitors",
+    formula: "E = ½ C V²",
+    fields: [
+      { id: "E", label: "Energy", symbol: "E", unit: "J" },
+      { id: "C", label: "Capacitance", symbol: "C", unit: "F" },
+      { id: "V", label: "Voltage", symbol: "V", unit: "V" },
+    ],
+    solvableFor: ["E"],
+    compute: (k) => fin(0.5 * k.C * k.V * k.V),
+  },
+  {
+    id: "peak-rms",
+    name: "Peak and RMS",
+    category: "AC",
+    formula: "Vrms = Vpeak / √2",
+    fields: [
+      { id: "Vpeak", label: "Peak voltage", symbol: "Vpeak", unit: "V" },
+      { id: "Vrms", label: "RMS voltage", symbol: "Vrms", unit: "V" },
+    ],
+    solvableFor: ["Vpeak", "Vrms"],
+    compute: (k, solveFor) => {
+      if (solveFor === "Vrms") return fin(k.Vpeak / Math.SQRT2);
+      return fin(k.Vrms * Math.SQRT2);
+    },
+  },
+  {
+    id: "series-impedance",
+    name: "Series Impedance",
+    category: "AC",
+    formula: "Z = √(R² + X²)",
+    fields: [
+      { id: "R", label: "Resistance", symbol: "R", unit: "Ω" },
+      { id: "X", label: "Reactance", symbol: "X", unit: "Ω" },
+      { id: "Z", label: "Impedance", symbol: "Z", unit: "Ω" },
+    ],
+    solvableFor: ["Z"],
+    compute: (k) => fin(Math.hypot(k.R, k.X)),
+  },
+  {
+    id: "phase-angle",
+    name: "Phase Angle",
+    category: "AC",
+    formula: "φ = atan(X / R)",
+    fields: [
+      { id: "R", label: "Resistance", symbol: "R", unit: "Ω" },
+      { id: "X", label: "Reactance", symbol: "X", unit: "Ω" },
+      { id: "phi", label: "Phase", symbol: "φ", unit: "deg" },
+    ],
+    solvableFor: ["phi"],
+    compute: (k) => fin((Math.atan2(k.X, k.R) * 180) / Math.PI),
+  },
+  {
+    id: "series-q",
+    name: "Series RLC Q",
+    category: "RLC",
+    formula: "Q = (1/R) √(L/C)",
+    fields: [
+      { id: "R", label: "Resistance", symbol: "R", unit: "Ω" },
+      { id: "L", label: "Inductance", symbol: "L", unit: "H" },
+      { id: "C", label: "Capacitance", symbol: "C", unit: "F" },
+      { id: "Q", label: "Quality factor", symbol: "Q", unit: "" },
+    ],
+    solvableFor: ["Q"],
+    compute: (k) => div(Math.sqrt(div(k.L, k.C, "C")), k.R, "R"),
+  },
+  {
+    id: "bandwidth",
+    name: "Resonant Bandwidth",
+    category: "RLC",
+    formula: "BW = f0 / Q",
+    fields: [
+      { id: "f0", label: "Resonant frequency", symbol: "f0", unit: "Hz" },
+      { id: "Q", label: "Quality factor", symbol: "Q", unit: "" },
+      { id: "BW", label: "Bandwidth", symbol: "BW", unit: "Hz" },
+    ],
+    solvableFor: ["BW", "Q", "f0"],
+    compute: (k, solveFor) => {
+      if (solveFor === "BW") return div(k.f0, k.Q, "Q");
+      if (solveFor === "Q") return div(k.f0, k.BW, "BW");
+      return fin(k.BW * k.Q);
+    },
+  },
+  {
+    id: "half-wave-average",
+    name: "Half-Wave Average",
+    category: "Rectifiers",
+    formula: "Vavg = Vpeak / π",
+    fields: [
+      { id: "Vpeak", label: "Peak output", symbol: "Vpeak", unit: "V" },
+      { id: "Vavg", label: "Average", symbol: "Vavg", unit: "V" },
+    ],
+    solvableFor: ["Vavg", "Vpeak"],
+    compute: (k, solveFor) => (solveFor === "Vavg" ? fin(k.Vpeak / Math.PI) : fin(k.Vavg * Math.PI)),
+  },
+  {
+    id: "full-wave-average",
+    name: "Full-Wave Average",
+    category: "Rectifiers",
+    formula: "Vavg = 2 Vpeak / π",
+    fields: [
+      { id: "Vpeak", label: "Peak output", symbol: "Vpeak", unit: "V" },
+      { id: "Vavg", label: "Average", symbol: "Vavg", unit: "V" },
+    ],
+    solvableFor: ["Vavg", "Vpeak"],
+    compute: (k, solveFor) =>
+      solveFor === "Vavg" ? fin((2 * k.Vpeak) / Math.PI) : fin((k.Vavg * Math.PI) / 2),
+  },
+  {
+    id: "rc-low-pass-gain",
+    name: "RC Low-Pass Gain",
+    category: "Filters",
+    formula: "|H| = 1 / √(1 + (f/fc)²)",
+    fields: [
+      { id: "f", label: "Frequency", symbol: "f", unit: "Hz" },
+      { id: "fc", label: "Cutoff", symbol: "fc", unit: "Hz" },
+      { id: "gain", label: "Gain", symbol: "|H|", unit: "" },
+    ],
+    solvableFor: ["gain"],
+    compute: (k) => fin(1 / Math.sqrt(1 + (k.f / k.fc) ** 2)),
+  },
+  {
+    id: "thevenin-load",
+    name: "Thevenin Load",
+    category: "Network theorems",
+    formula: "IL = Vth / (Rth + RL)",
+    fields: [
+      { id: "Vth", label: "Thevenin voltage", symbol: "Vth", unit: "V" },
+      { id: "Rth", label: "Thevenin resistance", symbol: "Rth", unit: "Ω" },
+      { id: "RL", label: "Load", symbol: "RL", unit: "Ω" },
+      { id: "IL", label: "Load current", symbol: "IL", unit: "A" },
+    ],
+    solvableFor: ["IL"],
+    compute: (k) => div(k.Vth, k.Rth + k.RL, "Rth + RL"),
+  },
+  {
+    id: "norton-load",
+    name: "Norton Load",
+    category: "Network theorems",
+    formula: "VL = In × (Rn ∥ RL)",
+    fields: [
+      { id: "In", label: "Norton current", symbol: "In", unit: "A" },
+      { id: "Rn", label: "Norton resistance", symbol: "Rn", unit: "Ω" },
+      { id: "RL", label: "Load", symbol: "RL", unit: "Ω" },
+      { id: "VL", label: "Load voltage", symbol: "VL", unit: "V" },
+    ],
+    solvableFor: ["VL"],
+    compute: (k) => {
+      const parallel = div(k.Rn * k.RL, k.Rn + k.RL, "Rn + RL");
+      return fin(k.In * parallel);
+    },
+  },
+  {
+    id: "max-power",
+    name: "Maximum Power Transfer",
+    category: "Network theorems",
+    formula: "Pmax = Vth² / (4 Rth)",
+    fields: [
+      { id: "Vth", label: "Thevenin voltage", symbol: "Vth", unit: "V" },
+      { id: "Rth", label: "Thevenin resistance", symbol: "Rth", unit: "Ω" },
+      { id: "Pmax", label: "Maximum power", symbol: "Pmax", unit: "W" },
+    ],
+    solvableFor: ["Pmax"],
+    compute: (k) => div(k.Vth * k.Vth, 4 * k.Rth, "4 Rth"),
+  },
 ];
 
 /** Human-friendly number formatting for calculator output. */

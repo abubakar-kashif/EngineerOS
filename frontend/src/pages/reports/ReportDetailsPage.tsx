@@ -222,18 +222,54 @@ function PercentageErrorSection({ rows }: { rows: ReportPercentageErrorRow[] }) 
 }
 
 function QuizPerformanceSection({ performance }: { performance: ReportQuizPerformance }) {
+  const incorrect =
+    performance.incorrect_answers ??
+    performance.total_questions - performance.correct_answers;
+  const difficultyLabel =
+    performance.difficulty === "easy"
+      ? "Easy"
+      : performance.difficulty === "medium"
+        ? "Medium"
+        : performance.difficulty === "hard"
+          ? "Difficult"
+          : null;
+  const items = performance.items ?? [];
+
   return (
     <ReportSection icon={<GraduationCap size={16} />} title="Quiz Performance">
-      <div className="report-quiz">
-        <div className="report-quiz-score">
-          <span className="report-quiz-score-value">{performance.score}%</span>
-          <Badge variant={performance.passed ? "success" : "danger"} size="sm">
-            {performance.passed ? "Passed" : "Not passed"}
-          </Badge>
+      <div className="report-quiz-block">
+        <div className="report-quiz">
+          <div className="report-quiz-score">
+            <span className="report-quiz-score-value">{performance.score}%</span>
+            <Badge variant={performance.passed ? "success" : "danger"} size="sm">
+              {performance.passed ? "Passed" : "Not passed"}
+            </Badge>
+          </div>
+          <p className="report-quiz-detail">
+            {performance.correct_answers} correct, {incorrect} incorrect, out of{" "}
+            {performance.total_questions} questions
+            {difficultyLabel ? ` · ${difficultyLabel}` : ""}.
+          </p>
         </div>
-        <p className="report-quiz-detail">
-          {performance.correct_answers} of {performance.total_questions} questions answered correctly.
-        </p>
+        {items.length > 0 && (
+          <ol className="report-quiz-items">
+            {items.map((item, index) => (
+              <li key={item.question_id} className="report-quiz-item">
+                <p className="report-quiz-item-q">
+                  {index + 1}. {item.question}
+                </p>
+                <p>
+                  Your answer: {item.your_answer_text ?? item.your_answer ?? "Unanswered"}
+                  {item.is_correct ? " (correct)" : " (incorrect)"}
+                </p>
+                {!item.is_correct && (
+                  <p>Correct answer: {item.correct_answer_text ?? item.correct_answer}</p>
+                )}
+                <p>{item.explanation}</p>
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
     </ReportSection>
   );

@@ -5160,6 +5160,36 @@
   font-size: 13px;
   color: var(--color-text-secondary);
 }
+.report-quiz-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 100%;
+}
+.report-quiz-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.report-quiz-item {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--space-sm) var(--space-md);
+}
+.report-quiz-item p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.report-quiz-item-q {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
 
 /* ── Lab document sections (Phase 7) ── */
 

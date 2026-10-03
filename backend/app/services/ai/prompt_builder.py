@@ -628,6 +628,39 @@ Never present old conversation numbers as the current result."""
                 )
                 if item.get("suggestion"):
                     lines.append(f"    Suggested fix: {item.get('suggestion')}")
+        generators = state.get("functionGenerator") if isinstance(state, dict) else None
+        if isinstance(generators, list) and generators:
+            lines.append(
+                "FUNCTION GENERATOR (this is the source the solver used — do not invent another):"
+            )
+            for source in generators:
+                if not isinstance(source, dict):
+                    continue
+                lines.append(
+                    "  "
+                    f"id={source.get('id')} waveform={source.get('waveform')} "
+                    f"amplitude={source.get('amplitude')} frequency={source.get('frequency')} "
+                    f"phase={source.get('phase')} offset={source.get('offset')} "
+                    f"outputEnabled={source.get('outputEnabled')}"
+                )
+        scope = state.get("oscilloscope") if isinstance(state, dict) else None
+        if isinstance(scope, dict):
+            lines.append(
+                "OSCILLOSCOPE (signals present in the time series; do not describe a waveform that is absent): "
+                f"samples={scope.get('sampleCount')} signals={scope.get('signals')}"
+            )
+        graphs = state.get("graphs") if isinstance(state, dict) else None
+        if isinstance(graphs, list) and graphs:
+            titles = [
+                str(item.get("title") or item.get("id"))
+                for item in graphs
+                if isinstance(item, dict)
+            ]
+            if titles:
+                lines.append(
+                    "GRAPHS FROM THIS RUN (reason from these, not a generic textbook plot): "
+                    + "; ".join(titles)
+                )
         return lines
 
     def _format_quiz(self, quiz: Dict[str, Any]) -> str:

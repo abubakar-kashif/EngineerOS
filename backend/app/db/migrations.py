@@ -162,3 +162,4 @@ def run_migrations(engine: Engine) -> None:
         "quiz_performance",
     ):
         _add_column(engine, "reports", column, "JSON")
+    _add_column(engine, "quiz_attempts", "difficulty", "VARCHAR(20)")

@@ -48,6 +48,7 @@ def submit_quiz(
     experiment_id: str,
     answers: list[QuizAnswer],
     user: User | None = None,
+    difficulty: str | None = None,
 ) -> QuizSubmitResponse:
     """Grade a quiz submission.
 
@@ -124,6 +125,7 @@ def submit_quiz(
             total_questions=total_questions,
             correct_answers=correct_answers,
             passed=passed,
+            difficulty=difficulty,
         )
 
     return QuizSubmitResponse(
@@ -165,6 +167,7 @@ def _record_attempt(
     total_questions: int,
     correct_answers: int,
     passed: bool,
+    difficulty: str | None = None,
 ) -> QuizAttempt:
     """Persist the graded attempt and trigger its follow-up effects."""
     attempt = QuizAttempt(
@@ -175,6 +178,7 @@ def _record_attempt(
         correct_answers=correct_answers,
         passed=passed,
         answers=[answer.model_dump() for answer in answers],
+        difficulty=difficulty,
     )
     db.add(attempt)
     db.commit()

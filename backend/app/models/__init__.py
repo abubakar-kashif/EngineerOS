@@ -14,7 +14,7 @@ from app.models.user import SessionToken, User
 from app.models.preferences import UserPreferences
 from app.models.conversation import Conversation, ConversationMessage
 from app.models.notification import Notification
-from app.models.simulation import SimulationRun
+from app.models.simulation import Simulation, SimulationRun
 
 __all__ = [
     "Experiment",
@@ -29,5 +29,6 @@ __all__ = [
     "Conversation",
     "ConversationMessage",
     "Notification",
+    "Simulation",
     "SimulationRun",
 ]

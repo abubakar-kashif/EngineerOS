@@ -6,6 +6,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
 
 from fastapi.testclient import TestClient
 
+from app.data.quiz_bank import QUIZ_BANK
 from app.db.database import Base, SessionLocal, engine
 from app.db.seed import seed_quizzes
 from app.main import app
@@ -20,9 +21,8 @@ seed_quizzes()
 client = TestClient(app)
 
 ANSWER_LETTERS = ("A", "B", "C", "D")
-EXPECTED_BANK_SIZE = 55
+EXPECTED_BANK_SIZE = len(QUIZ_BANK["ohms-law"])
 EXPECTED_EXPERIMENT_COUNT = 23
-EXPECTED_TOTAL = EXPECTED_BANK_SIZE * EXPECTED_EXPERIMENT_COUNT
 
 
 def seeded_answer_key(experiment_id="ohms-law"):
@@ -196,8 +196,9 @@ def test_quiz_bank_has_at_least_40_questions_per_experiment():
 
     assert len(QUIZ_BANK) == EXPECTED_EXPERIMENT_COUNT
     assert all(len(questions) >= 40 for questions in QUIZ_BANK.values())
-    assert all(len(questions) == EXPECTED_BANK_SIZE for questions in QUIZ_BANK.values())
-    assert sum(len(questions) for questions in QUIZ_BANK.values()) == EXPECTED_TOTAL
+    assert all(len(questions) >= 151 for questions in QUIZ_BANK.values())
+    assert all(len(questions) <= 220 for questions in QUIZ_BANK.values())
+    assert len(QUIZ_BANK["ohms-law"]) == EXPECTED_BANK_SIZE
 
     for experiment_id, questions in QUIZ_BANK.items():
         seen = set()
@@ -240,7 +241,8 @@ def test_seed_is_idempotent_and_repairs_partial_seed():
     seed_quizzes()
 
     with SessionLocal() as db:
-        assert db.query(QuizQuestion).count() == EXPECTED_TOTAL
+        from app.data.quiz_bank import QUIZ_BANK
+        assert db.query(QuizQuestion).count() == sum(len(items) for items in QUIZ_BANK.values())
 
 
 def test_seed_refreshes_stale_rows():

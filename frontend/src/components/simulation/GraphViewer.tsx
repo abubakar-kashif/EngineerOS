@@ -63,6 +63,10 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
     () => buildGraphSelectorGroups(presets, signals),
     [presets, signals],
   );
+  const visibleGroups = useMemo(() => {
+    const analysis = groups.filter((group) => group.id === "analysis" && group.options.length > 0);
+    return analysis.length > 0 ? analysis : groups;
+  }, [groups]);
 
   const [mode, setMode] = useState<"preset" | "custom">("preset");
   const [activeOptionId, setActiveOptionId] = useState(defaultSelectorOptionId(groups));
@@ -71,9 +75,9 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
   const [zoom, setZoom] = useState(1);
   const [hover, setHover] = useState<{ x: number; y: number; label: string } | null>(null);
 
-  const resolvedOptionId = findSelectorOption(groups, activeOptionId)
+  const resolvedOptionId = findSelectorOption(visibleGroups, activeOptionId)
     ? activeOptionId
-    : defaultSelectorOptionId(groups);
+    : defaultSelectorOptionId(visibleGroups);
   const resolvedXId = xCandidates.some((s) => s.id === xId)
     ? xId
     : (xCandidates[0]?.id ?? "index");
@@ -184,7 +188,7 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
     return (
       <div className="sim-graph-viewer">
         <GraphOptionList
-          groups={groups}
+          groups={visibleGroups}
           selectedId={resolvedOptionId}
           onSelect={selectOption}
         />
@@ -223,7 +227,7 @@ function GraphViewer({ result, graphs: presetGraphs, circuit = null }: GraphView
   return (
     <div className="sim-graph-viewer">
       <GraphOptionList
-        groups={groups}
+        groups={visibleGroups}
         selectedId={resolvedOptionId}
         onSelect={selectOption}
       />

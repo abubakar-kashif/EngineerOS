@@ -1,5 +1,7 @@
 import type { AnswerLetter, QuizAttemptDifficulty, QuizCategory, QuizQuestionCount } from "../../types/quiz";
 import { QUIZ_BANK_EXTRA } from "./quizBankExtra";
+import { QUIZ_BAND_FILL } from "./quizBandFill";
+import { QUIZ_POOL_TOPUP } from "./quizPoolTopUp";
 import { RC_LOW_PASS_BASE } from "./rcLowPassQuiz";
 
 /**
@@ -960,16 +962,53 @@ QUIZ_BANK_BASE["rc-low-pass-filter"] = RC_LOW_PASS_BASE;
 export const QUIZ_BANK: Record<string, SeedQuizQuestion[]> = Object.fromEntries(
   Object.entries(QUIZ_BANK_BASE).map(([experimentId, questions]) => [
     experimentId,
-    [...questions, ...(QUIZ_BANK_EXTRA[experimentId] ?? [])],
+    [...questions, ...(QUIZ_BANK_EXTRA[experimentId] ?? []), ...(QUIZ_POOL_TOPUP[experimentId] ?? []), ...(QUIZ_BAND_FILL[experimentId] ?? [])],
   ]),
 );
 
 const EASY_CATEGORIES = new Set<QuizCategory>(["conceptual", "formulas"]);
 const MEDIUM_CATEGORIES = new Set<QuizCategory>(["numerical", "circuit_behaviour", "practical"]);
 
+/** Uncategorized extras are classified from the question itself, not dumped into Easy. */
+function inferUncategorizedDifficulty(question: string): QuizAttemptDifficulty {
+  const text = question.toLowerCase();
+  if (
+    /mistake|blown|damage|fault|wrong|incorrect|troubleshoot|what happens if|why does|open-circuit|near short|meter damage|incorrectly|large error|debugging/.test(
+      text,
+    )
+  ) {
+    return "hard";
+  }
+  if (/\d/.test(question) || /is about:|implies|error percent/.test(text)) return "medium";
+  return "easy";
+}
+
+/**
+ * Conceptual items that are actually a calculation or a fault check.
+ * Definitions stay Easy. This does not add questions.
+ */
+function conceptualBand(question: string): QuizAttemptDifficulty {
+  const text = question.toLowerCase();
+  if (
+    /incorrectly|large error|mistake|wrong |debug|if a diode|far from|unreliable|contaminat|not the |why not use|was opened instead|was left/.test(
+      text,
+    )
+  ) {
+    return "hard";
+  }
+  if (
+    /is about|implies |error percent|doubling|algebraic|pmax|optimum|≈/.test(text) ||
+    (/\d/.test(question) && /[=≈/]/.test(question))
+  ) {
+    return "medium";
+  }
+  return "easy";
+}
+
 /** Map bank categories onto Easy / Medium / Hard without a schema change. */
 export function seedQuestionDifficulty(entry: SeedQuizQuestion): QuizAttemptDifficulty {
-  if (!entry.category) return "easy";
+  if (!entry.category) return inferUncategorizedDifficulty(entry.question);
+  if (entry.category === "conceptual") return conceptualBand(entry.question);
   if (EASY_CATEGORIES.has(entry.category)) return "easy";
   if (MEDIUM_CATEGORIES.has(entry.category)) return "medium";
   return "hard";

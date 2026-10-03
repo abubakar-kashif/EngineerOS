@@ -39,4 +39,10 @@ def submit_quiz_answers(
     user: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
-    return submit_quiz(db, experiment_id, payload.answers, user)
+    return submit_quiz(
+        db,
+        experiment_id,
+        payload.answers,
+        user,
+        payload.difficulty,
+    )

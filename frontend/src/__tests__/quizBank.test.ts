@@ -27,7 +27,7 @@ describe("quiz bank shape (Phase 2)", () => {
     for (const [experimentId, questions] of experiments) {
       expect(questions.length, experimentId).toBeGreaterThanOrEqual(40);
       expect(questions.length, experimentId).toBeGreaterThanOrEqual(50);
-      expect(questions.length, experimentId).toBeLessThanOrEqual(60);
+      expect(questions.length, experimentId).toBeLessThanOrEqual(220);
     }
   });
 
@@ -64,10 +64,12 @@ describe("quiz bank shape (Phase 2)", () => {
     }
   });
 
-  it("has at least 10 Easy questions per experiment so a short attempt can stay in-band", () => {
+  it("has at least 40 questions in each difficulty so 10, 20, and 40 stay in-band", () => {
     for (const [experimentId] of experiments) {
       const counts = countSeedQuestionsByDifficulty(experimentId);
-      expect(counts.easy, `${experimentId} easy`).toBeGreaterThanOrEqual(10);
+      expect(counts.easy, `${experimentId} easy`).toBeGreaterThanOrEqual(40);
+      expect(counts.medium, `${experimentId} medium`).toBeGreaterThanOrEqual(40);
+      expect(counts.hard, `${experimentId} hard`).toBeGreaterThanOrEqual(40);
     }
   });
 });

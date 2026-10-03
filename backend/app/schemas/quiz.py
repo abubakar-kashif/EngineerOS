@@ -38,6 +38,7 @@ class QuizAnswer(BaseModel):
 
 class QuizSubmitRequest(BaseModel):
     answers: list[QuizAnswer] = Field(min_length=1)
+    difficulty: Literal["easy", "medium", "hard"] | None = None
 
 
 class QuizSubmitResponse(BaseModel):

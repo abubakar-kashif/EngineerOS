@@ -159,21 +159,40 @@ describe("getQuiz", () => {
         .map((entry) => entry.question),
     );
     const medium = await getQuiz("ohms-law", { difficulty: "medium", questionCount: 20 });
-    expect(medium.questions).toHaveLength(20);
     expect(medium.difficulty).toBe("medium");
-    const mediumInAttempt = medium.questions.filter((question) => mediumBank.has(question.question));
-    expect(mediumInAttempt.length).toBe(Math.min(20, mediumBank.size));
+    expect(medium.questions.every((question) => mediumBank.has(question.question))).toBe(true);
+    if (mediumBank.size >= 20) expect(medium.questions).toHaveLength(20);
+    else expect(medium.questions.length).toBeLessThanOrEqual(mediumBank.size);
 
-    const hard = await getQuiz("ohms-law", { difficulty: "hard", questionCount: 40 });
-    expect(hard.questions).toHaveLength(40);
     const hardBank = new Set(
       QUIZ_BANK["ohms-law"]
         .filter((entry) => seedQuestionDifficulty(entry) === "hard")
         .map((entry) => entry.question),
     );
-    expect(hard.questions.filter((question) => hardBank.has(question.question)).length).toBe(
-      Math.min(40, hardBank.size),
-    );
+    const hard = await getQuiz("ohms-law", { difficulty: "hard", questionCount: 40 });
+    expect(hard.difficulty).toBe("hard");
+    expect(hard.questions.every((question) => hardBank.has(question.question))).toBe(true);
+    if (hardBank.size >= 40) expect(hard.questions).toHaveLength(40);
+    else expect(hard.questions.length).toBeLessThanOrEqual(hardBank.size);
+  });
+
+  it("does not borrow questions from another difficulty", async () => {
+    mockApiRoutes({});
+    for (const experimentId of Object.keys(QUIZ_BANK)) {
+      for (const difficulty of ["easy", "medium", "hard"] as const) {
+        const bank = new Set(
+          QUIZ_BANK[experimentId]
+            .filter((entry) => seedQuestionDifficulty(entry) === difficulty)
+            .map((entry) => entry.question),
+        );
+        for (const count of [10, 20, 40] as const) {
+          const quiz = await getQuiz(experimentId, { difficulty, questionCount: count });
+          expect(quiz.questions, `${experimentId} ${difficulty} ${count}`).toHaveLength(count);
+          expect(quiz.questions.every((question) => bank.has(question.question))).toBe(true);
+          expect(new Set(quiz.questions.map((question) => question.question)).size).toBe(count);
+        }
+      }
+    }
   });
 
   it("restores quiz setup selections from session storage", () => {

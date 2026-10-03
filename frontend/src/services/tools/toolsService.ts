@@ -671,6 +671,17 @@ export const UNIT_CATEGORIES: UnitCategory[] = [
       { id: "byte", label: "Byte", symbol: "B", factor: 1 },
       { id: "kb", label: "Kilobyte", symbol: "kB", factor: 1000 },
       { id: "mb", label: "Megabyte", symbol: "MB", factor: 1e6 },
+      { id: "gb", label: "Gigabyte", symbol: "GB", factor: 1e9 },
+    ],
+  },
+  {
+    id: "impedance",
+    label: "Impedance",
+    base_unit: "Ω",
+    units: [
+      { id: "ohm", label: "Ohm", symbol: "Ω", factor: 1 },
+      { id: "kilohm", label: "Kilohm", symbol: "kΩ", factor: 1e3 },
+      { id: "megohm", label: "Megohm", symbol: "MΩ", factor: 1e6 },
     ],
   },
   {

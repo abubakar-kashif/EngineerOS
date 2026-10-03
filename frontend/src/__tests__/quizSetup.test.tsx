@@ -18,9 +18,8 @@ describe("QuizSetup", () => {
           topic="Ohm's Law"
           difficulty="medium"
           questionCount={20}
-          poolSize={55}
-          preferredCount={22}
-          supportedCounts={[10, 20, 40]}
+          poolSize={22}
+          supportedCounts={[10, 20]}
           onDifficultyChange={onDifficultyChange}
           onQuestionCountChange={onQuestionCountChange}
           onStart={onStart}
@@ -32,7 +31,7 @@ describe("QuizSetup", () => {
     expect(screen.getByText(/fundamental concepts and straightforward calculations/i)).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /medium/i })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("radio", { name: /20 questions/i })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("radio", { name: /40 questions/i })).not.toBeDisabled();
+    expect(screen.getByRole("radio", { name: /40 questions/i })).toBeDisabled();
     expect(screen.getByText("Difficulty")).toBeInTheDocument();
     expect(screen.getByText("Ohm's Law")).toBeInTheDocument();
 
