@@ -138,15 +138,14 @@ export function flattenSelectorOptions(groups: GraphSelectorGroup[]): GraphSelec
   return groups.flatMap((group) => group.options);
 }
 
-const PREFERRED_ANALYSIS_GRAPH_IDS = ["frequency_response_gain", "function_generator_scope"];
-
-/** Prefer the frequency-response or scope plot when the solver produced one, else the first analysis plot. */
+/** Prefer the RC low-pass gain plot when that lab produced a phase graph; otherwise keep the first analysis plot. */
 export function defaultSelectorOptionId(groups: GraphSelectorGroup[]): string {
   const analysis = groups.find((group) => group.id === "analysis");
-  const preferred = analysis?.options.find(
-    (option) => option.graphId != null && PREFERRED_ANALYSIS_GRAPH_IDS.includes(option.graphId),
-  );
-  if (preferred) return preferred.id;
+  const lowPass = analysis?.options.some((option) => option.graphId === "rc_low_pass_phase");
+  const gain = lowPass
+    ? analysis?.options.find((option) => option.graphId === "frequency_response_gain")
+    : undefined;
+  if (gain) return gain.id;
   if (analysis?.options[0]) return analysis.options[0].id;
   return groups[0]?.options[0]?.id ?? "";
 }
