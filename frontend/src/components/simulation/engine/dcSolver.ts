@@ -240,6 +240,11 @@ function solveStamps(
     stampConductance(A as unknown as number[][], indexOf, n1, n2, g);
   };
 
+  // OFF diodes stay open, but a 1 nS leak keeps a floating bridge source solvable.
+  for (const d of diodes) {
+    if (!d.on && !skipIds.has(d.id)) stampG(d.nAnode, d.nCathode, 1e-9);
+  }
+
   for (const el of netlist.elements) {
     if (el.kind === 'resistor') {
       stampG(el.n1, el.n2, 1 / el.resistance);

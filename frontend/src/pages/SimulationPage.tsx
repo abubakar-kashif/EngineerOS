@@ -65,6 +65,7 @@ const CATALOG_EXPERIMENT_IDS = [
   "rlc-circuit",
   "series-resonance",
   "half-wave-rectifier",
+  "full-wave-bridge-rectifier",
   "diode-characteristics",
   "led-circuit",
   "wheatstone-bridge",
@@ -73,6 +74,7 @@ const CATALOG_EXPERIMENT_IDS = [
   "thevenin-theorem",
   "norton-theorem",
   "maximum-power-transfer",
+  "capacitor-charging",
 ] as const;
 
 function SimulationPage() {

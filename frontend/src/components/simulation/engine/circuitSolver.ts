@@ -31,12 +31,14 @@ import {
 } from './electricalSnapshot';
 import {
   circuitHasDynamicElements,
+  circuitHasNonSineAc,
   circuitNeedsTimeDomain,
   inferTransientOptions,
   solveTransient,
   type TransientOptions,
 } from './transientSolver';
 import { extractHalfWaveRectifierMetrics } from './halfWaveRectifierAnalysis';
+import { extractFullWaveBridgeMetrics } from './fullWaveBridgeAnalysis';
 import {
   extractRcCircuitMetrics,
   prepareRcTransientCircuit,
@@ -77,13 +79,22 @@ export interface SolveOptions {
   frequencySweep?: FrequencySweepOptions | boolean;
 }
 
+function isRcExperiment(experimentId?: string): boolean {
+  return experimentId === 'rc-circuit' || experimentId === 'capacitor-charging';
+}
+
 function isTransientLab(experimentId?: string): boolean {
   return (
-    experimentId === 'rc-circuit' ||
+    isRcExperiment(experimentId) ||
     experimentId === 'rl-circuit' ||
     experimentId === 'rlc-circuit' ||
-    experimentId === 'half-wave-rectifier'
+    experimentId === 'half-wave-rectifier' ||
+    experimentId === 'full-wave-bridge-rectifier'
   );
+}
+
+function circuitHasDiode(circuit: CircuitDefinition): boolean {
+  return circuit.components.some((c) => c.type === 'diode' || c.type === 'led');
 }
 
 function resolveTransientOptions(
@@ -94,8 +105,14 @@ function resolveTransientOptions(
   if (options?.transient && typeof options.transient === 'object') {
     return options.transient;
   }
+  const resistiveAc =
+    circuitHasAcSource(circuit) && !circuitHasDynamicElements(circuit);
   const auto =
-    options?.transient === true || isTransientLab(circuit.experimentId);
+    options?.transient === true ||
+    isTransientLab(circuit.experimentId) ||
+    resistiveAc ||
+    circuitHasNonSineAc(circuit) ||
+    (circuitHasAcSource(circuit) && circuitHasDiode(circuit));
   if (!auto) return null;
   if (!circuitNeedsTimeDomain(circuit)) return null;
   return inferTransientOptions(circuit);
@@ -106,8 +123,15 @@ function resolveFrequencySweepOptions(
   options?: SolveOptions,
 ): FrequencySweepOptions | boolean | null {
   if (options?.frequencySweep === false) return null;
-  // Rectifier is a time-domain lab — do not run phasor frequency sweeps.
-  if (circuit.experimentId === 'half-wave-rectifier') return null;
+  // Rectifiers and non-sine drives are time-domain — phasor sweeps would fake a sine.
+  if (
+    circuit.experimentId === 'half-wave-rectifier' ||
+    circuit.experimentId === 'full-wave-bridge-rectifier' ||
+    circuitHasDiode(circuit) ||
+    circuitHasNonSineAc(circuit)
+  ) {
+    return null;
+  }
   if (options?.frequencySweep && typeof options.frequencySweep === 'object') {
     return options.frequencySweep;
   }
@@ -127,11 +151,12 @@ export function solveCircuit(
   const binding = solveBinding(circuit);
   const transientOpts = resolveTransientOptions(circuit, options);
   const frequencySweepOpts = resolveFrequencySweepOptions(circuit, options);
-  const isRcLab = circuit.experimentId === 'rc-circuit';
+  const isRcLab = isRcExperiment(circuit.experimentId);
   const isRlLab = circuit.experimentId === 'rl-circuit';
   const isRlcLab = circuit.experimentId === 'rlc-circuit';
   const isSeriesResonanceLab = circuit.experimentId === 'series-resonance';
   const isHalfWaveLab = circuit.experimentId === 'half-wave-rectifier';
+  const isFullWaveLab = circuit.experimentId === 'full-wave-bridge-rectifier';
   /** Open charge switch remaps to a solvable R–C / R–L loop before validate/solve. */
   let active = circuit;
   let preparedMode: string | undefined;
@@ -268,15 +293,28 @@ export function solveCircuit(
       }
     }
 
-    if (isHalfWaveLab || (measurements.timeSeries && circuitNeedsTimeDomain(active))) {
-      const hasDiode = active.components.some(
+    if (
+      isHalfWaveLab ||
+      isFullWaveLab ||
+      (measurements.timeSeries && circuitNeedsTimeDomain(active))
+    ) {
+      const diodeCount = active.components.filter(
         (c) => c.type === 'diode' || c.type === 'led',
-      );
-      if (hasDiode && !hasC && !hasL) {
-        const hw = extractHalfWaveRectifierMetrics(active, measurements);
-        if (hw) {
-          measurements.halfWaveRectifier = hw;
-          meta.halfWaveRectifier = hw;
+      ).length;
+      if (diodeCount > 0 && !hasC && !hasL) {
+        const useBridge = isFullWaveLab || (!isHalfWaveLab && diodeCount >= 4);
+        if (useBridge) {
+          const fw = extractFullWaveBridgeMetrics(active, measurements);
+          if (fw) {
+            measurements.fullWaveBridge = fw;
+            meta.fullWaveBridge = fw;
+          }
+        } else {
+          const hw = extractHalfWaveRectifierMetrics(active, measurements);
+          if (hw) {
+            measurements.halfWaveRectifier = hw;
+            meta.halfWaveRectifier = hw;
+          }
         }
       }
     }

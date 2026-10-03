@@ -67,7 +67,22 @@ interface DiodeState {
   vf: number;
 }
 
-/** Instantaneous voltage for DC or sine AC sources at time t. */
+export type AcWaveformKind = "sine" | "square" | "triangle";
+
+/** Waveform actually generated for an AC source. Unknown labels stay sine. */
+export function acWaveformKind(props: {
+  waveform?: string | number | boolean;
+}): AcWaveformKind {
+  const raw = typeof props.waveform === "string" ? props.waveform.toLowerCase() : "";
+  if (raw === "square" || raw === "triangle") return raw;
+  return "sine";
+}
+
+/**
+ * Instantaneous voltage for DC or AC sources at time t.
+ * Sine, square, and triangle are generated from amplitude, frequency, phase,
+ * optional offset, and optional square duty cycle — not a stand-in sine.
+ */
 export function instantaneousSourceVoltage(
   circuit: CircuitDefinition,
   sourceId: string,
@@ -80,7 +95,27 @@ export function instantaneousSourceVoltage(
   const f = typeof comp.properties.frequency === "number" ? comp.properties.frequency : 0;
   const phaseDeg =
     typeof comp.properties.phase === "number" ? comp.properties.phase : 0;
-  return amp * Math.sin(2 * Math.PI * f * t + (phaseDeg * Math.PI) / 180);
+  const offset =
+    typeof comp.properties.offset === "number" && Number.isFinite(comp.properties.offset)
+      ? comp.properties.offset
+      : 0;
+  const kind = acWaveformKind(comp.properties);
+  if (!(f > 0)) return offset;
+  const cycle = f * t + phaseDeg / 360;
+  const frac = cycle - Math.floor(cycle);
+  let y: number;
+  if (kind === "square") {
+    const dutyRaw =
+      typeof comp.properties.dutyCycle === "number" ? comp.properties.dutyCycle : 0.5;
+    const duty = Math.min(1, Math.max(0, dutyRaw));
+    y = frac < duty ? amp : -amp;
+  } else if (kind === "triangle") {
+    // Linear rise from −A to +A over the first half-cycle, then back to −A.
+    y = frac < 0.5 ? -amp + 4 * amp * frac : amp - 4 * amp * (frac - 0.5);
+  } else {
+    y = amp * Math.sin(2 * Math.PI * frac);
+  }
+  return y + offset;
 }
 
 function fail(error: string, errorCode: ErrorCode = "SOLVER_FAILED"): TransientResult {
@@ -212,6 +247,8 @@ function solveCompanionStep(
   dt: number,
   sourceVoltageAtT: Map<string, number>,
   diodes: DiodeState[],
+  /** t = 0 sample: hold C as a voltage source and L as a current source. */
+  freezeDynamics = false,
 ):
   | {
       voltages: Map<string, number>;
@@ -225,6 +262,17 @@ function solveCompanionStep(
     diodes,
     sourceVoltageAtT,
   );
+  if (freezeDynamics) {
+    for (const el of netlist.elements) {
+      if (skipIds.has(el.id) || el.kind !== "capacitor") continue;
+      voltageSources.push({
+        id: el.id,
+        nPos: el.n1,
+        nNeg: el.n2,
+        voltage: state.vc.get(el.id) ?? 0,
+      });
+    }
+  }
   const nodes = activeNets(netlist, skipIds, diodes);
   const n = nodes.length;
   const m = voltageSources.length;
@@ -245,6 +293,13 @@ function solveCompanionStep(
   const stampG = (n1: string, n2: string, g: number) =>
     stampConductance(A as unknown as number[][], indexOf, n1, n2, g);
 
+  // OFF diodes are open, but a tiny leak keeps a floating bridge source
+  // referenced so the MNA matrix can solve. 1 nS is negligible vs lab loads.
+  const DIODE_OFF_LEAK = 1e-9;
+  for (const d of diodes) {
+    if (!d.on) stampG(d.nAnode, d.nCathode, DIODE_OFF_LEAK);
+  }
+
   for (const el of netlist.elements) {
     if (skipIds.has(el.id)) continue;
     if (el.kind === "resistor") {
@@ -257,18 +312,23 @@ function solveCompanionStep(
       stampG(el.nPos, el.nNeg, VOLTMETER_CONDUCTANCE);
     } else if (el.kind === "current_source") {
       stampCurrent(rhs, indexOf, el.nPos, el.nNeg, el.current);
-    } else if (el.kind === "capacitor") {
+    } else if (el.kind === "capacitor" && !freezeDynamics) {
       const g = el.capacitance / dt;
       const vcPrev = state.vc.get(el.id) ?? 0;
       stampG(el.n1, el.n2, g);
       // i = G·v − G·v_prev  → RHS += G·v_prev at n1
       stampCurrent(rhs, indexOf, el.n1, el.n2, g * vcPrev);
     } else if (el.kind === "inductor") {
-      const g = dt / el.inductance;
       const ilPrev = state.il.get(el.id) ?? 0;
-      stampG(el.n1, el.n2, g);
-      // i = G·v + i_prev  → Ieq = −i_prev in (G·v − Ieq) form
-      stampCurrent(rhs, indexOf, el.n1, el.n2, -ilPrev);
+      if (freezeDynamics) {
+        // Passive-sign current enters n1; frozen branch current is n1 → n2.
+        stampCurrent(rhs, indexOf, el.n2, el.n1, ilPrev);
+      } else {
+        const g = dt / el.inductance;
+        stampG(el.n1, el.n2, g);
+        // i = G·v + i_prev  → Ieq = −i_prev in (G·v − Ieq) form
+        stampCurrent(rhs, indexOf, el.n1, el.n2, -ilPrev);
+      }
     }
   }
 
@@ -305,15 +365,24 @@ function solveCompanionStep(
   const branchCurrent = new Map<string, number>();
   for (const el of netlist.elements) {
     if (el.kind === "capacitor") {
-      const g = el.capacitance / dt;
-      const vcPrev = state.vc.get(el.id) ?? 0;
-      const v = netV(voltages, el.n1) - netV(voltages, el.n2);
-      branchCurrent.set(el.id, g * (v - vcPrev));
+      if (freezeDynamics) {
+        // MNA unknown is current into the positive terminal (passive sign).
+        branchCurrent.set(el.id, extraCurrent.get(el.id) ?? 0);
+      } else {
+        const g = el.capacitance / dt;
+        const vcPrev = state.vc.get(el.id) ?? 0;
+        const v = netV(voltages, el.n1) - netV(voltages, el.n2);
+        branchCurrent.set(el.id, g * (v - vcPrev));
+      }
     } else if (el.kind === "inductor") {
-      const g = dt / el.inductance;
       const ilPrev = state.il.get(el.id) ?? 0;
-      const v = netV(voltages, el.n1) - netV(voltages, el.n2);
-      branchCurrent.set(el.id, g * v + ilPrev);
+      if (freezeDynamics) {
+        branchCurrent.set(el.id, ilPrev);
+      } else {
+        const g = dt / el.inductance;
+        const v = netV(voltages, el.n1) - netV(voltages, el.n2);
+        branchCurrent.set(el.id, g * v + ilPrev);
+      }
     } else if (el.kind === "resistor") {
       const v = netV(voltages, el.n1) - netV(voltages, el.n2);
       branchCurrent.set(el.id, v / el.resistance);
@@ -341,6 +410,7 @@ function iterateDiodesStep(
   state: DynamicState,
   dt: number,
   sourceVoltageAtT: Map<string, number>,
+  freezeDynamics = false,
 ):
   | {
       voltages: Map<string, number>;
@@ -368,6 +438,7 @@ function iterateDiodesStep(
     dt,
     sourceVoltageAtT,
     diodes,
+    freezeDynamics,
   );
   if ("error" in last) return last;
 
@@ -396,6 +467,7 @@ function iterateDiodesStep(
       dt,
       sourceVoltageAtT,
       diodes,
+      freezeDynamics,
     );
     if ("error" in last) return last;
     if (!changed) break;
@@ -502,24 +574,18 @@ export function inferTransientOptions(circuit: CircuitDefinition): TransientOpti
     (c) => c.type === "diode" || c.type === "led",
   );
 
-  // AC + diode (e.g. rectifier): window from several line-frequency cycles.
-  if (
-    capacitors.length === 0 &&
-    inductors.length === 0 &&
-    acSrc &&
-    hasDiode
-  ) {
+  // AC without L/C is solved in time so sine, square, and triangle reach the scope.
+  if (capacitors.length === 0 && inductors.length === 0) {
+    if (!acSrc) return null;
     const f =
       typeof acSrc.properties.frequency === "number" && acSrc.properties.frequency > 0
         ? acSrc.properties.frequency
         : 50;
     const T = 1 / f;
-    const duration = 5 * T;
-    const timeStep = T / 100;
-    return { duration, timeStep, t0: 0 };
+    const cycles = hasDiode ? 5 : 4;
+    const stepsPerCycle = hasDiode ? 100 : 80;
+    return { duration: cycles * T, timeStep: T / stepsPerCycle, t0: 0 };
   }
-
-  if (capacitors.length === 0 && inductors.length === 0) return null;
 
   const rVals = resistors
     .map((r) => r.properties.resistance)
@@ -572,16 +638,21 @@ export function circuitHasDynamicElements(circuit: CircuitDefinition): boolean {
   );
 }
 
-/** True when a time-domain solve is needed (L/C dynamics or AC+diode switching). */
+export function circuitHasNonSineAc(circuit: CircuitDefinition): boolean {
+  return circuit.components.some(
+    (c) =>
+      c.type === "voltage_source" &&
+      isAcVoltageSource(c.properties) &&
+      acWaveformKind(c.properties) !== "sine",
+  );
+}
+
+/** True when a time-domain solve is needed (L/C or any AC source). */
 export function circuitNeedsTimeDomain(circuit: CircuitDefinition): boolean {
   if (circuitHasDynamicElements(circuit)) return true;
-  const hasAc = circuit.components.some(
+  return circuit.components.some(
     (c) => c.type === "voltage_source" && isAcVoltageSource(c.properties),
   );
-  const hasDiode = circuit.components.some(
-    (c) => c.type === "diode" || c.type === "led",
-  );
-  return hasAc && hasDiode;
 }
 
 export function solveTransient(
@@ -665,7 +736,8 @@ export function solveTransient(
     return map;
   };
 
-  // Sample operating point at t0 (includes AC phase and diode state).
+  // Sample the true initial state at t0. A companion step would already
+  // be one Δt ahead and would report Vc(0) or iL(0) after the first update.
   {
     const src0 = buildSourceMap(t0);
     const solved0 = iterateDiodesStep(
@@ -674,6 +746,7 @@ export function solveTransient(
       state,
       Math.max(timeStep, 1e-12),
       src0,
+      true,
     );
     if ("error" in solved0) {
       return fail(solved0.error);

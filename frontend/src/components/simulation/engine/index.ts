@@ -25,6 +25,7 @@ export * from './acSolver';
 export * from './frequencySweepAnalysis';
 export * from './seriesResonanceAnalysis';
 export * from './halfWaveRectifierAnalysis';
+export * from './fullWaveBridgeAnalysis';
 export * from './transientSolver';
 export * from './circuitSolver';
 

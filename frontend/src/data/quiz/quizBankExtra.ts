@@ -343,10 +343,44 @@ export const QUIZ_BANK_EXTRA: Record<string, SeedQuizQuestion[]> = {
     { question: "Prerequisite lab most related is:", options: ["Thévenin's theorem", "Only LED labs", "Only RC timing", "Only digital gates"], correct_answer: "A", explanation: "Equivalents.", category: "conceptual" },
     { question: "If Pmax reported is in watts but tiny, consider:", options: ["Milliwatts scale (e.g. 0.009 W = 9 mW)", "Deleting the graph", "Ignoring VL", "Setting RL=Vs"], correct_answer: "A", explanation: "Units.", category: "conceptual" },
     { question: "Load matching here means:", options: ["Setting RL close to Rth", "Painting resistors", "Removing ground", "Shorting VM"], correct_answer: "A", explanation: "Definition.", category: "conceptual" },
-  ]
+  ],
 
 
 
+  "capacitor-charging": [
+    { question: "Units of \u03c4 are:", options: ["Seconds", "Ohms", "Farads", "Volts"], correct_answer: "A" as AnswerLetter, explanation: "Time.", category: "formulas" },
+    { question: "Units of C in \u03c4 = RC must be:", options: ["Farads", "Microfarad labels left unconverted always", "Henries", "Hertz"], correct_answer: "A" as AnswerLetter, explanation: "100 \u00b5F = 100\u00d710\u207b\u2076 F.", category: "common_mistakes" },
+    { question: "A student uses 100 instead of 100e-6 for C. \u03c4 becomes:", options: ["Huge and not the intended 1 s", "Still 1 s", "Negative", "Equal to R"], correct_answer: "A" as AnswerLetter, explanation: "Unit conversion error.", category: "common_mistakes" },
+    { question: "The graph x-axis for this lab is:", options: ["Time", "Frequency", "Wiper position", "Quiz score"], correct_answer: "A" as AnswerLetter, explanation: "Transient.", category: "practical" },
+    { question: "The voltage graph y-axis is:", options: ["Capacitor voltage", "Line frequency", "Rth", "Diode count"], correct_answer: "A" as AnswerLetter, explanation: "Vc(t).", category: "practical" },
+    { question: "The current graph y-axis is:", options: ["Capacitor current", "Vin only", "\u03b1", "Ripple frequency"], correct_answer: "A" as AnswerLetter, explanation: "Ic(t).", category: "practical" },
+    { question: "Negative capacitance should be:", options: ["Rejected", "Treated as a faster charge", "Equal to inductance", "The resonance frequency"], correct_answer: "A" as AnswerLetter, explanation: "Invalid component value.", category: "troubleshooting" },
+    { question: "The switch is the control that selects:", options: ["Charge versus discharge", "Sine versus square", "Bridge diode pairs", "Quiz difficulty"], correct_answer: "A" as AnswerLetter, explanation: "Lab control.", category: "conceptual" },
+    { question: "Ground in the starter:", options: ["Closes the return path", "Sets \u03c4 by itself", "Replaces R", "Is optional"], correct_answer: "A" as AnswerLetter, explanation: "Required reference.", category: "conceptual" },
+    { question: "Comparing charge and discharge \u03c4 is valid because:", options: ["The same R and C set both", "Discharge ignores R", "Charge ignores C", "Vin sets \u03c4"], correct_answer: "A" as AnswerLetter, explanation: "Same time constant.", category: "conceptual" },
+    { question: "If Vc never rises, a likely cause is:", options: ["Open switch or open R", "\u03c4 exactly 1 s", "Correct charging", "Too much ground"], correct_answer: "A" as AnswerLetter, explanation: "No charge path.", category: "troubleshooting" },
+    { question: "If Vc jumps instantly to Vin, suspect:", options: ["R bypassed by a short", "Normal \u03c4 = 1 s", "C too large", "Correct discharge"], correct_answer: "A" as AnswerLetter, explanation: "Missing series resistance.", category: "troubleshooting" },
+    { question: "The 63% landmark applies to:", options: ["Charging toward Vin from 0", "Only inductors", "Only diodes", "Only AC peak"], correct_answer: "A" as AnswerLetter, explanation: "1 \u2212 e^(\u22121).", category: "formulas" },
+    { question: "The 37% landmark applies to:", options: ["Discharge from V0", "Charging from 0", "Bridge ripple", "Wiper \u03b1"], correct_answer: "A" as AnswerLetter, explanation: "e^(\u22121).", category: "formulas" },
+    { question: "Report fields for this lab include:", options: ["R, C, \u03c4 theoretical, \u03c4 simulated, and the solved curve", "Only a theme token", "Only email", "Only f0"], correct_answer: "A" as AnswerLetter, explanation: "Catalog report.", category: "practical" },
+  ],
+  "full-wave-bridge-rectifier": [
+    { question: "D2 and D3 conduct together on:", options: ["The opposite half-cycle", "The same instant as D1 and D4 in a healthy bridge", "DC only", "Never in a correct bridge"], correct_answer: "A" as AnswerLetter, explanation: "The other pair.", category: "circuit_behaviour" },
+    { question: "Average output is lower than Vout peak because:", options: ["The waveform is pulsed, not flat DC", "RL is infinite", "Vin is DC", "Vf is negative"], correct_answer: "A" as AnswerLetter, explanation: "Pulses spend time near zero.", category: "conceptual" },
+    { question: "Units of ripple frequency are:", options: ["Hertz", "Volts", "Ohms", "Seconds"], correct_answer: "A" as AnswerLetter, explanation: "Pulse rate.", category: "formulas" },
+    { question: "Units of Vout peak are:", options: ["Volts", "Hertz", "Amperes", "Farads"], correct_answer: "A" as AnswerLetter, explanation: "Voltage.", category: "formulas" },
+    { question: "A physical lab may mention a transformer; the simulation:", options: ["Uses the function generator directly", "Requires a mains model", "Forbids AC", "Needs 230 V on the canvas"], correct_answer: "A" as AnswerLetter, explanation: "No extra transformer component.", category: "practical" },
+    { question: "Bridge difficulty in the catalog is:", options: ["Intermediate", "Mechanical only", "Not electronics", "Beginner soldering only"], correct_answer: "A" as AnswerLetter, explanation: "Catalog.", category: "conceptual" },
+    { question: "Prerequisite for the bridge lab includes:", options: ["The half-wave rectifier", "Only CSS", "Only KCL numerics", "Only a potentiometer"], correct_answer: "A" as AnswerLetter, explanation: "Same diode idea, four devices.", category: "conceptual" },
+    { question: "If all four diodes show conduction current over the record:", options: ["Both pairs worked", "The circuit is open", "Vin was zero", "RL was removed"], correct_answer: "A" as AnswerLetter, explanation: "Each pair conducts on its half-cycle.", category: "practical" },
+    { question: "Vout should not follow Vin negative if:", options: ["The bridge is steering correctly", "The diodes are all shorted backwards", "The load is a capacitor only", "There is no ground"], correct_answer: "A" as AnswerLetter, explanation: "Output stays one polarity.", category: "circuit_behaviour" },
+    { question: "Searching the palette for diode should find:", options: ["The diode", "Only the inductor", "Only ground", "Nothing"], correct_answer: "A" as AnswerLetter, explanation: "Component search.", category: "practical" },
+    { question: "The load resistor is:", options: ["RL", "A potentiometer required", "An inductor", "Optional and unused"], correct_answer: "A" as AnswerLetter, explanation: "Starter part.", category: "conceptual" },
+    { question: "Hard-coding max(|Vin| \u2212 1.4, 0) is:", options: ["Not a substitute for the diode solve", "The required engine", "How the oscilloscope is defined", "Equal to measured samples always"], correct_answer: "A" as AnswerLetter, explanation: "Use the model.", category: "common_mistakes" },
+    { question: "Error between ideal 8.6 V and simulated Vout peak should be:", options: ["Explained from the actual samples", "Ignored by inventing 8.6", "Always zero without checking", "Reported in henries"], correct_answer: "A" as AnswerLetter, explanation: "Compare theory and simulation.", category: "practical" },
+    { question: "A bridge used in a phone charger is there to:", options: ["Produce pulsating DC from AC", "Store charge as its main job", "Amplify voltage by 100", "Measure resistance"], correct_answer: "A" as AnswerLetter, explanation: "Rectifier application.", category: "application" },
+    { question: "Before the filter, bridge output is:", options: ["Pulsating, not smooth DC", "A perfect battery voltage", "A sine equal to Vin", "Zero"], correct_answer: "A" as AnswerLetter, explanation: "Unfiltered pulses.", category: "conceptual" },
+  ],
 
 };
 

@@ -143,7 +143,7 @@ export function timeToCurrentCrossing(
   return null;
 }
 
-export function estimateTauFromSeries(
+function estimateRlTauFromSeries(
   series: TimeSeriesSample[],
   indId: string,
   mode: RlMode,
@@ -192,7 +192,7 @@ export function extractRlCircuitMetrics(
     };
   }
 
-  const tauSimulated = estimateTauFromSeries(series, indId, mode, Vin, R, I0);
+  const tauSimulated = estimateRlTauFromSeries(series, indId, mode, Vin, R, I0);
   let tauErrorPercent: number | null = null;
   if (tauSimulated != null && tauTheoretical > 0 && Number.isFinite(tauTheoretical)) {
     tauErrorPercent =

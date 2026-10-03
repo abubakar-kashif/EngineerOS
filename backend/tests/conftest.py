@@ -45,6 +45,7 @@ EXPERIMENT_IDS = [
     "rlc-circuit",
     "series-resonance",
     "half-wave-rectifier",
+    "full-wave-bridge-rectifier",
     "diode-characteristics",
     "led-circuit",
     "wheatstone-bridge",
@@ -53,6 +54,7 @@ EXPERIMENT_IDS = [
     "thevenin-theorem",
     "norton-theorem",
     "maximum-power-transfer",
+    "capacitor-charging",
 ]
 
 

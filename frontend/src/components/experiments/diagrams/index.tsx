@@ -13,6 +13,7 @@ const RLDiagram = lazy(() => import("./RLDiagram"));
 const RLCDiagram = lazy(() => import("./RLCDiagram"));
 const SeriesResonanceDiagram = lazy(() => import("./SeriesResonanceDiagram"));
 const HalfWaveRectifierDiagram = lazy(() => import("./HalfWaveRectifierDiagram"));
+const FullWaveBridgeDiagram = lazy(() => import("./FullWaveBridgeDiagram"));
 const DiodeDiagram = lazy(() => import("./DiodeDiagram"));
 const LEDDiagram = lazy(() => import("./LEDDiagram"));
 const WheatstoneBridgeDiagram = lazy(() => import("./WheatstoneBridgeDiagram"));
@@ -32,10 +33,12 @@ const diagramMap: Record<string, ComponentType> = {
   "voltage-divider": VoltageDividerDiagram,
   "current-divider": CurrentDividerDiagram,
   "rc-circuit": RCDiagram,
+  "capacitor-charging": RCDiagram,
   "rl-circuit": RLDiagram,
   "rlc-circuit": RLCDiagram,
   "series-resonance": SeriesResonanceDiagram,
   "half-wave-rectifier": HalfWaveRectifierDiagram,
+  "full-wave-bridge-rectifier": FullWaveBridgeDiagram,
   "diode-characteristics": DiodeDiagram,
   "led-circuit": LEDDiagram,
   "wheatstone-bridge": WheatstoneBridgeDiagram,

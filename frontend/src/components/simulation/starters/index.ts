@@ -26,6 +26,7 @@ import {
 import {
   createRcCircuitStarter,
   RC_CIRCUIT_EXPERIMENT_ID,
+  CAPACITOR_CHARGING_EXPERIMENT_ID,
 } from "./rcCircuit";
 import {
   createRlCircuitStarter,
@@ -43,6 +44,10 @@ import {
   createHalfWaveRectifierStarter,
   HALF_WAVE_RECTIFIER_EXPERIMENT_ID,
 } from "./halfWaveRectifier";
+import {
+  createFullWaveBridgeStarter,
+  FULL_WAVE_BRIDGE_EXPERIMENT_ID,
+} from "./fullWaveBridge";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
@@ -53,10 +58,12 @@ const STARTERS: Record<string, () => EditorCircuit> = {
   [NORTON_THEOREM_EXPERIMENT_ID]: createNortonTheoremStarter,
   [MAX_POWER_TRANSFER_EXPERIMENT_ID]: createMaxPowerTransferStarter,
   [RC_CIRCUIT_EXPERIMENT_ID]: createRcCircuitStarter,
+  [CAPACITOR_CHARGING_EXPERIMENT_ID]: createRcCircuitStarter,
   [RL_CIRCUIT_EXPERIMENT_ID]: createRlCircuitStarter,
   [RLC_CIRCUIT_EXPERIMENT_ID]: createRlcCircuitStarter,
   [SERIES_RESONANCE_EXPERIMENT_ID]: createSeriesResonanceStarter,
   [HALF_WAVE_RECTIFIER_EXPERIMENT_ID]: createHalfWaveRectifierStarter,
+  [FULL_WAVE_BRIDGE_EXPERIMENT_ID]: createFullWaveBridgeStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -83,6 +90,7 @@ export {
   MAX_POWER_TRANSFER_EXPERIMENT_ID,
   createRcCircuitStarter,
   RC_CIRCUIT_EXPERIMENT_ID,
+  CAPACITOR_CHARGING_EXPERIMENT_ID,
   createRlCircuitStarter,
   RL_CIRCUIT_EXPERIMENT_ID,
   createRlcCircuitStarter,
@@ -91,4 +99,6 @@ export {
   SERIES_RESONANCE_EXPERIMENT_ID,
   createHalfWaveRectifierStarter,
   HALF_WAVE_RECTIFIER_EXPERIMENT_ID,
+  createFullWaveBridgeStarter,
+  FULL_WAVE_BRIDGE_EXPERIMENT_ID,
 };

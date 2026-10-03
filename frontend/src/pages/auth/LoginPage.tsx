@@ -40,12 +40,17 @@ function LoginPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         const unverifiedEmail = email.trim().toLowerCase();
+        let devCode: string | null = null;
         try {
-          await resendVerification(unverifiedEmail);
+          const response = await resendVerification(unverifiedEmail);
+          devCode = response.dev_code ?? null;
         } catch {
           // Cooldown or delivery errors still send the user to enter a code.
         }
-        navigate("/verify", { replace: true, state: { email: unverifiedEmail } });
+        navigate("/verify", {
+          replace: true,
+          state: { email: unverifiedEmail, dev_code: devCode },
+        });
         return;
       }
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");

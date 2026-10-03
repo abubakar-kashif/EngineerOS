@@ -88,6 +88,7 @@ function ResultsTab({
   const rlc = measurements.rlc;
   const sr = measurements.seriesResonance;
   const hw = measurements.halfWaveRectifier;
+  const fw = measurements.fullWaveBridge;
 
   return (
     <div className="sim2-results-table">
@@ -122,6 +123,34 @@ function ResultsTab({
             ] as const
           ).map((r) => (
             <div key={`hw-${r.label}`} className="sim2-result-row">
+              <span className="sim2-result-label">{r.label}</span>
+              <span className="sim2-result-value">{r.value}</span>
+            </div>
+          ))}
+        </>
+      )}
+      {fw && (
+        <>
+          <h4 className="sim2-results-heading">Full-wave bridge rectifier</h4>
+          {(
+            [
+              { label: "Vin peak", value: `${fw.VinPeak.toFixed(3)} V` },
+              { label: "Vout peak", value: `${fw.VoutPeak.toFixed(3)} V` },
+              {
+                label: "input frequency",
+                value: fw.inputFrequency != null ? `${fw.inputFrequency.toFixed(2)} Hz` : "—",
+              },
+              {
+                label: "ripple frequency",
+                value: fw.rippleFrequency != null ? `${fw.rippleFrequency.toFixed(2)} Hz` : "—",
+              },
+              { label: "average output", value: `${fw.averageOutput.toFixed(3)} V` },
+              { label: "diode Vf", value: `${fw.forwardVoltage.toFixed(3)} V` },
+              { label: "RL", value: formatWithPrefix(fw.RL, "Ω") },
+              { label: "conducting diodes", value: fw.conductingDiodeIds.join(", ") || "—" },
+            ] as const
+          ).map((r) => (
+            <div key={`fw-${r.label}`} className="sim2-result-row">
               <span className="sim2-result-label">{r.label}</span>
               <span className="sim2-result-value">{r.value}</span>
             </div>

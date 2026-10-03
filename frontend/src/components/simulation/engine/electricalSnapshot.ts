@@ -20,6 +20,8 @@ const ELECTRICAL_KEYS = [
   'frequency',
   'phase',
   'waveform',
+  'offset',
+  'dutyCycle',
   'acMode',
   'forwardVoltage',
   'state',
@@ -67,6 +69,8 @@ export function compactCircuitForMentor(circuit: CircuitDefinition): {
     terminals: Array<{ id: string; type?: string }>;
   }>;
   connections: Array<{ id?: string; from: string; to: string }>;
+  /** Live solver metrics attached by the workspace after a run. */
+  simulationState?: Record<string, unknown>;
 } {
   const components = (circuit.components ?? []).map((c) => {
     const raw = c.properties ?? {};

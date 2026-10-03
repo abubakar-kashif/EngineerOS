@@ -255,6 +255,10 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
             if not any(r["label"] == hw_row["label"] for r in rows):
                 rows.append(hw_row)
 
+        for fw_row in _full_wave_bridge_measured_rows(results):
+            if not any(r["label"] == fw_row["label"] for r in rows):
+                rows.append(fw_row)
+
     return rows or None
 
 
@@ -303,6 +307,59 @@ def _half_wave_rectifier_measured_rows(results: dict) -> list[dict]:
         value = _numeric(hw.get(field))
         if value is not None:
             rows.append({"label": label, "value": value, "unit": unit})
+    return rows
+
+
+def _full_wave_bridge_measured_rows(results: dict) -> list[dict]:
+    """Bridge Vin/Vout peaks, ripple (≈2f), average, and conducting diodes."""
+    measurements = results.get("measurements")
+    if not isinstance(measurements, dict):
+        return []
+    fw = measurements.get("fullWaveBridge") or measurements.get("full_wave_bridge")
+    if not isinstance(fw, dict):
+        for graph in results.get("graphs") or []:
+            if not isinstance(graph, dict):
+                continue
+            if graph.get("id") != "full_wave_bridge_scope":
+                continue
+            meta = graph.get("metadata") if isinstance(graph.get("metadata"), dict) else {}
+            rows: list[dict] = []
+            for field, label, unit in (
+                ("VinPeak", "Vin peak", "V"),
+                ("VoutPeak", "Vout peak", "V"),
+                ("inputFrequency", "input frequency", "Hz"),
+                ("rippleFrequency", "ripple frequency", "Hz"),
+                ("averageOutput", "average output", "V"),
+            ):
+                value = _numeric(meta.get(field))
+                if value is not None:
+                    rows.append({"label": label, "value": value, "unit": unit})
+            return rows
+        return []
+
+    rows: list[dict] = []
+    mapping = (
+        ("VinPeak", "Vin peak", "V"),
+        ("VoutPeak", "Vout peak", "V"),
+        ("inputFrequency", "input frequency", "Hz"),
+        ("rippleFrequency", "ripple frequency", "Hz"),
+        ("averageOutput", "average output", "V"),
+        ("forwardVoltage", "diode Vf", "V"),
+        ("RL", "RL", "Ω"),
+    )
+    for field, label, unit in mapping:
+        value = _numeric(fw.get(field))
+        if value is not None:
+            rows.append({"label": label, "value": value, "unit": unit})
+    conducting = fw.get("conductingDiodeIds")
+    if isinstance(conducting, list) and conducting:
+        rows.append(
+            {
+                "label": "conducting diode count",
+                "value": float(len(conducting)),
+                "unit": "",
+            }
+        )
     return rows
 
 

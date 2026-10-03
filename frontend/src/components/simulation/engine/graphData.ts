@@ -22,6 +22,7 @@ import { extractSuperpositionMetrics } from './superpositionAnalysis';
 import { extractTheveninMetrics } from './theveninAnalysis';
 import { extractNortonMetrics } from './nortonAnalysis';
 import { extractMaxPowerTransferMetrics } from './maxPowerTransferAnalysis';
+import { isAcVoltageSource } from './acSolver';
 
 export interface GraphPoint {
   x: number;
@@ -916,6 +917,113 @@ export function generateGraphsFromMeasurements(
           forwardVoltage: hw.forwardVoltage,
           RL: hw.RL,
         },
+      });
+    }
+  }
+
+  const fw = measurements.fullWaveBridge;
+  if (fw && hasRunTimeSeries(measurements) && circuit) {
+    const vs = circuit.components.find((c) => c.type === 'voltage_source');
+    const load = circuit.components.find((c) => c.type === 'resistor');
+    const vmIn = circuit.components.find((c) => c.id === 'VM_in');
+    const vmOut = circuit.components.find((c) => c.id === 'VM_out');
+    const vinKey = vmIn ? `V_${vmIn.id}` : vs ? `V_${vs.id}` : 'vin';
+    const voutKey = vmOut ? `V_${vmOut.id}` : load ? `V_${load.id}` : 'vout';
+    const chA = measurements.timeSeries!
+      .map((s) => {
+        const y = s.values[vinKey] ?? s.values.vin;
+        return Number.isFinite(s.t) && Number.isFinite(y)
+          ? { x: s.t, y: y as number }
+          : null;
+      })
+      .filter((p): p is GraphPoint => p !== null);
+    const chB = measurements.timeSeries!
+      .map((s) => {
+        const y = s.values[voutKey] ?? s.values.vout;
+        return Number.isFinite(s.t) && Number.isFinite(y)
+          ? { x: s.t, y: y as number }
+          : null;
+      })
+      .filter((p): p is GraphPoint => p !== null);
+    if (chA.length > 0 && chB.length > 0) {
+      graphs.push({
+        id: 'full_wave_bridge_scope',
+        type: 'line',
+        title: 'Oscilloscope (Vin / Vout)',
+        xAxis: { label: 'Time', unit: 's' },
+        yAxis: { label: 'Voltage', unit: 'V' },
+        series: [
+          { name: 'Channel A (input)', color: COLORS[0], points: chA },
+          { name: 'Channel B (output)', color: COLORS[1], points: chB },
+        ],
+        metadata: {
+          source: 'measurements',
+          timeSeries: true,
+          VinPeak: fw.VinPeak,
+          VoutPeak: fw.VoutPeak,
+          inputFrequency: fw.inputFrequency,
+          rippleFrequency: fw.rippleFrequency,
+          averageOutput: fw.averageOutput,
+          forwardVoltage: fw.forwardVoltage,
+          RL: fw.RL,
+          conductingDiodeIds: fw.conductingDiodeIds,
+        },
+      });
+    }
+  }
+
+  if (
+    !hw &&
+    !fw &&
+    hasRunTimeSeries(measurements) &&
+    circuit
+  ) {
+    const acSources = circuit.components.filter(
+      (c) => c.type === 'voltage_source' && isAcVoltageSource(c.properties),
+    );
+    const pointsFor = (key: string, fallbackVin: boolean) =>
+      measurements.timeSeries!
+        .map((s) => {
+          const y = s.values[key] ?? (fallbackVin ? s.values.vin : undefined);
+          return Number.isFinite(s.t) && typeof y === 'number' && Number.isFinite(y)
+            ? { x: s.t, y }
+            : null;
+        })
+        .filter((p): p is GraphPoint => p !== null);
+    const scopeSeries: GraphSeries[] = [];
+    acSources.forEach((src, index) => {
+      const kind =
+        typeof src.properties.waveform === 'string' ? src.properties.waveform : 'sine';
+      const points = pointsFor(`V_${src.id}`, acSources.length === 1);
+      if (points.length > 1) {
+        const channel = String.fromCharCode(65 + scopeSeries.length);
+        scopeSeries.push({
+          name: `Channel ${channel} (${src.label || src.id} ${kind})`,
+          color: COLORS[index % COLORS.length],
+          points,
+        });
+      }
+    });
+    const meter = circuit.components.find((c) => c.type === 'voltmeter');
+    if (meter && scopeSeries.length < 2) {
+      const points = pointsFor(`V_${meter.id}`, false);
+      if (points.length > 1) {
+        scopeSeries.push({
+          name: `Channel B (${meter.label || meter.id})`,
+          color: COLORS[1],
+          points,
+        });
+      }
+    }
+    if (scopeSeries.length > 0) {
+      graphs.push({
+        id: 'function_generator_scope',
+        type: 'line',
+        title: 'Oscilloscope',
+        xAxis: { label: 'Time', unit: 's' },
+        yAxis: { label: 'Voltage', unit: 'V' },
+        series: scopeSeries,
+        metadata: { source: 'measurements', timeSeries: true },
       });
     }
   }

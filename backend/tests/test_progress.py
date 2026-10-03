@@ -1,3 +1,8 @@
+from conftest import EXPERIMENT_IDS
+
+CATALOG_SIZE = len(EXPERIMENT_IDS)
+
+
 def test_get_progress_empty(progress_client):
     client, _ = progress_client
 
@@ -57,7 +62,7 @@ def test_progress_summary_after_completion(progress_client):
     assert data["completed_experiments"] == 1
     assert data["completed_quizzes"] == 0
     assert data["average_quiz_score"] == 0.0
-    assert data["overall_progress"] == round(1 / 16 * 100, 2)
+    assert data["overall_progress"] == round(1 / CATALOG_SIZE * 100, 2)
 
 
 def test_dynamic_progress_percentage(progress_client):
@@ -91,7 +96,7 @@ def test_dynamic_progress_percentage(progress_client):
         db.commit()
 
     response = client.get("/api/progress")
-    assert response.json()["overall_progress"] == round(1 / 17 * 100, 2)
+    assert response.json()["overall_progress"] == round(1 / (CATALOG_SIZE + 1) * 100, 2)
 
 
 def test_two_completed_experiments_are_20_percent(progress_client):
@@ -106,7 +111,7 @@ def test_two_completed_experiments_are_20_percent(progress_client):
 
     response = client.get("/api/progress")
     assert response.json()["completed_experiments"] == 2
-    assert response.json()["overall_progress"] == round(2 / 16 * 100, 2)
+    assert response.json()["overall_progress"] == round(2 / CATALOG_SIZE * 100, 2)
 
 
 def test_repeated_post_updates_one_row(progress_client):
@@ -149,7 +154,7 @@ def test_in_progress_to_completed_lifecycle(progress_client):
 
     summary = client.get("/api/progress").json()
     assert summary["completed_experiments"] == 1
-    assert summary["overall_progress"] == round(1 / 16 * 100, 2)
+    assert summary["overall_progress"] == round(1 / CATALOG_SIZE * 100, 2)
 
 
 def test_invalid_status_rejected(progress_client):

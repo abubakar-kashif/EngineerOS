@@ -121,6 +121,28 @@ function ComponentInspector({
             );
           }
 
+          if (key === "waveform") {
+            const current = String(value || "sine").toLowerCase();
+            const selected = current === "square" || current === "triangle" ? current : "sine";
+            return (
+              <div key={key} className="sim-inspector-field">
+                <label className="sim-inspector-label" htmlFor={inputId}>
+                  Waveform
+                </label>
+                <select
+                  id={inputId}
+                  className="sim-inspector-input"
+                  value={selected}
+                  onChange={(e) => onUpdateProperty(component.id, "waveform", e.target.value)}
+                >
+                  <option value="sine">Sine</option>
+                  <option value="square">Square</option>
+                  <option value="triangle">Triangle</option>
+                </select>
+              </div>
+            );
+          }
+
           return (
             <div key={key} className="sim-inspector-field">
               <label className="sim-inspector-label" htmlFor={inputId}>

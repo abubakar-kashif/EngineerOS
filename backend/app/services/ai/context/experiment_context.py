@@ -88,6 +88,11 @@ class ExperimentContext:
             )
             if half_wave:
                 context["theoretical_half_wave_rectifier"] = half_wave
+            full_wave = _full_wave_bridge_theoretical(
+                experiment.simulation_configuration
+            )
+            if full_wave:
+                context["theoretical_full_wave_bridge"] = full_wave
 
         context["guidance_boundary"] = (
             "Experiment catalog data is for instructional guidance only. "
@@ -266,6 +271,41 @@ def _half_wave_rectifier_theoretical(config: Dict[str, Any]) -> Optional[Dict[st
             "Catalog theory for the starter. Prefer attached transient "
             "measurements (VinPeak, VoutPeak, averageOutput, rippleFrequency) "
             "from the real diode solve — do not invent waveforms."
+        ),
+    }
+
+
+def _full_wave_bridge_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(config, dict) or config.get("mode") != "full-wave-bridge-rectifier":
+        return None
+    params = config.get("parameters")
+    if not isinstance(params, dict):
+        return None
+    try:
+        vin = float(params["voltage"])
+        freq = float(params["frequency"])
+        rl = float(params["rl"])
+        vf = float(params.get("vf", 0.7))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if min(vin, freq, rl) <= 0 or vf < 0:
+        return None
+    import math
+
+    vout_peak = max(vin - 2.0 * vf, 0.0)
+    vavg = 2.0 * vout_peak / math.pi
+    return {
+        "Vin_peak": vin,
+        "frequency": freq,
+        "RL": rl,
+        "Vf": vf,
+        "theoretical_Vout_peak": vout_peak,
+        "theoretical_average_ideal": vavg,
+        "theoretical_ripple_frequency": 2.0 * freq,
+        "relation": "Two diodes conduct each half-cycle; Vout ≈ |Vin| − 2 Vf; f_ripple = 2 f",
+        "note": (
+            "Catalog theory for the starter. Prefer attached transient "
+            "measurements from the four-diode solve. Do not invent a rectified sine."
         ),
     }
 

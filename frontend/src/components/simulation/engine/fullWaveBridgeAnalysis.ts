@@ -1,0 +1,129 @@
+/**
+ * Full-wave bridge metrics from a real four-diode transient solve.
+ * Ripple rate and peaks are counted from samples — not a hard-coded |sin|.
+ */
+import type { CircuitDefinition } from "./circuitGraph";
+import { acSourceAmplitude, isAcVoltageSource } from "./acSolver";
+import type { FullWaveBridgeLabMeasurements, Measurements } from "./types";
+
+function readVinSeries(
+  measurements: Measurements,
+  circuit: CircuitDefinition,
+): { t: number; vin: number; vout: number }[] {
+  const series = measurements.timeSeries;
+  if (!series || series.length < 2) return [];
+
+  const vs = circuit.components.find((c) => c.type === "voltage_source");
+  const load = circuit.components.find((c) => c.type === "resistor");
+  const vmOut = circuit.components.find(
+    (c) => c.type === "voltmeter" && (c.id === "VM_out" || c.label === "VM_out"),
+  );
+  const vmIn = circuit.components.find(
+    (c) => c.type === "voltmeter" && (c.id === "VM_in" || c.label === "VM_in"),
+  );
+
+  const vinKey = vmIn ? `V_${vmIn.id}` : vs ? `V_${vs.id}` : "vin";
+  const voutKey = vmOut ? `V_${vmOut.id}` : load ? `V_${load.id}` : "vout";
+
+  return series.map((s) => ({
+    t: s.t,
+    vin: Number(s.values[vinKey] ?? s.values.vin ?? 0),
+    vout: Number(s.values[voutKey] ?? s.values.vout ?? 0),
+  }));
+}
+
+function frequencyFromZeroCrossings(samples: { t: number; y: number }[]): number | null {
+  if (samples.length < 3) return null;
+  let crossings = 0;
+  for (let i = 1; i < samples.length; i++) {
+    if (samples[i - 1].y < 0 && samples[i].y >= 0) crossings += 1;
+  }
+  const duration = samples[samples.length - 1].t - samples[0].t;
+  if (!(duration > 0) || crossings < 1) return null;
+  return crossings / duration;
+}
+
+function rippleFrequencyFromPulses(
+  samples: { t: number; y: number }[],
+  threshold: number,
+): number | null {
+  if (samples.length < 3) return null;
+  let pulses = 0;
+  for (let i = 1; i < samples.length; i++) {
+    if (samples[i - 1].y < threshold && samples[i].y >= threshold) pulses += 1;
+  }
+  const duration = samples[samples.length - 1].t - samples[0].t;
+  if (!(duration > 0) || pulses < 1) return null;
+  return pulses / duration;
+}
+
+export function extractFullWaveBridgeMetrics(
+  circuit: CircuitDefinition,
+  measurements: Measurements,
+): FullWaveBridgeLabMeasurements | null {
+  const vs = circuit.components.find(
+    (c) => c.type === "voltage_source" && isAcVoltageSource(c.properties),
+  );
+  const diodes = circuit.components.filter((c) => c.type === "diode" || c.type === "led");
+  const load = circuit.components.find((c) => c.type === "resistor");
+  if (!vs || diodes.length < 4 || !load) return null;
+
+  const samples = readVinSeries(measurements, circuit);
+  if (samples.length < 10) return null;
+  const series = measurements.timeSeries ?? [];
+
+  const VinAmplitude = acSourceAmplitude(vs.properties);
+  const inputFrequency =
+    typeof vs.properties.frequency === "number" && vs.properties.frequency > 0
+      ? vs.properties.frequency
+      : null;
+  const forwardVoltage =
+    typeof diodes[0].properties.forwardVoltage === "number"
+      ? diodes[0].properties.forwardVoltage
+      : 0.7;
+  const RL =
+    typeof load.properties.resistance === "number" ? load.properties.resistance : 0;
+
+  let vinPeak = 0;
+  let voutPeak = 0;
+  let sumOut = 0;
+  for (const s of samples) {
+    vinPeak = Math.max(vinPeak, Math.abs(s.vin));
+    voutPeak = Math.max(voutPeak, s.vout);
+    sumOut += s.vout;
+  }
+  const averageOutput = sumOut / samples.length;
+
+  const conductingDiodeIds: string[] = [];
+  for (const d of diodes) {
+    let peakI = 0;
+    for (const s of series) {
+      const i = Number(s.values[`I_${d.id}`] ?? 0);
+      if (Number.isFinite(i)) peakI = Math.max(peakI, i);
+    }
+    if (peakI > 1e-6) conductingDiodeIds.push(d.id);
+  }
+
+  const finMeasured = frequencyFromZeroCrossings(
+    samples.map((s) => ({ t: s.t, y: s.vin })),
+  );
+  const foutMeasured = rippleFrequencyFromPulses(
+    samples.map((s) => ({ t: s.t, y: s.vout })),
+    Math.max(forwardVoltage * 0.5, voutPeak * 0.15),
+  );
+
+  return {
+    VinAmplitude,
+    VinPeak: vinPeak,
+    VoutPeak: voutPeak,
+    inputFrequency: inputFrequency ?? finMeasured,
+    inputFrequencyMeasured: finMeasured,
+    rippleFrequency: foutMeasured,
+    averageOutput,
+    forwardVoltage,
+    RL,
+    conductingDiodeIds,
+    sampleCount: samples.length,
+    duration: samples[samples.length - 1].t - samples[0].t,
+  };
+}

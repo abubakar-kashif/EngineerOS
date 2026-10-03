@@ -49,6 +49,8 @@ const COMPONENTS: PaletteEntry[] = [
       "function generator",
       "function",
       "sine",
+      "square",
+      "triangle",
       "generator",
       "sine wave",
       "waveform",
@@ -69,7 +71,7 @@ const COMPONENTS: PaletteEntry[] = [
     type: "potentiometer",
     label: "Potentiometer",
     icon: "POT",
-    keywords: ["pot", "divider", "wiper"],
+    keywords: ["pot", "potentiometer", "divider", "wiper", "variable", "variable resistor"],
   },
   { id: "capacitor", type: "capacitor", label: "Capacitor", icon: "C", keywords: ["c", "cap"] },
   { id: "inductor", type: "inductor", label: "Inductor", icon: "L", keywords: ["l", "coil"] },
@@ -77,7 +79,7 @@ const COMPONENTS: PaletteEntry[] = [
   { id: "led", type: "led", label: "LED", icon: "LED", keywords: ["light"] },
   { id: "ground", type: "ground", label: "Ground", icon: "GND", keywords: ["gnd", "earth"] },
   { id: "switch", type: "switch", label: "Switch", icon: "SW", keywords: ["sw"] },
-  { id: "voltmeter", type: "voltmeter", label: "Voltmeter", icon: "VM", keywords: ["meter", "vm"] },
+  { id: "voltmeter", type: "voltmeter", label: "Voltmeter", icon: "VM", keywords: ["meter", "vm", "voltage", "scope", "oscilloscope"] },
   { id: "ammeter", type: "ammeter", label: "Ammeter", icon: "AM", keywords: ["meter", "am"] },
 ];
 

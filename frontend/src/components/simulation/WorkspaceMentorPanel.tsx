@@ -171,6 +171,14 @@ function WorkspaceMentorPanel({
             : "n/a";
         return `Half-wave rectifier: Vin_pk=${hw.VinPeak.toFixed(3)} V, Vout_pk=${hw.VoutPeak.toFixed(3)} V, Vavg=${hw.averageOutput.toFixed(3)} V, f_in=${fin}, f_ripple=${fr}, Vf=${hw.forwardVoltage.toFixed(2)} V, RL=${hw.RL} Ω`;
       }
+      if (m.fullWaveBridge) {
+        const fw = m.fullWaveBridge;
+        const fin =
+          fw.inputFrequency != null ? `${fw.inputFrequency.toFixed(2)} Hz` : "n/a";
+        const fr =
+          fw.rippleFrequency != null ? `${fw.rippleFrequency.toFixed(2)} Hz` : "n/a";
+        return `Full-wave bridge: Vin_pk=${fw.VinPeak.toFixed(3)} V, Vout_pk=${fw.VoutPeak.toFixed(3)} V, Vavg=${fw.averageOutput.toFixed(3)} V, f_in=${fin}, f_ripple=${fr}, Vf=${fw.forwardVoltage.toFixed(2)} V, RL=${fw.RL} Ω, conducting=${fw.conductingDiodeIds.join(",")}`;
+      }
       if (m.rlc) {
         return `RLC: R=${m.rlc.R} Ω, L=${m.rlc.L} H, C=${m.rlc.C} F, Vin=${m.rlc.Vin} V, t=${m.rlc.time.toFixed(6)} s, i=${formatCurrent(m.rlc.i)}, Vc=${m.rlc.Vc.toFixed(3)} V, |i|_pk=${formatCurrent(m.rlc.iPeak)}, |Vc|_pk=${m.rlc.vcPeak.toFixed(3)} V, crossings=${m.rlc.zeroCrossings}`;
       }
@@ -234,6 +242,17 @@ function WorkspaceMentorPanel({
       }
       if (hw.rippleFrequency != null) {
         chips.push(`fr ${hw.rippleFrequency.toFixed(0)} Hz`);
+      }
+      return chips.slice(0, 6);
+    }
+    if (m.fullWaveBridge) {
+      const fw = m.fullWaveBridge;
+      chips.push("bridge");
+      chips.push(`Vin ${fw.VinPeak.toFixed(2)} V`);
+      chips.push(`Vout ${fw.VoutPeak.toFixed(2)} V`);
+      chips.push(`Vavg ${fw.averageOutput.toFixed(2)} V`);
+      if (fw.rippleFrequency != null) {
+        chips.push(`fr ${fw.rippleFrequency.toFixed(0)} Hz`);
       }
       return chips.slice(0, 6);
     }
@@ -320,6 +339,16 @@ function WorkspaceMentorPanel({
           "Why is Vout peak lower than Vin peak?",
           "Why is the ripple frequency equal to the line frequency?",
           "What happens on the negative half-cycle of Vin?",
+        ];
+      }
+      if (
+        experimentId === "full-wave-bridge-rectifier" ||
+        simResult.measurements?.fullWaveBridge
+      ) {
+        return [
+          "Why does the bridge use two diodes on each half-cycle?",
+          "Why is the ripple frequency about twice the line frequency?",
+          "Why is Vout peak about Vin peak minus two forward drops?",
         ];
       }
       return [
@@ -499,6 +528,26 @@ function WorkspaceMentorPanel({
           RL: hw.RL,
           sampleCount: hw.sampleCount,
           duration: hw.duration,
+        },
+      };
+    } else if (baseSnapshot && simResultRef.current?.measurements?.fullWaveBridge) {
+      const fw = simResultRef.current.measurements.fullWaveBridge;
+      circuitSnapshot = {
+        ...baseSnapshot,
+        simulationState: {
+          experiment: "full-wave-bridge-rectifier",
+          VinPeak: fw.VinPeak,
+          VinAmplitude: fw.VinAmplitude,
+          VoutPeak: fw.VoutPeak,
+          averageOutput: fw.averageOutput,
+          inputFrequency: fw.inputFrequency,
+          inputFrequencyMeasured: fw.inputFrequencyMeasured,
+          rippleFrequency: fw.rippleFrequency,
+          forwardVoltage: fw.forwardVoltage,
+          RL: fw.RL,
+          conductingDiodeIds: fw.conductingDiodeIds,
+          sampleCount: fw.sampleCount,
+          duration: fw.duration,
         },
       };
     }

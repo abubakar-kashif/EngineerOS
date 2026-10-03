@@ -55,8 +55,12 @@ export interface ComponentProperties {
   frequency?: number;
   /** AC phasor phase (degrees). */
   phase?: number;
-  /** Waveform tag for AC sources (e.g. 'sine'). */
+  /** Waveform generated in the time domain: sine, square, or triangle. */
   waveform?: string;
+  /** DC offset added to an AC waveform (V). */
+  offset?: number;
+  /** Square-wave high fraction, 0–1. Defaults to 0.5. */
+  dutyCycle?: number;
   /** When true, treat voltage_source as an AC / function-generator drive. */
   acMode?: boolean;
   forwardVoltage?: number;  // V

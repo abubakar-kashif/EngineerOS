@@ -105,6 +105,8 @@ export interface Measurements {
   seriesResonance?: SeriesResonanceLabMeasurements;
   /** Present for half-wave rectifier (AC + diode transient). */
   halfWaveRectifier?: HalfWaveRectifierLabMeasurements;
+  /** Present for a four-diode full-wave bridge (AC + diode transient). */
+  fullWaveBridge?: FullWaveBridgeLabMeasurements;
 }
 
 /** Half-wave rectifier lab — metrics from a real AC+diode time series. */
@@ -120,6 +122,24 @@ export interface HalfWaveRectifierLabMeasurements {
   averageOutput: number;
   forwardVoltage: number;
   RL: number;
+  sampleCount: number;
+  duration: number;
+}
+
+/** Full-wave bridge — metrics from a real four-diode transient, not |sin|. */
+export interface FullWaveBridgeLabMeasurements {
+  VinAmplitude: number;
+  VinPeak: number;
+  VoutPeak: number;
+  inputFrequency: number | null;
+  inputFrequencyMeasured: number | null;
+  /** Output pulse rate. Ideal unfiltered bridge is 2× line frequency. */
+  rippleFrequency: number | null;
+  averageOutput: number;
+  forwardVoltage: number;
+  RL: number;
+  /** Diodes that carried forward current during the recorded window. */
+  conductingDiodeIds: string[];
   sampleCount: number;
   duration: number;
 }

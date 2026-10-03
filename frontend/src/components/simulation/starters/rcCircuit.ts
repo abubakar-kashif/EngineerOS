@@ -23,6 +23,7 @@ import { getTerminalWorldPosition } from "../editorUtils";
 import { normalizeEditorCircuit } from "../wireTopology";
 
 export const RC_CIRCUIT_EXPERIMENT_ID = "rc-circuit";
+export const CAPACITOR_CHARGING_EXPERIMENT_ID = "capacitor-charging";
 
 function component(
   id: string,

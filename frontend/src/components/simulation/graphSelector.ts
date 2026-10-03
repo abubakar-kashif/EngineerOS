@@ -51,6 +51,8 @@ const ANALYSIS_LABELS: Record<string, string> = {
   frequency_response: "Frequency vs Circuit Current",
   frequency_response_gain: "Frequency vs voltage gain",
   half_wave_rectifier_scope: "Oscilloscope (Vin / Vout)",
+  full_wave_bridge_scope: "Oscilloscope (Vin / Vout)",
+  function_generator_scope: "Oscilloscope",
   rc_time: "Time vs Vc",
   rc_current_time: "Time vs Ic",
   rl_current_time: "Time vs Inductor Current",

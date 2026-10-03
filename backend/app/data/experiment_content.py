@@ -1155,7 +1155,7 @@ EXPERIMENTS: list[dict] = [
             {"symbol": "I_C", "name": "Capacitor current", "unit": "ampere (A)", "description": "C × dV/dt — largest at t = 0, zero at rest"},
         ],
         "components": [
-            {"name": "DC voltage source", "quantity": 1, "spec": "9 V fixed"},
+            {"name": "DC voltage source", "quantity": 1, "spec": "5 V in the simulation starter (a 9 V battery is a common bench substitute)"},
             {"name": "Resistor R", "quantity": 1, "spec": "10 kΩ, 1/4 W (gives τ = 1 s with 100 µF)"},
             {"name": "Capacitor C", "quantity": 1, "spec": "100 µF electrolytic, 16 V — mind its polarity"},
             {"name": "SPDT switch (or jumper)", "quantity": 1, "spec": "Selects charge vs discharge path"},
@@ -1183,14 +1183,14 @@ EXPERIMENTS: list[dict] = [
             "Build the series chain: source → switch → R → C, with C's negative leg to ground.",
             "Calculate τ = 10 kΩ × 100 µF = 1 s before switching anything on.",
             "Flip to charge and start a stopwatch simultaneously; record V_C at t = 1, 2, 3, 4, 5 s.",
-            "Continue recording until V_C plateaus near 9 V.",
-            "Flip to discharge and record V_C at the same time points until it falls below 0.5 V.",
-            "Plot both curves; find the times where charging passes 5.7 V (63.2%) and discharge passes 3.3 V (36.8%).",
+            "Continue recording until V_C plateaus near the source voltage (5 V in the simulation starter).",
+            "Flip to discharge and record V_C at the same time points until it falls below 0.3 V.",
+            "Plot both curves; find the times where charging passes 3.16 V (63.2% of 5 V) and discharge passes 1.84 V (36.8% of 5 V).",
             "Compare the measured τ from both curves with the calculated value, allowing for electrolytic tolerance (±20%).",
         ],
         "expected_results": [
-            "Charging: V_C ≈ 5.7 V at t = 1 s, ≈ 8.6 V at 3 s, and within 1% of 9 V by 5 s.",
-            "Discharging: V_C ≈ 3.3 V at t = 1 s and below 0.1 V by 5 s.",
+            "Charging: V_C ≈ 3.16 V at t = 1 s and within 1% of 5 V by 5 s.",
+            "Discharging: V_C ≈ 1.84 V at t = 1 s and below 0.05 V by 5 s.",
             "Both curves are exponentials — a plot of ln(V_C) vs t for discharge is a straight line.",
             "Measured τ lands within ±20–30% of 1 s because of electrolytic capacitance tolerance.",
         ],
@@ -1230,7 +1230,7 @@ EXPERIMENTS: list[dict] = [
             "Low-pass filters smooth PWM into DC in motor drivers and LED dimmers.",
             "Camera flashes store energy in a capacitor and dump it through a lamp.",
         ],
-        "related_experiments": ["ohms-law", "series-circuit", "led-circuit", "rl-circuit"],
+        "related_experiments": ["ohms-law", "series-circuit", "capacitor-charging", "rl-circuit"],
         "simulation_configuration": {"mode": "series", "parameters": {"voltage": 9, "r1": 10000}},
     },
     {
@@ -1321,12 +1321,18 @@ EXPERIMENTS: list[dict] = [
             "Final current approaches 50 mA.",
             "Simulated τ closely matches L/R for the ideal model.",
         ],
-        "safety_notes": [
-            "Interrupting inductor current can produce a high voltage kick — use care with real coils.",
-        ],
         "common_mistakes": [
-            "Writing τ as R/L instead of L/R",
-            "Expecting inductor current to jump at the switching instant",
+            {
+                "mistake": "Writing τ as R/L instead of L/R",
+                "consequence": "The predicted time constant is the reciprocal of the real one.",
+            },
+            {
+                "mistake": "Expecting inductor current to jump at the switching instant",
+                "consequence": "The measured current will rise continuously from its initial value.",
+            },
+        ],
+        "safety_precautions": [
+            "Interrupting inductor current can produce a high voltage kick — use care with real coils.",
         ],
         "related_experiments": ["ohms-law", "series-circuit", "rc-circuit", "rlc-circuit"],
         "simulation_configuration": {
@@ -1414,12 +1420,18 @@ EXPERIMENTS: list[dict] = [
             "Underdamped ringing of i(t) and Vc(t) before settle.",
             "Steady state: Vc≈Vin, i≈0.",
         ],
-        "safety_notes": [
-            "Real inductors can kick high voltage when current is interrupted.",
-        ],
         "common_mistakes": [
-            "Fabricating Q or bandwidth without a driven frequency sweep",
-            "Ignoring that report metrics must come from the solve",
+            {
+                "mistake": "Fabricating Q or bandwidth without a driven frequency sweep",
+                "consequence": "Those quantities are not defined by a single transient waveform.",
+            },
+            {
+                "mistake": "Ignoring that report metrics must come from the solve",
+                "consequence": "The report will not match the circuit that was actually simulated.",
+            },
+        ],
+        "safety_precautions": [
+            "Real inductors can kick high voltage when current is interrupted.",
         ],
         "related_experiments": ["rc-circuit", "rl-circuit", "series-resonance", "ohms-law"],
         "simulation_configuration": {
@@ -1509,12 +1521,18 @@ EXPERIMENTS: list[dict] = [
             "Clear |I| peak near f0 ≈ 159 Hz for the starter L and C.",
             "Theoretical and simulated f0 agree within sweep resolution.",
         ],
-        "safety_notes": [
-            "Real AC sources and inductors can present hazardous voltages — use lab-safe generators.",
-        ],
         "common_mistakes": [
-            "Reporting a hard-coded resonance curve instead of the sweep peak",
-            "Fabricating Q or bandwidth when half-power points were not found",
+            {
+                "mistake": "Reporting a hard-coded resonance curve instead of the sweep peak",
+                "consequence": "The reported f0 will not change when L or C changes.",
+            },
+            {
+                "mistake": "Fabricating Q or bandwidth when half-power points were not found",
+                "consequence": "The report claims a quantity the sweep did not measure.",
+            },
+        ],
+        "safety_precautions": [
+            "Real AC sources and inductors can present hazardous voltages — use lab-safe generators.",
         ],
         "related_experiments": ["rlc-circuit", "rl-circuit", "rc-circuit", "ohms-law"],
         "simulation_configuration": {
@@ -1636,17 +1654,26 @@ EXPERIMENTS: list[dict] = [
             "Vout peak ≈ Vin peak − Vf (about 9.3 V for the starter).",
             "Ripple / pulse frequency ≈ input frequency (50 Hz).",
         ],
-        "safety_notes": [
-            "In a physical lab, isolate mains with a suitable low-voltage AC source; do not probe live mains.",
-        ],
         "common_mistakes": [
-            "Drawing a mathematical |sin| curve instead of solving the diode circuit",
-            "Ignoring diode forward drop when comparing Vin peak to Vout peak",
-            "Expecting double-line ripple frequency (that is full-wave / bridge)",
+            {
+                "mistake": "Drawing a mathematical |sin| curve instead of solving the diode circuit",
+                "consequence": "The output will not include the diode forward drop from the model.",
+            },
+            {
+                "mistake": "Ignoring diode forward drop when comparing Vin peak to Vout peak",
+                "consequence": "Peak output is predicted too high.",
+            },
+            {
+                "mistake": "Expecting double-line ripple frequency (that is full-wave / bridge)",
+                "consequence": "A half-wave pulse repeats once per input cycle, not twice.",
+            },
+        ],
+        "safety_precautions": [
+            "In a physical lab, isolate mains with a suitable low-voltage AC source; do not probe live mains.",
         ],
         "related_experiments": [
             "diode-characteristics",
-            "led-circuit",
+            "full-wave-bridge-rectifier",
             "ohms-law",
             "series-resonance",
         ],
@@ -2914,6 +2941,214 @@ EXPERIMENTS: list[dict] = [
                 "r2": 2000,
                 "rl": 500,
             },
+        },
+    },
+    {
+        "id": "capacitor-charging",
+        "title": "Capacitor Charging and Discharging",
+        "slug": "capacitor-charging",
+        "short_description": "Record real charge and discharge curves and compare τ = RC.",
+        "description": (
+            "Charge a capacitor from a DC source through a resistor, then discharge "
+            "it through the same resistor. The simulator integrates the circuit; "
+            "it does not draw a decorative exponential."
+        ),
+        "objective": (
+            "Measure τ from charging and discharging waveforms and compare both "
+            "with τ = RC for the same R and C."
+        ),
+        "theory": (
+            "Charging from 0 V: Vc(t) = Vin (1 − e^(−t/RC)). "
+            "Discharging from V0: Vc(t) = V0 e^(−t/RC). "
+            "Current is C dVc/dt, largest at the switching instant and decaying "
+            "with the same time constant. Open the charge switch in this lab to "
+            "discharge; the solver keeps an R–C loop and uses V0 = Vin."
+        ),
+        "difficulty": "Intermediate",
+        "category": "Circuit Fundamentals",
+        "duration_minutes": 40,
+        "status": "published",
+        "historical_background": (
+            "The exponential RC transient is the same first-order model used since "
+            "19th-century circuit theory, from Leyden jars to timer circuits."
+        ),
+        "learning_outcomes": [
+            "Calculate τ = RC and the 63.2% / 36.8% landmarks",
+            "Capture charging and discharging curves from the transient solver",
+            "Explain why a larger C or R slows both curves",
+        ],
+        "prerequisites": ["rc-circuit", "ohms-law"],
+        "formulas": [
+            {
+                "expression": "τ = R × C",
+                "variables": [
+                    {"symbol": "τ", "name": "Time constant (s)"},
+                    {"symbol": "R", "name": "Resistance (Ω)"},
+                    {"symbol": "C", "name": "Capacitance (F)"},
+                ],
+            },
+            {
+                "expression": "Vc(t) = Vin (1 − e^(−t/τ))   (charging)",
+                "variables": [
+                    {"symbol": "Vin", "name": "Source voltage"},
+                ],
+            },
+            {
+                "expression": "Vc(t) = V0 e^(−t/τ)   (discharging)",
+                "variables": [
+                    {"symbol": "V0", "name": "Voltage at the start of discharge"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "τ", "name": "Time constant", "unit": "s", "description": "R × C"},
+            {"symbol": "Vc", "name": "Capacitor voltage", "unit": "V", "description": "From the transient samples"},
+            {"symbol": "Ic", "name": "Capacitor current", "unit": "A", "description": "From the transient samples"},
+        ],
+        "components": [
+            {"name": "DC voltage source", "quantity": 1, "spec": "5 V"},
+            {"name": "Resistor", "quantity": 1, "spec": "10 kΩ"},
+            {"name": "Capacitor", "quantity": 1, "spec": "100 µF ideal model; observe polarity on an electrolytic bench part"},
+            {"name": "Switch", "quantity": 1, "spec": "Closed to charge, open to discharge"},
+            {"name": "Voltmeter and ammeter", "quantity": 1, "spec": "Across C and in series with R"},
+        ],
+        "circuit_diagram": {
+            "art": "V — SW — R — C — GND, voltmeter across C",
+            "caption": "Starter: Vin = 5 V, R = 10 kΩ, C = 100 µF, τ = 1 s.",
+        },
+        "procedure": [
+            "Load the capacitor-charging starter (5 V, 10 kΩ, 100 µF, switch closed).",
+            "Run and record time vs capacitor voltage and time vs capacitor current.",
+            "Compare simulated τ with RC = 1 s.",
+            "Open the switch and run again to capture the discharge curve from V0 = Vin.",
+            "Confirm both curves use the same τ.",
+        ],
+        "expected_results": [
+            "Charging reaches about 63% of 5 V near t = τ.",
+            "Discharging falls to about 37% of the starting voltage near t = τ.",
+            "Changing C from 100 µF to 200 µF doubles τ.",
+        ],
+        "common_mistakes": [
+            {"mistake": "Reading a hand-drawn exponential instead of the solver samples", "consequence": "Report values will not match the circuit."},
+            {"mistake": "Leaving the switch closed and expecting a discharge curve", "consequence": "The capacitor stays charged to Vin."},
+        ],
+        "safety_precautions": [
+            "On the bench, respect electrolytic polarity and discharge through a resistor.",
+        ],
+        "observation_guidance": [
+            "Current is largest at the first instant and decays as voltage settles.",
+            "Doubling R stretches both curves in time.",
+        ],
+        "real_world_applications": [
+            "RC timers and debounce",
+            "Camera-flash energy storage",
+            "Supply soft-start",
+        ],
+        "related_experiments": ["rc-circuit", "rl-circuit", "ohms-law"],
+        "simulation_configuration": {
+            "mode": "capacitor-charging",
+            "parameters": {"voltage": 5, "r1": 10000, "c1": 0.0001},
+        },
+    },
+    {
+        "id": "full-wave-bridge-rectifier",
+        "title": "Full-Wave Bridge Rectifier",
+        "slug": "full-wave-bridge-rectifier",
+        "short_description": "Steer both AC half-cycles through a four-diode bridge.",
+        "description": (
+            "A floating AC source drives four diodes and a load resistor. "
+            "One diode pair conducts on each half-cycle so load current keeps "
+            "the same direction. Waveforms come from the diode transient model."
+        ),
+        "objective": (
+            "Build a bridge rectifier, compare Channel A (input) with Channel B "
+            "(output), and measure peak, average, and ripple frequency from the solve."
+        ),
+        "theory": (
+            "During the positive half-cycle one pair of diodes conducts; during "
+            "the negative half-cycle the other pair conducts. Each conducting "
+            "path includes two forward drops, so Vout peak is about Vin peak "
+            "minus 2 Vf. Unfiltered pulses occur twice per input cycle, so the "
+            "ripple frequency is about 2f. The ideal average of a full-wave "
+            "rectified sine is 2 Vp/π; the lab average is the mean of simulated "
+            "Vout samples."
+        ),
+        "difficulty": "Intermediate",
+        "category": "Electronics",
+        "duration_minutes": 45,
+        "status": "published",
+        "historical_background": (
+            "The diode bridge replaced center-tapped full-wave supplies in many "
+            "low-voltage adapters because it uses the whole transformer secondary."
+        ),
+        "learning_outcomes": [
+            "Identify which diode pair conducts on each half-cycle",
+            "Explain why load voltage stays positive for both input polarities",
+            "Measure ripple frequency near 2f from the oscilloscope trace",
+        ],
+        "prerequisites": ["half-wave-rectifier", "diode-characteristics"],
+        "formulas": [
+            {
+                "expression": "Vout peak ≈ Vin peak − 2 Vf",
+                "variables": [
+                    {"symbol": "Vf", "name": "Diode forward drop"},
+                ],
+            },
+            {
+                "expression": "f_ripple ≈ 2 f_line   (unfiltered)",
+                "variables": [
+                    {"symbol": "f_line", "name": "AC source frequency"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "Vin", "name": "AC input", "unit": "V", "description": "Channel A"},
+            {"symbol": "Vout", "name": "Load voltage", "unit": "V", "description": "Channel B"},
+            {"symbol": "f_ripple", "name": "Output pulse rate", "unit": "Hz", "description": "Counted from the waveform"},
+        ],
+        "components": [
+            {"name": "AC function generator", "quantity": 1, "spec": "10 V peak sine, 50 Hz"},
+            {"name": "Diodes D1–D4", "quantity": 4, "spec": "Silicon, Vf = 0.7 V"},
+            {"name": "Load resistor", "quantity": 1, "spec": "1 kΩ"},
+            {"name": "Ground", "quantity": 1, "spec": "Load return"},
+            {"name": "Oscilloscope probes", "quantity": 2, "spec": "Channel A input, Channel B output"},
+        ],
+        "circuit_diagram": {
+            "art": "Bridge: D1/D2 cathodes to V+, D3/D4 anodes to ground, RL across V+ and ground, AC across the other corners.",
+            "caption": "Genuine four-diode bridge. The AC source is not grounded on one side.",
+        },
+        "procedure": [
+            "Load the full-wave bridge starter.",
+            "Run the transient simulation.",
+            "Open the oscilloscope graph: Channel A is Vin, Channel B is Vout.",
+            "Confirm Vout stays positive on both half-cycles and ripple frequency is near 100 Hz.",
+            "Record peaks, average, and which diodes conducted.",
+        ],
+        "expected_results": [
+            "Vout peak is below Vin peak by about two forward drops (~8.6 V for the starter).",
+            "Both input polarities produce a positive load pulse.",
+            "Ripple frequency is about twice the 50 Hz line frequency.",
+        ],
+        "common_mistakes": [
+            {"mistake": "Grounding one side of the AC source and one corner incorrectly", "consequence": "A diode or the source is shorted and the bridge does not steer both cycles."},
+            {"mistake": "Reporting half-wave ripple (f) for a working bridge", "consequence": "Two pulses per cycle are missed."},
+            {"mistake": "Replacing the diode solve with max(|Vin| − 1.4, 0)", "consequence": "The report is not the circuit result."},
+        ],
+        "safety_precautions": [
+            "Use an isolated low-voltage source on the bench. Do not connect this bridge directly to mains.",
+        ],
+        "observation_guidance": [
+            "Watch two diodes conduct, then the other two, while load current does not reverse.",
+            "Compare the trace with the half-wave experiment: one pulse per cycle versus two.",
+        ],
+        "real_world_applications": [
+            "DC adapters and power-supply front ends",
+            "Battery chargers before the filter capacitor",
+        ],
+        "related_experiments": ["half-wave-rectifier", "diode-characteristics", "ohms-law"],
+        "simulation_configuration": {
+            "mode": "full-wave-bridge-rectifier",
+            "parameters": {"voltage": 10, "frequency": 50, "rl": 1000, "vf": 0.7},
         },
     },
 ]
