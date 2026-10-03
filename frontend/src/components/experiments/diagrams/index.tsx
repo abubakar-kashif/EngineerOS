@@ -16,6 +16,7 @@ const PotentiometerDiagram = lazy(() => import("./PotentiometerDiagram"));
 const SuperpositionDiagram = lazy(() => import("./SuperpositionDiagram"));
 const TheveninDiagram = lazy(() => import("./TheveninDiagram"));
 const NortonDiagram = lazy(() => import("./NortonDiagram"));
+const MaxPowerTransferDiagram = lazy(() => import("./MaxPowerTransferDiagram"));
 
 /** Experiment-id → diagram component mapping. */
 const diagramMap: Record<string, ComponentType> = {
@@ -34,6 +35,7 @@ const diagramMap: Record<string, ComponentType> = {
   "superposition-theorem": SuperpositionDiagram,
   "thevenin-theorem": TheveninDiagram,
   "norton-theorem": NortonDiagram,
+  "maximum-power-transfer": MaxPowerTransferDiagram,
 };
 
 interface DiagramRendererProps {

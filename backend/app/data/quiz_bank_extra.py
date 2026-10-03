@@ -257,7 +257,25 @@ QUIZ_BANK_EXTRA = {
         {"question": "Converting Norton → Thévenin:", "option_a": "Vth = IN·RN, Rth = RN", "option_b": "Deletes IN", "option_c": "Forces RL=0", "option_d": "Opens ground", "correct_answer": "A", "explanation": "Conversion."},
         {"question": "Report difference/error compares:", "option_a": "Original IL vs Norton IL", "option_b": "Only titles", "option_c": "Only themes", "option_d": "Only user ids", "correct_answer": "A", "explanation": "Spec."},
         {"question": "With RN → ∞, Norton approaches:", "option_a": "An ideal current source", "option_b": "A short", "option_c": "Vth=0 forced", "option_d": "No current ever", "correct_answer": "A", "explanation": "Idealization."},
+  ],
+  "maximum-power-transfer": [
+        {"question": "Why start RL off the match?", "option_a": "So the sweep peak is obvious versus the operating point", "option_b": "To break the theorem", "option_c": "To delete Rth", "option_d": "To force PL=0", "correct_answer": "A", "explanation": "Pedagogy."},
+        {"question": "Maximum power transfer prioritizes:", "option_a": "Power delivered to the load", "option_b": "Always source efficiency", "option_c": "Wire color", "option_d": "Quiz length", "correct_answer": "A", "explanation": "Goal."},
+        {"question": "Battery designers may avoid RL=Rth because:", "option_a": "Efficiency is only 50% at match", "option_b": "Pmax is illegal", "option_c": "Rth cannot exist", "option_d": "VL cannot be measured", "correct_answer": "A", "explanation": "Tradeoff."},
+        {"question": "If two sweep points tie for max PL:", "option_a": "Either is acceptable near Rth within sampling", "option_b": "The theorem failed", "option_c": "Delete ground", "option_d": "Set Vs=0", "correct_answer": "A", "explanation": "Discrete sweep."},
+        {"question": "Changing R2 changes:", "option_a": "Both Vth and Rth, hence the peak location/height", "option_b": "Neither", "option_c": "Only font size", "option_d": "Only the title", "correct_answer": "A", "explanation": "Network."},
+        {"question": "PL at RL=0 is:", "option_a": "0 (short, VL=0)", "option_b": "Pmax", "option_c": "Infinite", "option_d": "Vth", "correct_answer": "A", "explanation": "No voltage."},
+        {"question": "PL as RL→∞ approaches:", "option_a": "0 (IL→0)", "option_b": "Pmax", "option_c": "Vth²", "option_d": "Rth", "correct_answer": "A", "explanation": "No current."},
+        {"question": "Mentor should prefer:", "option_a": "Attached sweep metadata for the max point", "option_b": "Invented peaks", "option_c": "Ignoring Rth", "option_d": "Only CSS talk", "correct_answer": "A", "explanation": "Grounding."},
+        {"question": "Comparing theoretical and simulated RL_opt checks:", "option_a": "Sweep resolution and model correctness", "option_b": "Theme contrast only", "option_c": "User email", "option_d": "Font weight", "correct_answer": "A", "explanation": "Validation."},
+        {"question": "The operating-point marker on the graph shows:", "option_a": "Current RL and its PL", "option_b": "Only Rth", "option_c": "Only Vs", "option_d": "Quiz score", "correct_answer": "A", "explanation": "HUD."},
+        {"question": "Simulated max marker should lie near:", "option_a": "The curve peak", "option_b": "The origin always", "option_c": "Infinite RL", "option_d": "Negative PL", "correct_answer": "A", "explanation": "Consistency."},
+        {"question": "Using |VL·IL| avoids:", "option_a": "Sign issues from meter orientation", "option_b": "Need for Rth", "option_c": "Need for Vs", "option_d": "Ohm's law", "correct_answer": "A", "explanation": "Robustness."},
+        {"question": "Prerequisite lab most related is:", "option_a": "Thévenin's theorem", "option_b": "Only LED labs", "option_c": "Only RC timing", "option_d": "Only digital gates", "correct_answer": "A", "explanation": "Equivalents."},
+        {"question": "If Pmax reported is in watts but tiny, consider:", "option_a": "Milliwatts scale (e.g. 0.009 W = 9 mW)", "option_b": "Deleting the graph", "option_c": "Ignoring VL", "option_d": "Setting RL=Vs", "correct_answer": "A", "explanation": "Units."},
+        {"question": "Load matching here means:", "option_a": "Setting RL close to Rth", "option_b": "Painting resistors", "option_c": "Removing ground", "option_d": "Shorting VM", "correct_answer": "A", "explanation": "Definition."},
   ]
+
 
 
 

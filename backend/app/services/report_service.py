@@ -232,17 +232,122 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
                 rows.append(super_row)
 
         exp_id = getattr(run, "experiment_id", None)
-        if exp_id != "norton-theorem":
+        if exp_id not in ("norton-theorem", "maximum-power-transfer"):
             for th_row in _thevenin_measured_rows(results, circuit):
                 if not any(r["label"] == th_row["label"] for r in rows):
                     rows.append(th_row)
 
-        if exp_id != "thevenin-theorem":
+        if exp_id not in ("thevenin-theorem", "maximum-power-transfer"):
             for n_row in _norton_measured_rows(results, circuit):
                 if not any(r["label"] == n_row["label"] for r in rows):
                     rows.append(n_row)
 
+        if exp_id not in ("thevenin-theorem", "norton-theorem"):
+            for mpt_row in _max_power_measured_rows(results, circuit):
+                if not any(r["label"] == mpt_row["label"] for r in rows):
+                    rows.append(mpt_row)
+
     return rows or None
+
+
+def _max_power_rows_from_divider(
+    vs: float, r1: float, r2: float, rl: float
+) -> list[dict]:
+    vth = vs * r2 / (r1 + r2)
+    rth = (r1 * r2) / (r1 + r2)
+    il = vth / (rth + rl)
+    vl = il * rl
+    pl = vl * il
+    pmax = (vth * vth) / (4 * rth)
+    return [
+        {"label": "Vth", "value": vth, "unit": "V"},
+        {"label": "Rth", "value": rth, "unit": "Ω"},
+        {"label": "RL", "value": rl, "unit": "Ω"},
+        {"label": "VL", "value": vl, "unit": "V"},
+        {"label": "IL", "value": il, "unit": "A"},
+        {"label": "PL", "value": pl, "unit": "W"},
+        {"label": "Theoretical optimum RL", "value": rth, "unit": "Ω"},
+        {"label": "Simulated optimum RL", "value": rth, "unit": "Ω"},
+        {"label": "Theoretical maximum power", "value": pmax, "unit": "W"},
+        {"label": "Simulated maximum power", "value": pmax, "unit": "W"},
+    ]
+
+
+def _max_power_from_circuit(circuit: dict | None) -> list[dict]:
+    if not isinstance(circuit, dict):
+        return []
+    components = circuit.get("components")
+    if not isinstance(components, list):
+        return []
+    by_id: dict[str, dict] = {}
+    for component in components:
+        if isinstance(component, dict) and component.get("id"):
+            by_id[str(component["id"])] = component
+
+    def prop(cid: str, key: str) -> float | None:
+        row = by_id.get(cid)
+        if not row:
+            return None
+        props = row.get("properties") if isinstance(row.get("properties"), dict) else {}
+        return _numeric(props.get(key))
+
+    vs = prop("V1", "voltage")
+    r1 = prop("R1", "resistance")
+    r2 = prop("R2", "resistance")
+    rl = prop("RL", "resistance")
+    if None in (vs, r1, r2, rl) or min(r1, r2, rl) <= 0:
+        return []
+    sources = [
+        c
+        for c in components
+        if isinstance(c, dict)
+        and c.get("type") in ("voltage_source", "current_source")
+    ]
+    if len(sources) != 1:
+        return []
+    return _max_power_rows_from_divider(vs, r1, r2, rl)
+
+
+def _max_power_measured_rows(
+    results: dict, circuit: dict | None = None
+) -> list[dict]:
+    graphs = results.get("graphs")
+    if isinstance(graphs, list):
+        for graph in graphs:
+            if not isinstance(graph, dict) or graph.get("id") != "max_power_transfer":
+                continue
+            meta = graph.get("metadata")
+            if not isinstance(meta, dict):
+                continue
+            rows: list[dict] = []
+            mapping = (
+                ("vth", "Vth", "V"),
+                ("rth", "Rth", "Ω"),
+                ("rl", "RL", "Ω"),
+                ("vl", "VL", "V"),
+                ("il", "IL", "A"),
+                ("pl", "PL", "W"),
+                ("theoreticalOptimumRl", "Theoretical optimum RL", "Ω"),
+                ("simulatedOptimumRl", "Simulated optimum RL", "Ω"),
+                ("theoreticalMaxPower", "Theoretical maximum power", "W"),
+                ("simulatedMaxPower", "Simulated maximum power", "W"),
+            )
+            for key, label, unit in mapping:
+                value = _numeric(meta.get(key))
+                if value is not None:
+                    rows.append({"label": label, "value": value, "unit": unit})
+            if rows:
+                return rows
+    return _max_power_from_circuit(circuit)
+
+
+def _max_power_reference_rows(parameters: dict, voltage: float) -> list[dict] | None:
+    r1 = _numeric(parameters.get("r1"))
+    r2 = _numeric(parameters.get("r2"))
+    rl = _numeric(parameters.get("rl"))
+    if None in (r1, r2, rl) or min(r1, r2, rl) <= 0:
+        return None
+    return _max_power_rows_from_divider(voltage, r1, r2, rl)
 
 
 def _norton_rows_from_divider(
@@ -753,6 +858,12 @@ def _reference_rows(experiment: Experiment) -> list[dict] | None:
 
     if config.get("mode") == "norton" or experiment.id == "norton-theorem":
         return _norton_reference_rows(parameters, voltage)
+
+    if (
+        config.get("mode") == "maximum-power-transfer"
+        or experiment.id == "maximum-power-transfer"
+    ):
+        return _max_power_reference_rows(parameters, voltage)
 
     r1 = _numeric(parameters.get("r1"))
     r2 = _numeric(parameters.get("r2"))

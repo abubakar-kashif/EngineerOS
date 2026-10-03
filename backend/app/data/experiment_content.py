@@ -2318,7 +2318,7 @@ EXPERIMENTS: list[dict] = [
             "Simplifying networks that naturally look like current drives",
             "Teaching duality with Thévenin's theorem",
         ],
-        "related_experiments": ["thevenin-theorem", "current-divider", "voltage-divider", "superposition-theorem", "ohms-law"],
+        "related_experiments": ["thevenin-theorem", "current-divider", "voltage-divider", "superposition-theorem", "ohms-law", "maximum-power-transfer"],
         "simulation_configuration": {
             "mode": "norton",
             "parameters": {
@@ -2326,6 +2326,166 @@ EXPERIMENTS: list[dict] = [
                 "r1": 2000,
                 "r2": 2000,
                 "rl": 2000,
+            },
+        },
+    },
+    {
+        "id": "maximum-power-transfer",
+        "title": "Maximum Power Transfer",
+        "slug": "maximum-power-transfer",
+        "short_description": "Sweep RL and verify that load power peaks when RL equals Rth.",
+        "description": (
+            "This experiment demonstrates the maximum power transfer theorem for a "
+            "resistive DC network. Using the Thévenin equivalent of the source network, "
+            "you will sweep the load resistance RL, compute PL = VL·IL from real solves, "
+            "and confirm that power is maximized when RL = Rth."
+        ),
+        "objective": (
+            "Measure Vth and Rth, sweep RL to plot load power, locate the simulated "
+            "optimum, and compare it with the theoretical match RL = Rth and "
+            "Pmax = Vth²/(4 Rth)."
+        ),
+        "theory": (
+            "For a linear DC resistive source with Thévenin equivalents Vth and Rth, "
+            "the power delivered to a load RL is PL = (Vth² · RL) / (Rth + RL)². "
+            "Differentiating with respect to RL shows that PL is maximum when RL = Rth. "
+            "The maximum power is Pmax = Vth² / (4 Rth). At that match, half the power "
+            "is dissipated in Rth, so efficiency is 50% — useful for power transfer, "
+            "not always for efficiency-critical designs."
+        ),
+        "difficulty": "Intermediate",
+        "category": "Circuit Theorems",
+        "duration_minutes": 40,
+        "status": "published",
+        "historical_background": (
+            "Maximum power transfer follows directly from Thévenin's equivalent and "
+            "appears throughout audio, RF matching (AC generalizations), and sensor "
+            "interface design whenever delivering power to a load matters more than "
+            "minimizing source dissipation."
+        ),
+        "learning_outcomes": [
+            "State the maximum power transfer condition RL = Rth for resistive DC networks",
+            "Compute PL = VL·IL and Pmax = Vth²/(4 Rth)",
+            "Interpret an RL-vs-PL sweep graph and locate the peak",
+            "Distinguish maximum power transfer from maximum efficiency",
+        ],
+        "prerequisites": ["ohms-law", "voltage-divider", "thevenin-theorem"],
+        "formulas": [
+            {
+                "expression": "P_L = V_L · I_L",
+                "variables": [
+                    {"symbol": "P_L", "name": "Load power"},
+                    {"symbol": "V_L", "name": "Load voltage"},
+                    {"symbol": "I_L", "name": "Load current"},
+                ],
+            },
+            {
+                "expression": "R_L = R_th  (at maximum power)",
+                "variables": [
+                    {"symbol": "R_L", "name": "Load resistance"},
+                    {"symbol": "R_th", "name": "Thévenin resistance"},
+                ],
+            },
+            {
+                "expression": "P_max = V_th² / (4 R_th)",
+                "variables": [
+                    {"symbol": "P_max", "name": "Maximum load power"},
+                    {"symbol": "V_th", "name": "Thévenin voltage"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "Vs", "name": "Source voltage", "unit": "volt (V)", "description": "Independent DC source"},
+            {"symbol": "R1", "name": "Series resistor", "unit": "ohm (Ω)", "description": "Source-side series resistance"},
+            {"symbol": "R2", "name": "Shunt resistor", "unit": "ohm (Ω)", "description": "Parallel path at the load port"},
+            {"symbol": "RL", "name": "Load resistor", "unit": "ohm (Ω)", "description": "Variable load"},
+            {"symbol": "Vth", "name": "Thévenin voltage", "unit": "volt (V)", "description": "Open-circuit equivalent voltage"},
+            {"symbol": "Rth", "name": "Thévenin resistance", "unit": "ohm (Ω)", "description": "Equivalent source resistance"},
+            {"symbol": "VL", "name": "Load voltage", "unit": "volt (V)", "description": "Voltage across RL"},
+            {"symbol": "IL", "name": "Load current", "unit": "ampere (A)", "description": "Current through RL"},
+            {"symbol": "PL", "name": "Load power", "unit": "watt (W)", "description": "PL = VL·IL"},
+        ],
+        "components": [
+            {"name": "DC voltage source", "quantity": 1, "spec": "12 V"},
+            {"name": "Resistor R1", "quantity": 1, "spec": "2 kΩ"},
+            {"name": "Resistor R2", "quantity": 1, "spec": "2 kΩ"},
+            {"name": "Variable load RL", "quantity": 1, "spec": "Start 500 Ω; sweep around Rth"},
+            {"name": "Ground", "quantity": 1, "spec": "Reference node"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Across RL"},
+            {"name": "Ammeter", "quantity": 1, "spec": "In series with RL"},
+        ],
+        "circuit_diagram": {
+            "art": (
+                "  Vs+--R1--+--R2--GND\n"
+                "          |\n"
+                "         RL (variable)--GND\n"
+                "  Sweep RL; PL = VL·IL peaks at RL = Rth\n"
+            ),
+            "caption": (
+                "Source network with variable load. Theoretical match: RL = Rth = 1 kΩ; "
+                "Pmax = Vth²/(4 Rth) = 9 mW for the starter."
+            ),
+        },
+        "procedure": [
+            "Open the Maximum Power Transfer lab — starter loads with RL = 500 Ω.",
+            "Run the simulation and note Vth, Rth, VL, IL, and PL at the operating point.",
+            "Inspect the mandatory RL-vs-PL graph built from real solver sweeps.",
+            "Identify the simulated peak and compare RL_opt and Pmax with theory (1 kΩ, 9 mW).",
+            "Set RL = Rth (1 kΩ), re-run, and confirm PL is at/near the peak.",
+            "Try RL much smaller and much larger than Rth — power should fall on both sides.",
+            "Discuss efficiency at match (50%) versus designs that prioritize efficiency over power.",
+            "Optionally change Vs or R1/R2 and verify the new Rth match point.",
+        ],
+        "expected_results": [
+            "Starter: Vth ≈ 6 V, Rth ≈ 1 kΩ.",
+            "Theoretical optimum RL = 1 kΩ; Pmax ≈ 9 mW.",
+            "Simulated sweep peak is near RL = Rth with PL ≈ Pmax.",
+            "Operating RL = 500 Ω yields less than Pmax.",
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Confusing maximum power with maximum efficiency",
+                "consequence": "At RL = Rth, efficiency is only 50%.",
+            },
+            {
+                "mistake": "Matching RL to R1 or R2 instead of Rth",
+                "consequence": "Wrong peak location — use R1||R2 (with Vs shorted).",
+            },
+            {
+                "mistake": "Using PL = Vth·IL without the loaded VL",
+                "consequence": "Must use loaded VL and IL (or the PL formula in RL).",
+            },
+            {
+                "mistake": "Reading the graph peak without checking units",
+                "consequence": "Mis-report milliwatts as watts or ohms.",
+            },
+        ],
+        "safety_precautions": [
+            "Keep Vs within the lab starter limit (12 V DC).",
+            "Avoid prolonged hard shorts when probing near RL → 0.",
+            "Power off before rearranging wires in a physical build.",
+            "Start meter ranges high when VL/IL are unknown.",
+        ],
+        "observation_guidance": [
+            "Watch the RL-vs-PL curve rise then fall through the match point.",
+            "Compare theoretical and simulated optimum RL and Pmax in the report.",
+            "Note that VL = Vth/2 at the maximum-power match.",
+            "Relate the result back to the Thévenin lab equivalents.",
+        ],
+        "real_world_applications": [
+            "Audio amplifier to speaker matching (historical / simplified view)",
+            "Sensor front-ends where delivered signal power matters",
+            "RF conjugate matching as the AC generalization",
+            "Battery/load studies of available power versus efficiency",
+        ],
+        "related_experiments": ["thevenin-theorem", "norton-theorem", "voltage-divider", "ohms-law"],
+        "simulation_configuration": {
+            "mode": "maximum-power-transfer",
+            "parameters": {
+                "voltage": 12,
+                "r1": 2000,
+                "r2": 2000,
+                "rl": 500,
             },
         },
     },

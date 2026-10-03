@@ -258,7 +258,25 @@ export const QUIZ_BANK_EXTRA: Record<string, SeedQuizQuestion[]> = {
     { question: "Converting Norton → Thévenin:", options: ["Vth = IN·RN, Rth = RN", "Deletes IN", "Forces RL=0", "Opens ground"], correct_answer: "A", explanation: "Conversion.", category: "conceptual" },
     { question: "Report difference/error compares:", options: ["Original IL vs Norton IL", "Only titles", "Only themes", "Only user ids"], correct_answer: "A", explanation: "Spec.", category: "conceptual" },
     { question: "With RN → ∞, Norton approaches:", options: ["An ideal current source", "A short", "Vth=0 forced", "No current ever"], correct_answer: "A", explanation: "Idealization.", category: "conceptual" },
+  ],
+  "maximum-power-transfer": [
+    { question: "Why start RL off the match?", options: ["So the sweep peak is obvious versus the operating point", "To break the theorem", "To delete Rth", "To force PL=0"], correct_answer: "A", explanation: "Pedagogy.", category: "conceptual" },
+    { question: "Maximum power transfer prioritizes:", options: ["Power delivered to the load", "Always source efficiency", "Wire color", "Quiz length"], correct_answer: "A", explanation: "Goal.", category: "conceptual" },
+    { question: "Battery designers may avoid RL=Rth because:", options: ["Efficiency is only 50% at match", "Pmax is illegal", "Rth cannot exist", "VL cannot be measured"], correct_answer: "A", explanation: "Tradeoff.", category: "conceptual" },
+    { question: "If two sweep points tie for max PL:", options: ["Either is acceptable near Rth within sampling", "The theorem failed", "Delete ground", "Set Vs=0"], correct_answer: "A", explanation: "Discrete sweep.", category: "conceptual" },
+    { question: "Changing R2 changes:", options: ["Both Vth and Rth, hence the peak location/height", "Neither", "Only font size", "Only the title"], correct_answer: "A", explanation: "Network.", category: "conceptual" },
+    { question: "PL at RL=0 is:", options: ["0 (short, VL=0)", "Pmax", "Infinite", "Vth"], correct_answer: "A", explanation: "No voltage.", category: "conceptual" },
+    { question: "PL as RL→∞ approaches:", options: ["0 (IL→0)", "Pmax", "Vth²", "Rth"], correct_answer: "A", explanation: "No current.", category: "conceptual" },
+    { question: "Mentor should prefer:", options: ["Attached sweep metadata for the max point", "Invented peaks", "Ignoring Rth", "Only CSS talk"], correct_answer: "A", explanation: "Grounding.", category: "conceptual" },
+    { question: "Comparing theoretical and simulated RL_opt checks:", options: ["Sweep resolution and model correctness", "Theme contrast only", "User email", "Font weight"], correct_answer: "A", explanation: "Validation.", category: "conceptual" },
+    { question: "The operating-point marker on the graph shows:", options: ["Current RL and its PL", "Only Rth", "Only Vs", "Quiz score"], correct_answer: "A", explanation: "HUD.", category: "conceptual" },
+    { question: "Simulated max marker should lie near:", options: ["The curve peak", "The origin always", "Infinite RL", "Negative PL"], correct_answer: "A", explanation: "Consistency.", category: "conceptual" },
+    { question: "Using |VL·IL| avoids:", options: ["Sign issues from meter orientation", "Need for Rth", "Need for Vs", "Ohm's law"], correct_answer: "A", explanation: "Robustness.", category: "conceptual" },
+    { question: "Prerequisite lab most related is:", options: ["Thévenin's theorem", "Only LED labs", "Only RC timing", "Only digital gates"], correct_answer: "A", explanation: "Equivalents.", category: "conceptual" },
+    { question: "If Pmax reported is in watts but tiny, consider:", options: ["Milliwatts scale (e.g. 0.009 W = 9 mW)", "Deleting the graph", "Ignoring VL", "Setting RL=Vs"], correct_answer: "A", explanation: "Units.", category: "conceptual" },
+    { question: "Load matching here means:", options: ["Setting RL close to Rth", "Painting resistors", "Removing ground", "Shorting VM"], correct_answer: "A", explanation: "Definition.", category: "conceptual" },
   ]
+
 
 
 

@@ -21,6 +21,7 @@ import {
 import { extractSuperpositionMetrics } from './superpositionAnalysis';
 import { extractTheveninMetrics } from './theveninAnalysis';
 import { extractNortonMetrics } from './nortonAnalysis';
+import { extractMaxPowerTransferMetrics } from './maxPowerTransferAnalysis';
 
 export interface GraphPoint {
   x: number;
@@ -660,7 +661,11 @@ export function generateGraphsFromMeasurements(
 
     const expId = circuit.experimentId;
     const thevenin = extractTheveninMetrics(circuit);
-    if (thevenin && expId !== 'norton-theorem') {
+    if (
+      thevenin &&
+      expId !== 'norton-theorem' &&
+      expId !== 'maximum-power-transfer'
+    ) {
       graphs.push({
         id: 'thevenin_comparison',
         type: 'bar',
@@ -696,7 +701,11 @@ export function generateGraphsFromMeasurements(
     }
 
     const norton = extractNortonMetrics(circuit);
-    if (norton && expId !== 'thevenin-theorem') {
+    if (
+      norton &&
+      expId !== 'thevenin-theorem' &&
+      expId !== 'maximum-power-transfer'
+    ) {
       graphs.push({
         id: 'norton_comparison',
         type: 'bar',
@@ -727,6 +736,53 @@ export function generateGraphsFromMeasurements(
           nortonIL: norton.nortonIL,
           differenceIL: norton.differenceIL,
           errorPercentIL: norton.errorPercentIL,
+        },
+      });
+    }
+
+    const mpt = extractMaxPowerTransferMetrics(circuit);
+    if (
+      mpt &&
+      expId !== 'thevenin-theorem' &&
+      expId !== 'norton-theorem'
+    ) {
+      graphs.push({
+        id: 'max_power_transfer',
+        type: 'line',
+        title: 'Maximum Power Transfer (RL vs PL)',
+        xAxis: { label: 'Load resistance RL', unit: 'Ω' },
+        yAxis: { label: 'Load power PL', unit: 'W' },
+        series: [
+          {
+            name: 'PL (solved)',
+            color: COLORS[0],
+            points: mpt.sweep.map((p) => ({ x: p.rl, y: p.pl })),
+          },
+          {
+            name: 'Operating point',
+            color: COLORS[1],
+            points: [{ x: mpt.rl, y: mpt.pl }],
+          },
+          {
+            name: 'Simulated max',
+            color: COLORS[2] ?? COLORS[1],
+            points: [{ x: mpt.simulatedOptimumRl, y: mpt.simulatedMaxPower }],
+          },
+        ],
+        metadata: {
+          source: 'dc_rl_sweep',
+          pointCount: mpt.sweep.length,
+          vth: mpt.vth,
+          rth: mpt.rth,
+          rl: mpt.rl,
+          vl: mpt.vl,
+          il: mpt.il,
+          pl: mpt.pl,
+          theoreticalOptimumRl: mpt.theoreticalOptimumRl,
+          theoreticalMaxPower: mpt.theoreticalMaxPower,
+          simulatedOptimumRl: mpt.simulatedOptimumRl,
+          simulatedMaxPower: mpt.simulatedMaxPower,
+          sweep: mpt.sweep,
         },
       });
     }

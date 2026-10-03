@@ -68,6 +68,7 @@ const CATALOG_EXPERIMENT_IDS = [
   "superposition-theorem",
   "thevenin-theorem",
   "norton-theorem",
+  "maximum-power-transfer",
 ] as const;
 
 function SimulationPage() {

@@ -19,6 +19,10 @@ import {
   createNortonTheoremStarter,
   NORTON_THEOREM_EXPERIMENT_ID,
 } from "./nortonTheorem";
+import {
+  createMaxPowerTransferStarter,
+  MAX_POWER_TRANSFER_EXPERIMENT_ID,
+} from "./maxPowerTransfer";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
@@ -27,6 +31,7 @@ const STARTERS: Record<string, () => EditorCircuit> = {
   [SUPERPOSITION_THEOREM_EXPERIMENT_ID]: createSuperpositionTheoremStarter,
   [THEVENIN_THEOREM_EXPERIMENT_ID]: createTheveninTheoremStarter,
   [NORTON_THEOREM_EXPERIMENT_ID]: createNortonTheoremStarter,
+  [MAX_POWER_TRANSFER_EXPERIMENT_ID]: createMaxPowerTransferStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -49,4 +54,6 @@ export {
   THEVENIN_THEOREM_EXPERIMENT_ID,
   createNortonTheoremStarter,
   NORTON_THEOREM_EXPERIMENT_ID,
+  createMaxPowerTransferStarter,
+  MAX_POWER_TRANSFER_EXPERIMENT_ID,
 };

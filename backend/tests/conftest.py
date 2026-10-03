@@ -48,6 +48,7 @@ EXPERIMENT_IDS = [
     "superposition-theorem",
     "thevenin-theorem",
     "norton-theorem",
+    "maximum-power-transfer",
 ]
 
 
