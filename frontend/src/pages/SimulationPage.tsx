@@ -288,7 +288,8 @@ function SimulationPage() {
       const starter = getExperimentStarterCircuit(experimentParam);
       if (starter) {
         loadCircuit(starter);
-        clearSimulationSession();
+        // Session state is already empty on this mount. Clearing it here
+        // only schedules another render with the same null result.
         requestAnimationFrame(() => canvasRef.current?.fitToScreen());
       }
     }

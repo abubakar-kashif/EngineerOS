@@ -16,7 +16,7 @@ import type {
 import { DEFAULT_TERMINALS } from "../editorTypes";
 import { getTerminalWorldPosition } from "../editorUtils";
 import { normalizeEditorCircuit } from "../wireTopology";
-import { AC_FUNCTION_GENERATOR_DEFAULTS } from "../ComponentPalette";
+import { AC_FUNCTION_GENERATOR_DEFAULTS } from "../paletteCatalog";
 
 export const HALF_WAVE_RECTIFIER_EXPERIMENT_ID = "half-wave-rectifier";
 

@@ -7,7 +7,7 @@ import {
   buildFrequencyList,
   runFrequencySweep,
 } from "../frequencySweepAnalysis";
-import { filterPaletteEntries } from "../../ComponentPalette";
+import { filterPaletteEntries } from "../../paletteCatalog";
 
 function comp(
   id: string,

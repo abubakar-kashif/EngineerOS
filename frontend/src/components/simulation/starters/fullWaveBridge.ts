@@ -17,7 +17,7 @@ import type {
 import { DEFAULT_TERMINALS } from "../editorTypes";
 import { getTerminalWorldPosition } from "../editorUtils";
 import { normalizeEditorCircuit } from "../wireTopology";
-import { AC_FUNCTION_GENERATOR_DEFAULTS } from "../ComponentPalette";
+import { AC_FUNCTION_GENERATOR_DEFAULTS } from "../paletteCatalog";
 
 export const FULL_WAVE_BRIDGE_EXPERIMENT_ID = "full-wave-bridge-rectifier";
 
