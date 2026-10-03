@@ -206,7 +206,25 @@ QUIZ_BANK_EXTRA = {
         {"question": "Increasing Vin at fixed α:", "option_a": "Increases Vout proportionally", "option_b": "Decreases α", "option_c": "Removes Rpot", "option_d": "Flips polarity always", "correct_answer": "A", "explanation": "Vout=αVin."},
         {"question": "Digital pots still implement:", "option_a": "An adjustable divider ratio", "option_b": "Only mechanical gears", "option_c": "Pure inductance", "option_d": "No wiper concept", "correct_answer": "A", "explanation": "Same function."},
         {"question": "Common mistake: treating pot like a single resistor to ground from Vin without wiper sense. Result:", "option_a": "You lose the variable tap voltage", "option_b": "Perfect Vout", "option_c": "α auto-sets", "option_d": "Rpot vanishes", "correct_answer": "A", "explanation": "Need the wiper node."},
-    ]
+    ],
+  "superposition-theorem": [
+        {"question": "Why not superpose power?", "option_a": "Because P depends on V² or I²", "option_b": "Because ohms are imaginary", "option_c": "Because ground is optional", "option_d": "Because sources are painted", "correct_answer": "A", "explanation": "Quadratic."},
+        {"question": "Manual check: set V2 = 0 and re-run. You are:", "option_a": "Building the V1 contribution circuit", "option_b": "Breaking superposition", "option_c": "Removing RL", "option_d": "Creating RF", "correct_answer": "A", "explanation": "Same as analysis."},
+        {"question": "If a diode is added in series with RL:", "option_a": "Superposition may fail (nonlinearity)", "option_b": "Nothing changes ever", "option_c": "VL always doubles", "option_d": "R1 vanishes", "correct_answer": "A", "explanation": "Nonlinear device."},
+        {"question": "Contribution currents through RL:", "option_a": "Also add to the full-circuit load current", "option_b": "Must never be added", "option_c": "Equal Vin", "option_d": "Ignore KCL", "correct_answer": "A", "explanation": "Current is linear too."},
+        {"question": "Label RL helps analysis because:", "option_a": "The load resistor is identified for VL/IL", "option_b": "It sets V1 magically", "option_c": "It deletes V2", "option_d": "It is only cosmetic", "correct_answer": "A", "explanation": "findLoadResistorId."},
+        {"question": "Two voltage sources sharing ground is OK because:", "option_a": "Each has a return path for its current", "option_b": "Ground is optional", "option_c": "Sources must float", "option_d": "R2 must be zero", "correct_answer": "A", "explanation": "Topology."},
+        {"question": "Error percent uses:", "option_a": "|full − sum| / |full| × 100", "option_b": "full × sum", "option_c": "Only R1", "option_d": "Quiz score", "correct_answer": "A", "explanation": "Relative error."},
+        {"question": "Open a current source incorrectly as a short and you:", "option_a": "Alter the contribution network wrongly", "option_b": "Always get the right VL", "option_c": "Remove superposition need", "option_d": "Force α = 1", "correct_answer": "A", "explanation": "Wrong model."},
+        {"question": "In phasor AC linear circuits, superposition:", "option_a": "Still applies to complex voltages/currents", "option_b": "Never applies", "option_c": "Applies only to power", "option_d": "Needs no sources", "correct_answer": "A", "explanation": "Linearity in frequency domain."},
+        {"question": "The bar at 'Sum' on the graph should align with:", "option_a": "Full", "option_b": "Only V1", "option_c": "Only zero", "option_d": "R2", "correct_answer": "A", "explanation": "Visual check."},
+        {"question": "Changing RL changes:", "option_a": "Both contributions and the full VL", "option_b": "Neither", "option_c": "Only wire length", "option_d": "Only the title", "correct_answer": "A", "explanation": "Shared load."},
+        {"question": "KVL around a loop with a shorted VS:", "option_a": "Treats that source branch as 0 V", "option_b": "Adds 12 V anyway", "option_c": "Removes KVL", "option_d": "Forces I = 0 always", "correct_answer": "A", "explanation": "Short."},
+        {"question": "Mentor should not invent contributions; it should:", "option_a": "Use attached simulation/catalog values", "option_b": "Guess randomly", "option_c": "Ignore the lab", "option_d": "Only discuss fonts", "correct_answer": "A", "explanation": "Grounding rule."},
+        {"question": "A third independent source would require:", "option_a": "A third contribution circuit plus the sum of all three", "option_b": "Deleting superposition", "option_c": "Shorting RL", "option_d": "Only AC meters", "correct_answer": "A", "explanation": "General theorem."},
+        {"question": "Best first debugging step if sum ≠ full:", "option_a": "Re-check deactivation (short vs open) and wiring", "option_b": "Change the theme", "option_c": "Delete ground forever", "option_d": "Ignore meters", "correct_answer": "A", "explanation": "Physical correctness."},
+  ]
+
 
 }
 

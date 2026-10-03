@@ -227,7 +227,153 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
             if not any(r["label"] == pot_row["label"] for r in rows):
                 rows.append(pot_row)
 
+        for super_row in _superposition_measured_rows(results, circuit):
+            if not any(r["label"] == super_row["label"] for r in rows):
+                rows.append(super_row)
+
     return rows or None
+
+
+def _superposition_rows_from_two_source_divider(
+    v1: float, v2: float, r1: float, r2: float, rl: float
+) -> list[dict]:
+    g = 1 / r1 + 1 / r2 + 1 / rl
+    v_full = (v1 / r1 + v2 / r2) / g
+    v1_only = (v1 / r1) / g
+    v2_only = (v2 / r2) / g
+    total = v1_only + v2_only
+    diff = v_full - total
+    err = 0.0 if abs(v_full) < 1e-12 else abs(diff) / abs(v_full) * 100
+    return [
+        {"label": "Full-circuit Vout", "value": v_full, "unit": "V"},
+        {"label": "Full-circuit I_load", "value": v_full / rl, "unit": "A"},
+        {"label": "V1 contribution", "value": v1_only, "unit": "V"},
+        {"label": "V2 contribution", "value": v2_only, "unit": "V"},
+        {"label": "Sum of contributions", "value": total, "unit": "V"},
+        {"label": "Difference (full − sum)", "value": diff, "unit": "V"},
+        {"label": "Error", "value": err, "unit": "%"},
+        {
+            "label": "V1 deactivation (for V2-only)",
+            "value": 0.0,
+            "unit": "V short",
+        },
+        {
+            "label": "V2 deactivation (for V1-only)",
+            "value": 0.0,
+            "unit": "V short",
+        },
+    ]
+
+
+def _superposition_from_circuit(circuit: dict | None) -> list[dict]:
+    """Analytical three-state rows for the standard two-VS + RL starter topology."""
+    if not isinstance(circuit, dict):
+        return []
+    components = circuit.get("components")
+    if not isinstance(components, list):
+        return []
+
+    by_id: dict[str, dict] = {}
+    for component in components:
+        if isinstance(component, dict) and component.get("id"):
+            by_id[str(component["id"])] = component
+
+    def prop(cid: str, key: str) -> float | None:
+        row = by_id.get(cid)
+        if not row:
+            return None
+        props = row.get("properties") if isinstance(row.get("properties"), dict) else {}
+        return _numeric(props.get(key))
+
+    v1 = prop("V1", "voltage")
+    v2 = prop("V2", "voltage")
+    r1 = prop("R1", "resistance")
+    r2 = prop("R2", "resistance")
+    rl = prop("RL", "resistance")
+    if None in (v1, v2, r1, r2, rl) or min(r1, r2, rl) <= 0:
+        return []
+    return _superposition_rows_from_two_source_divider(v1, v2, r1, r2, rl)
+
+
+def _superposition_measured_rows(
+    results: dict, circuit: dict | None = None
+) -> list[dict]:
+    """Three-state superposition metrics from graph metadata or circuit params."""
+    graphs = results.get("graphs")
+    meta = None
+    if isinstance(graphs, list):
+        for graph in graphs:
+            if not isinstance(graph, dict):
+                continue
+            if graph.get("id") == "superposition_comparison":
+                raw = graph.get("metadata")
+                if isinstance(raw, dict):
+                    meta = raw
+                    break
+
+    if meta:
+        rows: list[dict] = []
+        full = _numeric(meta.get("fullVout"))
+        if full is not None:
+            rows.append({"label": "Full-circuit Vout", "value": full, "unit": "V"})
+        full_i = _numeric(meta.get("fullILoad"))
+        if full_i is not None:
+            rows.append({"label": "Full-circuit I_load", "value": full_i, "unit": "A"})
+
+        contributions = meta.get("contributions")
+        if isinstance(contributions, list):
+            for item in contributions:
+                if not isinstance(item, dict):
+                    continue
+                label = str(item.get("label") or "Contribution")
+                vout = _numeric(item.get("vout"))
+                if vout is not None:
+                    rows.append({"label": label, "value": vout, "unit": "V"})
+                i_load = _numeric(item.get("iLoad"))
+                if i_load is not None:
+                    rows.append({"label": f"{label} I_load", "value": i_load, "unit": "A"})
+
+        total = _numeric(meta.get("sumContributions"))
+        if total is not None:
+            rows.append({"label": "Sum of contributions", "value": total, "unit": "V"})
+        diff = _numeric(meta.get("difference"))
+        if diff is not None:
+            rows.append({"label": "Difference (full − sum)", "value": diff, "unit": "V"})
+        err = _numeric(meta.get("errorPercent"))
+        if err is not None:
+            rows.append({"label": "Error", "value": err, "unit": "%"})
+        if rows:
+            return rows
+
+    return _superposition_from_circuit(circuit)
+
+
+def _superposition_reference_rows(parameters: dict) -> list[dict] | None:
+    v1 = _numeric(parameters.get("v1"))
+    v2 = _numeric(parameters.get("v2"))
+    r1 = _numeric(parameters.get("r1"))
+    r2 = _numeric(parameters.get("r2"))
+    rl = _numeric(parameters.get("rl"))
+    if None in (v1, v2, r1, r2, rl) or min(r1, r2, rl) <= 0:
+        return None
+
+    # Nodal: VL*(1/R1+1/R2+1/RL) = V1/R1 + V2/R2
+    g = 1 / r1 + 1 / r2 + 1 / rl
+    v_full = (v1 / r1 + v2 / r2) / g
+    v1_only = (v1 / r1) / g
+    v2_only = (v2 / r2) / g
+    return [
+        {"label": "V1", "value": v1, "unit": "V"},
+        {"label": "V2", "value": v2, "unit": "V"},
+        {"label": "R1", "value": r1, "unit": "Ω"},
+        {"label": "R2", "value": r2, "unit": "Ω"},
+        {"label": "RL", "value": rl, "unit": "Ω"},
+        {"label": "Full-circuit Vout", "value": v_full, "unit": "V"},
+        {"label": "V1 contribution", "value": v1_only, "unit": "V"},
+        {"label": "V2 contribution", "value": v2_only, "unit": "V"},
+        {"label": "Sum of contributions", "value": v1_only + v2_only, "unit": "V"},
+        {"label": "Difference (full − sum)", "value": 0.0, "unit": "V"},
+    ]
 
 
 def _potentiometer_measured_rows(
@@ -381,6 +527,9 @@ def _reference_rows(experiment: Experiment) -> list[dict] | None:
     parameters = config.get("parameters")
     if not isinstance(parameters, dict):
         return None
+
+    if config.get("mode") == "superposition" or experiment.id == "superposition-theorem":
+        return _superposition_reference_rows(parameters)
 
     voltage = _numeric(parameters.get("voltage"))
     if voltage is None or voltage <= 0:

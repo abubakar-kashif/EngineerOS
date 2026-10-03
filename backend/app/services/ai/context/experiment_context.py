@@ -68,13 +68,17 @@ class ExperimentContext:
             pot = _potentiometer_theoretical(experiment.simulation_configuration)
             if pot:
                 context["theoretical_potentiometer"] = pot
+            superposition = _superposition_theoretical(experiment.simulation_configuration)
+            if superposition:
+                context["theoretical_superposition"] = superposition
 
         context["guidance_boundary"] = (
             "Experiment catalog data is for instructional guidance only. "
             "The simulator — not the Mentor — validates the student's circuit "
             "and determines electrical behavior. "
-            "Never invent Vleft, Vright, Vout, wiper position, or other "
-            "measurements — use simulation context when a run is attached."
+            "Never invent Vleft, Vright, Vout, wiper position, superposition "
+            "contributions, or other measurements — use simulation context "
+            "when a run is attached."
         )
 
         return context
@@ -101,6 +105,45 @@ def _potentiometer_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any
         "Vout": alpha * vin,
         "theoretical_Vout": alpha * vin,
         "relation": "Vout = α · Vin (unloaded)",
+        "note": "Theoretical catalog values for the published starter configuration.",
+    }
+
+
+def _superposition_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(config, dict) or config.get("mode") != "superposition":
+        return None
+    params = config.get("parameters")
+    if not isinstance(params, dict):
+        return None
+    try:
+        v1 = float(params["v1"])
+        v2 = float(params["v2"])
+        r1 = float(params["r1"])
+        r2 = float(params["r2"])
+        rl = float(params["rl"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if min(r1, r2, rl) <= 0:
+        return None
+    g = 1 / r1 + 1 / r2 + 1 / rl
+    v_full = (v1 / r1 + v2 / r2) / g
+    v1_only = (v1 / r1) / g
+    v2_only = (v2 / r2) / g
+    return {
+        "V1": v1,
+        "V2": v2,
+        "R1": r1,
+        "R2": r2,
+        "RL": rl,
+        "full_circuit_Vout": v_full,
+        "V1_contribution": v1_only,
+        "V2_contribution": v2_only,
+        "sum_of_contributions": v1_only + v2_only,
+        "deactivation": {
+            "voltage_source": "short circuit (0 V)",
+            "current_source": "open circuit (0 A)",
+        },
+        "relation": "X_total = X1 + X2 (linear quantities only)",
         "note": "Theoretical catalog values for the published starter configuration.",
     }
 

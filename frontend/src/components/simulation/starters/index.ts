@@ -7,11 +7,16 @@ import {
   createPotentiometerStarter,
   POTENTIOMETER_EXPERIMENT_ID,
 } from "./potentiometer";
+import {
+  createSuperpositionTheoremStarter,
+  SUPERPOSITION_THEOREM_EXPERIMENT_ID,
+} from "./superpositionTheorem";
 
 /** Experiment id → starter editor circuit factory. */
 const STARTERS: Record<string, () => EditorCircuit> = {
   [WHEATSTONE_BRIDGE_EXPERIMENT_ID]: createWheatstoneBridgeStarter,
   [POTENTIOMETER_EXPERIMENT_ID]: createPotentiometerStarter,
+  [SUPERPOSITION_THEOREM_EXPERIMENT_ID]: createSuperpositionTheoremStarter,
 };
 
 export function getExperimentStarterCircuit(experimentId: string): EditorCircuit | null {
@@ -28,4 +33,6 @@ export {
   WHEATSTONE_BRIDGE_EXPERIMENT_ID,
   createPotentiometerStarter,
   POTENTIOMETER_EXPERIMENT_ID,
+  createSuperpositionTheoremStarter,
+  SUPERPOSITION_THEOREM_EXPERIMENT_ID,
 };

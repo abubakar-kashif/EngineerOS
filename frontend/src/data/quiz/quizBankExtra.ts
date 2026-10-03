@@ -207,6 +207,24 @@ export const QUIZ_BANK_EXTRA: Record<string, SeedQuizQuestion[]> = {
     { question: "Increasing Vin at fixed \u03b1:", options: ["Increases Vout proportionally", "Decreases \u03b1", "Removes Rpot", "Flips polarity always"], correct_answer: "A" as AnswerLetter, explanation: "Vout=\u03b1Vin." },
     { question: "Digital pots still implement:", options: ["An adjustable divider ratio", "Only mechanical gears", "Pure inductance", "No wiper concept"], correct_answer: "A" as AnswerLetter, explanation: "Same function." },
     { question: "Common mistake: treating pot like a single resistor to ground from Vin without wiper sense. Result:", options: ["You lose the variable tap voltage", "Perfect Vout", "\u03b1 auto-sets", "Rpot vanishes"], correct_answer: "A" as AnswerLetter, explanation: "Need the wiper node." },
+  ],
+  "superposition-theorem": [
+    { question: "Why not superpose power?", options: ["Because P depends on V² or I²", "Because ohms are imaginary", "Because ground is optional", "Because sources are painted"], correct_answer: "A", explanation: "Quadratic.", category: "conceptual" },
+    { question: "Manual check: set V2 = 0 and re-run. You are:", options: ["Building the V1 contribution circuit", "Breaking superposition", "Removing RL", "Creating RF"], correct_answer: "A", explanation: "Same as analysis.", category: "conceptual" },
+    { question: "If a diode is added in series with RL:", options: ["Superposition may fail (nonlinearity)", "Nothing changes ever", "VL always doubles", "R1 vanishes"], correct_answer: "A", explanation: "Nonlinear device.", category: "conceptual" },
+    { question: "Contribution currents through RL:", options: ["Also add to the full-circuit load current", "Must never be added", "Equal Vin", "Ignore KCL"], correct_answer: "A", explanation: "Current is linear too.", category: "conceptual" },
+    { question: "Label RL helps analysis because:", options: ["The load resistor is identified for VL/IL", "It sets V1 magically", "It deletes V2", "It is only cosmetic"], correct_answer: "A", explanation: "findLoadResistorId.", category: "conceptual" },
+    { question: "Two voltage sources sharing ground is OK because:", options: ["Each has a return path for its current", "Ground is optional", "Sources must float", "R2 must be zero"], correct_answer: "A", explanation: "Topology.", category: "conceptual" },
+    { question: "Error percent uses:", options: ["|full − sum| / |full| × 100", "full × sum", "Only R1", "Quiz score"], correct_answer: "A", explanation: "Relative error.", category: "conceptual" },
+    { question: "Open a current source incorrectly as a short and you:", options: ["Alter the contribution network wrongly", "Always get the right VL", "Remove superposition need", "Force α = 1"], correct_answer: "A", explanation: "Wrong model.", category: "conceptual" },
+    { question: "In phasor AC linear circuits, superposition:", options: ["Still applies to complex voltages/currents", "Never applies", "Applies only to power", "Needs no sources"], correct_answer: "A", explanation: "Linearity in frequency domain.", category: "conceptual" },
+    { question: "The bar at 'Sum' on the graph should align with:", options: ["Full", "Only V1", "Only zero", "R2"], correct_answer: "A", explanation: "Visual check.", category: "conceptual" },
+    { question: "Changing RL changes:", options: ["Both contributions and the full VL", "Neither", "Only wire length", "Only the title"], correct_answer: "A", explanation: "Shared load.", category: "conceptual" },
+    { question: "KVL around a loop with a shorted VS:", options: ["Treats that source branch as 0 V", "Adds 12 V anyway", "Removes KVL", "Forces I = 0 always"], correct_answer: "A", explanation: "Short.", category: "conceptual" },
+    { question: "Mentor should not invent contributions; it should:", options: ["Use attached simulation/catalog values", "Guess randomly", "Ignore the lab", "Only discuss fonts"], correct_answer: "A", explanation: "Grounding rule.", category: "conceptual" },
+    { question: "A third independent source would require:", options: ["A third contribution circuit plus the sum of all three", "Deleting superposition", "Shorting RL", "Only AC meters"], correct_answer: "A", explanation: "General theorem.", category: "conceptual" },
+    { question: "Best first debugging step if sum ≠ full:", options: ["Re-check deactivation (short vs open) and wiring", "Change the theme", "Delete ground forever", "Ignore meters"], correct_answer: "A", explanation: "Physical correctness.", category: "conceptual" },
   ]
+
 };
 

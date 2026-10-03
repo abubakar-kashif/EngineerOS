@@ -18,6 +18,7 @@ import {
   findPotentiometer,
   potentiometerWiperSweep,
 } from './potentiometerAnalysis';
+import { extractSuperpositionMetrics } from './superpositionAnalysis';
 
 export interface GraphPoint {
   x: number;
@@ -603,6 +604,56 @@ export function generateGraphsFromMeasurements(
           });
         }
       }
+    }
+
+    const superposition = extractSuperpositionMetrics(circuit);
+    if (superposition) {
+      const labels = [
+        'Full',
+        ...superposition.contributions.map((c) => c.activeSourceIds[0] ?? c.label),
+        'Sum',
+      ];
+      graphs.push({
+        id: 'superposition_comparison',
+        type: 'bar',
+        title: 'Superposition (full vs contributions)',
+        xAxis: { label: 'State', unit: '' },
+        yAxis: { label: 'Vout', unit: 'V' },
+        series: [
+          {
+            name: 'Vout',
+            color: COLORS[0],
+            points: [
+              { x: 1, y: superposition.full.vout },
+              ...superposition.contributions.map((c, i) => ({
+                x: i + 2,
+                y: c.vout,
+              })),
+              {
+                x: superposition.contributions.length + 2,
+                y: superposition.sumContributions,
+              },
+            ],
+          },
+        ],
+        metadata: {
+          source: 'dc_superposition',
+          labels,
+          loadId: superposition.loadId,
+          fullVout: superposition.full.vout,
+          fullILoad: superposition.full.iLoad,
+          contributions: superposition.contributions.map((c) => ({
+            label: c.label,
+            activeSourceIds: c.activeSourceIds,
+            vout: c.vout,
+            iLoad: c.iLoad,
+          })),
+          sumContributions: superposition.sumContributions,
+          difference: superposition.difference,
+          errorPercent: superposition.errorPercent,
+          sources: superposition.sources,
+        },
+      });
     }
   }
 

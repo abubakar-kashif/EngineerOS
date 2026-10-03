@@ -13,6 +13,7 @@ const DiodeDiagram = lazy(() => import("./DiodeDiagram"));
 const LEDDiagram = lazy(() => import("./LEDDiagram"));
 const WheatstoneBridgeDiagram = lazy(() => import("./WheatstoneBridgeDiagram"));
 const PotentiometerDiagram = lazy(() => import("./PotentiometerDiagram"));
+const SuperpositionDiagram = lazy(() => import("./SuperpositionDiagram"));
 
 /** Experiment-id → diagram component mapping. */
 const diagramMap: Record<string, ComponentType> = {
@@ -28,6 +29,7 @@ const diagramMap: Record<string, ComponentType> = {
   "led-circuit": LEDDiagram,
   "wheatstone-bridge": WheatstoneBridgeDiagram,
   potentiometer: PotentiometerDiagram,
+  "superposition-theorem": SuperpositionDiagram,
 };
 
 interface DiagramRendererProps {

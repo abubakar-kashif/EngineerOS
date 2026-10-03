@@ -44,6 +44,7 @@ const ANALYSIS_LABELS: Record<string, string> = {
   potentiometer_wiper: "Wiper position vs Vout",
   wheatstone_bridge: "Wheatstone bridge",
   wheatstone_bridge_nodes: "Wheatstone node voltages",
+  superposition_comparison: "Full vs contributions",
   rc_time: "RC response",
   power_time: "Power vs time",
   current_signals: "KCL currents",

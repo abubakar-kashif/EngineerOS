@@ -45,6 +45,7 @@ EXPERIMENT_IDS = [
     "led-circuit",
     "wheatstone-bridge",
     "potentiometer",
+    "superposition-theorem",
 ]
 
 

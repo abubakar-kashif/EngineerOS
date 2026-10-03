@@ -1855,13 +1855,165 @@ EXPERIMENTS: list[dict] = [
             "Joystick and pedal position sensors (often as dual pots)",
             "Adjustable reference voltages for analog circuits",
         ],
-        "related_experiments": ["voltage-divider", "ohms-law", "series-circuit", "wheatstone-bridge"],
+        "related_experiments": ["voltage-divider", "ohms-law", "series-circuit", "wheatstone-bridge", "superposition-theorem"],
         "simulation_configuration": {
             "mode": "potentiometer",
             "parameters": {
                 "voltage": 10,
                 "rpot": 10000,
                 "wiper_position": 0.5,
+            },
+        },
+    },
+    {
+        "id": "superposition-theorem",
+        "title": "Superposition Theorem",
+        "slug": "superposition-theorem",
+        "short_description": "Verify that responses in a linear resistive network equal the sum of single-source contributions.",
+        "description": (
+            "This experiment studies the superposition theorem in a simple linear "
+            "resistive network with two independent DC voltage sources. You will "
+            "compare the full-circuit load voltage with the sum of the contributions "
+            "obtained when each source acts alone and the other is deactivated "
+            "(ideal voltage sources replaced by short circuits)."
+        ),
+        "objective": (
+            "Demonstrate X_total = X1 + X2 for load voltage in a two-source linear "
+            "circuit, and confirm that independent voltage sources are deactivated "
+            "by shorting and independent current sources by opening."
+        ),
+        "theory": (
+            "In any linear circuit, the voltage or current at a point equals the "
+            "algebraic sum of the contributions of each independent source acting "
+            "alone. To find the contribution of one source, deactivate all others: "
+            "replace an independent voltage source with a short circuit (0 V) and "
+            "an independent current source with an open circuit (0 A). Dependent "
+            "sources stay in place. Superposition applies only to linear quantities "
+            "(V, I) — not to power, which is quadratic."
+        ),
+        "difficulty": "Intermediate",
+        "category": "Circuit Theorems",
+        "duration_minutes": 40,
+        "status": "published",
+        "historical_background": (
+            "Superposition grew out of 19th-century linear network theory and remains "
+            "a standard textbook method for analyzing multi-source DC and AC circuits "
+            "before students move on to Thévenin and Norton equivalents."
+        ),
+        "learning_outcomes": [
+            "State the superposition theorem for linear circuits",
+            "Deactivate independent voltage sources (short) and current sources (open)",
+            "Compute each source contribution and verify that their sum matches the full solution",
+            "Recognize that power cannot be superimposed",
+        ],
+        "prerequisites": ["ohms-law", "series-circuit", "parallel-circuit", "voltage-divider", "kvl", "kcl"],
+        "formulas": [
+            {
+                "expression": "X_total = X_1 + X_2 + … + X_n",
+                "variables": [
+                    {"symbol": "X_total", "name": "Full-circuit linear response (V or I)"},
+                    {"symbol": "X_k", "name": "Contribution with only source k active"},
+                ],
+            },
+            {
+                "expression": "V_source → 0 V (short);  I_source → 0 A (open)",
+                "variables": [
+                    {"symbol": "V_source", "name": "Independent voltage source (deactivated)"},
+                    {"symbol": "I_source", "name": "Independent current source (deactivated)"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "V1", "name": "Source 1 voltage", "unit": "volt (V)", "description": "First independent DC source"},
+            {"symbol": "V2", "name": "Source 2 voltage", "unit": "volt (V)", "description": "Second independent DC source"},
+            {"symbol": "R1", "name": "Series resistor 1", "unit": "ohm (Ω)", "description": "Resistance from V1 to the load node"},
+            {"symbol": "R2", "name": "Series resistor 2", "unit": "ohm (Ω)", "description": "Resistance from V2 to the load node"},
+            {"symbol": "RL", "name": "Load resistor", "unit": "ohm (Ω)", "description": "Load from mid node to ground"},
+            {"symbol": "VL", "name": "Load voltage", "unit": "volt (V)", "description": "Voltage across RL (observed quantity)"},
+        ],
+        "components": [
+            {"name": "DC voltage source V1", "quantity": 1, "spec": "12 V"},
+            {"name": "DC voltage source V2", "quantity": 1, "spec": "6 V"},
+            {"name": "Resistor R1", "quantity": 1, "spec": "1 kΩ"},
+            {"name": "Resistor R2", "quantity": 1, "spec": "2 kΩ"},
+            {"name": "Load resistor RL", "quantity": 1, "spec": "3 kΩ"},
+            {"name": "Ground", "quantity": 1, "spec": "Reference node"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Across RL"},
+        ],
+        "circuit_diagram": {
+            "art": (
+                "  V1+--R1--+--RL--GND\n"
+                "           |\n"
+                "  V2+--R2--+\n"
+                "  V1-,V2- -- GND\n"
+                "  VM across RL\n"
+            ),
+            "caption": (
+                "Two independent sources feed a common load. Deactivate one source "
+                "at a time (VS → short) and verify VL_full = VL1 + VL2."
+            ),
+        },
+        "procedure": [
+            "Open the Superposition Theorem lab — the two-source starter should load automatically.",
+            "Identify V1, V2, R1, R2, RL, and VM1 across the load.",
+            "Run the full circuit and record VL (full-circuit voltage).",
+            "Inspect the superposition comparison graph: full result, V1 contribution, V2 contribution, and their sum.",
+            "Confirm that |VL_full − (VL1 + VL2)| is negligible (numerical round-off only).",
+            "Optionally set V2 = 0 V manually and re-run to see the V1-only contribution as a shorted V2.",
+            "Change V1 or V2 and verify linearity: contributions scale and still sum to the full result.",
+            "Discuss why power on RL cannot be found by adding single-source powers.",
+        ],
+        "expected_results": [
+            "With V1=12 V, V2=6 V, R1=1 kΩ, R2=2 kΩ, RL=3 kΩ: VL ≈ 8.182 V.",
+            "V1-only contribution ≈ 6.545 V; V2-only ≈ 1.636 V; sum ≈ full VL.",
+            "Error between full VL and the sum of contributions is near zero.",
+            "Deactivating a voltage source sets it to 0 V (ideal short).",
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Opening a voltage source instead of shorting it",
+                "consequence": "Wrong contribution — independent VS must become a short (0 V).",
+            },
+            {
+                "mistake": "Shorting a current source instead of opening it",
+                "consequence": "Wrong contribution — independent CS must become an open (0 A).",
+            },
+            {
+                "mistake": "Adding powers from each contribution",
+                "consequence": "P = V²/R is nonlinear; superposition does not apply to power.",
+            },
+            {
+                "mistake": "Deactivating dependent sources",
+                "consequence": "Controlled sources remain active in every contribution circuit.",
+            },
+        ],
+        "safety_precautions": [
+            "Keep source voltages within the lab limits used in the starter (12 V / 6 V DC).",
+            "Do not short source terminals through near-zero resistance while probing.",
+            "Power off before rearranging wires in a physical build.",
+            "Start meter ranges high when VL is unknown.",
+        ],
+        "observation_guidance": [
+            "Compare the bar graph: Full should match Sum of contributions.",
+            "Note the difference/error percent reported with the analysis.",
+            "Watch VL scale when you change only one source.",
+            "Contrast voltage superposition with the incorrect idea of adding powers.",
+        ],
+        "real_world_applications": [
+            "Analyzing bias plus signal contributions in linear amplifier stages",
+            "Separating multiple DC supplies in instrumentation front-ends",
+            "Teaching path to Thévenin/Norton multi-source reductions",
+            "Estimating interference from several sources in linear networks",
+        ],
+        "related_experiments": ["ohms-law", "series-circuit", "parallel-circuit", "voltage-divider", "kvl", "kcl"],
+        "simulation_configuration": {
+            "mode": "superposition",
+            "parameters": {
+                "v1": 12,
+                "v2": 6,
+                "r1": 1000,
+                "r2": 2000,
+                "rl": 3000,
             },
         },
     },
