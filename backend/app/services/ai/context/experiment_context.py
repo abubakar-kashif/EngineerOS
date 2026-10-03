@@ -62,11 +62,52 @@ class ExperimentContext:
             context["common_mistakes"] = experiment.common_mistakes
         if experiment.simulation_configuration:
             context["simulation_configuration"] = experiment.simulation_configuration
+            wheatstone = _wheatstone_theoretical(experiment.simulation_configuration)
+            if wheatstone:
+                context["theoretical_bridge"] = wheatstone
 
         context["guidance_boundary"] = (
             "Experiment catalog data is for instructional guidance only. "
             "The simulator — not the Mentor — validates the student's circuit "
-            "and determines electrical behavior."
+            "and determines electrical behavior. "
+            "Never invent Vleft, Vright, Vout, or other measurements — use "
+            "simulation context when a run is attached."
         )
 
         return context
+
+
+def _wheatstone_theoretical(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Catalog theoretical values for Wheatstone (not student measurements)."""
+    if not isinstance(config, dict):
+        return None
+    if config.get("mode") != "wheatstone":
+        return None
+    params = config.get("parameters")
+    if not isinstance(params, dict):
+        return None
+    try:
+        vin = float(params["voltage"])
+        r1 = float(params["r1"])
+        r2 = float(params["r2"])
+        r3 = float(params["r3"])
+        r4 = float(params["r4"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if min(vin, r1, r2, r3, r4) <= 0:
+        return None
+    vleft = vin * r2 / (r1 + r2)
+    vright = vin * r4 / (r3 + r4)
+    return {
+        "Vin": vin,
+        "R1": r1,
+        "R2": r2,
+        "R3": r3,
+        "R4": r4,
+        "Vleft": vleft,
+        "Vright": vright,
+        "Vout": vleft - vright,
+        "balance_condition": "R1/R2 = R3/R4",
+        "balanced": abs(r1 / r2 - r3 / r4) < 1e-9,
+        "note": "Theoretical catalog values for the published starter configuration.",
+    }

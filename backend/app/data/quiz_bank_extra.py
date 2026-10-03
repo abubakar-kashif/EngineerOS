@@ -172,6 +172,24 @@ QUIZ_BANK_EXTRA = {
         {"question": "Measuring LED current safely means placing the ammeter:", "option_a": "In series with the LED branch", "option_b": "Across the LED like a voltmeter", "option_c": "Across the supply directly", "option_d": "In reverse only", "correct_answer": "A", "explanation": "Current is path-common in the branch."},
         {"question": "If calculated R is 330 Ω and you only have 300 Ω, current will be:", "option_a": "Slightly higher than design", "option_b": "Zero", "option_c": "Much lower always", "option_d": "Reversed", "correct_answer": "A", "explanation": "Smaller R → larger If = (Vs−Vf)/R."},
     ],
+  "wheatstone-bridge": [
+        {"question": "If R1/R2 = 0.5 and R3 = 1 kΩ at balance, R4 is:", "option_a": "2 kΩ", "option_b": "0.5 kΩ", "option_c": "1 kΩ", "option_d": "4 kΩ", "correct_answer": "A", "explanation": "R3/R4 = 0.5 ⇒ R4 = 2 kΩ."},
+        {"question": "Doubling every arm resistance on a balanced bridge:", "option_a": "Keeps Vout ≈ 0", "option_b": "Doubles Vout", "option_c": "Halves Vin", "option_d": "Opens the meter", "correct_answer": "A", "explanation": "Ratios unchanged."},
+        {"question": "Vout polarity tells you:", "option_a": "Which midpoint is higher", "option_b": "Absolute temperature only", "option_c": "Wire gauge only", "option_d": "Battery chemistry only", "correct_answer": "A", "explanation": "Sign of Vleft−Vright."},
+        {"question": "A bridge with R1=R2 and R3≠R4 is:", "option_a": "Unbalanced", "option_b": "Balanced", "option_c": "Open", "option_d": "Superconducting", "correct_answer": "A", "explanation": "Right ratio ≠ 1."},
+        {"question": "Meter current loading midpoints would:", "option_a": "Slightly disturb ideal Vout", "option_b": "Increase Vin", "option_c": "Remove R2", "option_d": "Force perfect balance", "correct_answer": "A", "explanation": "Finite meter R loads the dividers."},
+        {"question": "For Vin=5 V equal 2 kΩ arms, Vleft is:", "option_a": "2.5 V", "option_b": "5 V", "option_c": "0 V", "option_d": "1 V", "correct_answer": "A", "explanation": "Equal divider."},
+        {"question": "Setting R4 = R3×R2/R1 enforces:", "option_a": "Balance", "option_b": "Maximum Vout always", "option_c": "Zero Vin", "option_d": "Short circuit", "correct_answer": "A", "explanation": "Rearrangement of the ratio condition."},
+        {"question": "Two equal dividers always share:", "option_a": "The same midpoint voltage when ratios match", "option_b": "No common ground", "option_c": "Infinite current", "option_d": "Only AC excitation", "correct_answer": "A", "explanation": "Matched ratios ⇒ equal midpoints."},
+        {"question": "Bridge sensitivity near null improves with:", "option_a": "Larger Vin (within limits)", "option_b": "Removing ground", "option_c": "Shorting midpoints", "option_d": "Omitting R1", "correct_answer": "A", "explanation": "Vout scales with Vin for a given mismatch."},
+        {"question": "If VM reads ~0 but theory predicts 1.67 V, check:", "option_a": "Whether R4 was actually changed", "option_b": "Only font size", "option_c": "Theme colors", "option_d": "Quiz score", "correct_answer": "A", "explanation": "Confirm the circuit matches the assumed values."},
+        {"question": "Left ratio R1/R2 = 1 means:", "option_a": "R1 equals R2", "option_b": "R1 equals R4", "option_c": "R3 equals 0", "option_d": "Vin equals 0", "correct_answer": "A", "explanation": "Definition of the ratio."},
+        {"question": "Common student error: balancing R1=R3 only. Actually need:", "option_a": "Equal ratios of both arms", "option_b": "R2 removed", "option_c": "Floating Vin", "option_d": "No ground", "correct_answer": "A", "explanation": "R1/R2 = R3/R4."},
+        {"question": "In simulation, branch currents appear in:", "option_a": "Component measurements for each resistor", "option_b": "Only the landing page", "option_c": "Email settings", "option_d": "Theme tokens", "correct_answer": "A", "explanation": "DC solve reports per-component I."},
+        {"question": "Wheatstone bridges are still used because:", "option_a": "They convert small resistance changes to differential voltages", "option_b": "They replace all capacitors", "option_c": "They eliminate Ohm's law", "option_d": "They need no supply", "correct_answer": "A", "explanation": "Sensor and metrology use cases."},
+        {"question": "Restoring balance after changing R4 usually means adjusting:", "option_a": "R3 (or another known arm)", "option_b": "Ground symbol only", "option_c": "Wire thickness only", "option_d": "Monitor refresh rate", "correct_answer": "A", "explanation": "Match the new right ratio to the left."},
+    ]
+
 }
 
 

@@ -1,6 +1,6 @@
 /**
  * Legacy workspace route — redirects into the common freeform simulation lab.
- * Keeps deep links `/experiments/:id/workspace` working for all ten experiments.
+ * Keeps deep links `/experiments/:id/workspace` working for catalog experiments.
  */
 import { Navigate, useParams } from "react-router-dom";
 

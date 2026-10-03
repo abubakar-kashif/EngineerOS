@@ -43,11 +43,12 @@ EXPERIMENT_IDS = [
     "rc-circuit",
     "diode-characteristics",
     "led-circuit",
+    "wheatstone-bridge",
 ]
 
 
 def seed_test_experiments(db):
-    """Insert the standard ten experiments used across the test suite."""
+    """Insert the standard catalog experiments used across the test suite."""
     for experiment_id in EXPERIMENT_IDS:
         db.add(
             Experiment(

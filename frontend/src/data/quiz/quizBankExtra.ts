@@ -173,5 +173,23 @@ export const QUIZ_BANK_EXTRA: Record<string, SeedQuizQuestion[]> = {
     { question: "Measuring LED current safely means placing the ammeter:", options: ["In series with the LED branch", "Across the LED like a voltmeter", "Across the supply directly", "In reverse only"], correct_answer: "A" as AnswerLetter, explanation: "Current is path-common in the branch." },
     { question: "If calculated R is 330 Ω and you only have 300 Ω, current will be:", options: ["Slightly higher than design", "Zero", "Much lower always", "Reversed"], correct_answer: "A" as AnswerLetter, explanation: "Smaller R → larger If = (Vs−Vf)/R." },
   ],
+  "wheatstone-bridge": [
+    { question: "If R1/R2 = 0.5 and R3 = 1 k\u03a9 at balance, R4 is:", options: ["2 k\u03a9", "0.5 k\u03a9", "1 k\u03a9", "4 k\u03a9"], correct_answer: "A" as AnswerLetter, explanation: "R3/R4 = 0.5 \u21d2 R4 = 2 k\u03a9." },
+    { question: "Doubling every arm resistance on a balanced bridge:", options: ["Keeps Vout \u2248 0", "Doubles Vout", "Halves Vin", "Opens the meter"], correct_answer: "A" as AnswerLetter, explanation: "Ratios unchanged." },
+    { question: "Vout polarity tells you:", options: ["Which midpoint is higher", "Absolute temperature only", "Wire gauge only", "Battery chemistry only"], correct_answer: "A" as AnswerLetter, explanation: "Sign of Vleft\u2212Vright." },
+    { question: "A bridge with R1=R2 and R3\u2260R4 is:", options: ["Unbalanced", "Balanced", "Open", "Superconducting"], correct_answer: "A" as AnswerLetter, explanation: "Right ratio \u2260 1." },
+    { question: "Meter current loading midpoints would:", options: ["Slightly disturb ideal Vout", "Increase Vin", "Remove R2", "Force perfect balance"], correct_answer: "A" as AnswerLetter, explanation: "Finite meter R loads the dividers." },
+    { question: "For Vin=5 V equal 2 k\u03a9 arms, Vleft is:", options: ["2.5 V", "5 V", "0 V", "1 V"], correct_answer: "A" as AnswerLetter, explanation: "Equal divider." },
+    { question: "Setting R4 = R3\u00d7R2/R1 enforces:", options: ["Balance", "Maximum Vout always", "Zero Vin", "Short circuit"], correct_answer: "A" as AnswerLetter, explanation: "Rearrangement of the ratio condition." },
+    { question: "Two equal dividers always share:", options: ["The same midpoint voltage when ratios match", "No common ground", "Infinite current", "Only AC excitation"], correct_answer: "A" as AnswerLetter, explanation: "Matched ratios \u21d2 equal midpoints." },
+    { question: "Bridge sensitivity near null improves with:", options: ["Larger Vin (within limits)", "Removing ground", "Shorting midpoints", "Omitting R1"], correct_answer: "A" as AnswerLetter, explanation: "Vout scales with Vin for a given mismatch." },
+    { question: "If VM reads ~0 but theory predicts 1.67 V, check:", options: ["Whether R4 was actually changed", "Only font size", "Theme colors", "Quiz score"], correct_answer: "A" as AnswerLetter, explanation: "Confirm the circuit matches the assumed values." },
+    { question: "Left ratio R1/R2 = 1 means:", options: ["R1 equals R2", "R1 equals R4", "R3 equals 0", "Vin equals 0"], correct_answer: "A" as AnswerLetter, explanation: "Definition of the ratio." },
+    { question: "Common student error: balancing R1=R3 only. Actually need:", options: ["Equal ratios of both arms", "R2 removed", "Floating Vin", "No ground"], correct_answer: "A" as AnswerLetter, explanation: "R1/R2 = R3/R4." },
+    { question: "In simulation, branch currents appear in:", options: ["Component measurements for each resistor", "Only the landing page", "Email settings", "Theme tokens"], correct_answer: "A" as AnswerLetter, explanation: "DC solve reports per-component I." },
+    { question: "Wheatstone bridges are still used because:", options: ["They convert small resistance changes to differential voltages", "They replace all capacitors", "They eliminate Ohm's law", "They need no supply"], correct_answer: "A" as AnswerLetter, explanation: "Sensor and metrology use cases." },
+    { question: "Restoring balance after changing R4 usually means adjusting:", options: ["R3 (or another known arm)", "Ground symbol only", "Wire thickness only", "Monitor refresh rate"], correct_answer: "A" as AnswerLetter, explanation: "Match the new right ratio to the left." },
+  ]
+
 };
 

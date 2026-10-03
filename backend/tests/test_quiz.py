@@ -21,7 +21,8 @@ client = TestClient(app)
 
 ANSWER_LETTERS = ("A", "B", "C", "D")
 EXPECTED_BANK_SIZE = 55
-EXPECTED_TOTAL = EXPECTED_BANK_SIZE * 10
+EXPECTED_EXPERIMENT_COUNT = 11
+EXPECTED_TOTAL = EXPECTED_BANK_SIZE * EXPECTED_EXPERIMENT_COUNT
 
 
 def seeded_answer_key(experiment_id="ohms-law"):
@@ -193,7 +194,7 @@ def test_passing_threshold():
 def test_quiz_bank_has_at_least_40_questions_per_experiment():
     from app.data.quiz_bank import QUIZ_BANK
 
-    assert len(QUIZ_BANK) == 10
+    assert len(QUIZ_BANK) == EXPECTED_EXPERIMENT_COUNT
     assert all(len(questions) >= 40 for questions in QUIZ_BANK.values())
     assert all(len(questions) == EXPECTED_BANK_SIZE for questions in QUIZ_BANK.values())
     assert sum(len(questions) for questions in QUIZ_BANK.values()) == EXPECTED_TOTAL

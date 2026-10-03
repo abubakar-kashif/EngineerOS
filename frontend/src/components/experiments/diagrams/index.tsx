@@ -11,6 +11,7 @@ const CurrentDividerDiagram = lazy(() => import("./CurrentDividerDiagram"));
 const RCDiagram = lazy(() => import("./RCDiagram"));
 const DiodeDiagram = lazy(() => import("./DiodeDiagram"));
 const LEDDiagram = lazy(() => import("./LEDDiagram"));
+const WheatstoneBridgeDiagram = lazy(() => import("./WheatstoneBridgeDiagram"));
 
 /** Experiment-id → diagram component mapping. */
 const diagramMap: Record<string, ComponentType> = {
@@ -24,6 +25,7 @@ const diagramMap: Record<string, ComponentType> = {
   "rc-circuit": RCDiagram,
   "diode-characteristics": DiodeDiagram,
   "led-circuit": LEDDiagram,
+  "wheatstone-bridge": WheatstoneBridgeDiagram,
 };
 
 interface DiagramRendererProps {

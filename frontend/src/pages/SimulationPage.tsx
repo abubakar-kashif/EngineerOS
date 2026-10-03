@@ -39,6 +39,7 @@ import {
   type WorkspaceProject,
 } from "../services/workspaceCircuitStorage";
 import type { Experiment } from "../types/experiment";
+import { getExperimentStarterCircuit } from "../components/simulation/starters";
 
 const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 360;
@@ -51,7 +52,7 @@ const RESULTS_RATIO_MIN = 0.28;
 const RESULTS_RATIO_MAX = 0.72;
 const COMPACT_LAB_MQ = "(max-width: 1100px)";
 
-const TEN_EXPERIMENT_IDS = [
+const CATALOG_EXPERIMENT_IDS = [
   "ohms-law",
   "series-circuit",
   "parallel-circuit",
@@ -62,6 +63,7 @@ const TEN_EXPERIMENT_IDS = [
   "rc-circuit",
   "diode-characteristics",
   "led-circuit",
+  "wheatstone-bridge",
 ] as const;
 
 function SimulationPage() {
@@ -245,24 +247,39 @@ function SimulationPage() {
     };
   }, [experimentParam]);
 
-  // Restore last local workspace once on mount (does not fabricate demo circuits).
+  // Restore workspace or load an experiment starter once on mount.
   // Simulation session starts null — never restore stale measurements.
   useEffect(() => {
     const saved = loadWorkspaceFromLocalStorage();
-    if (!workspaceHasContent(saved)) return;
-    loadCircuit(saved!.circuit);
-    if (saved!.viewport) {
-      requestAnimationFrame(() => canvasRef.current?.setViewport(saved!.viewport!));
+    const savedMatchesExperiment =
+      workspaceHasContent(saved) &&
+      (!experimentParam || saved!.experimentId === experimentParam);
+
+    if (savedMatchesExperiment) {
+      loadCircuit(saved!.circuit);
+      if (saved!.viewport) {
+        requestAnimationFrame(() => canvasRef.current?.setViewport(saved!.viewport!));
+      }
+      if (saved!.experimentId && !experimentParam) {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.set("experiment", saved!.experimentId!);
+            return next;
+          },
+          { replace: true },
+        );
+      }
+      return;
     }
-    if (saved!.experimentId && !experimentParam) {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set("experiment", saved!.experimentId!);
-          return next;
-        },
-        { replace: true },
-      );
+
+    if (experimentParam) {
+      const starter = getExperimentStarterCircuit(experimentParam);
+      if (starter) {
+        loadCircuit(starter);
+        clearSimulationSession();
+        requestAnimationFrame(() => canvasRef.current?.fitToScreen());
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot restore
   }, []);
@@ -553,10 +570,10 @@ function SimulationPage() {
         onOpenGraphs={openGraphs}
       />
 
-      {experimentParam && TEN_EXPERIMENT_IDS.includes(experimentParam as (typeof TEN_EXPERIMENT_IDS)[number]) && (
+      {experimentParam && CATALOG_EXPERIMENT_IDS.includes(experimentParam as (typeof CATALOG_EXPERIMENT_IDS)[number]) && (
         <p className="sim2-experiment-banner">
           Freeform lab for <strong>{experiment?.title ?? experimentParam}</strong> — same
-          editor and simulation pipeline as all ten experiments.
+          editor and simulation pipeline as other catalog experiments.
         </p>
       )}
 

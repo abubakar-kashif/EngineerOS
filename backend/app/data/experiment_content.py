@@ -171,7 +171,7 @@ EXPERIMENTS: list[dict] = [
             "Household appliances are rated by applying Ohm's Law to deliver specified power at 120/230 V.",
             "Electricians estimate circuit loading (and breaker sizing) from appliance resistance and supply voltage.",
         ],
-        "related_experiments": ["series-circuit", "voltage-divider", "led-circuit"],
+        "related_experiments": ["series-circuit", "voltage-divider", "wheatstone-bridge", "led-circuit"],
         "simulation_configuration": {"mode": "series", "parameters": {"voltage": 9, "r1": 1000}},
     },
     {
@@ -321,7 +321,7 @@ EXPERIMENTS: list[dict] = [
             "Fuse and switch placement relies on series interruption opening the whole loop.",
             "Old-style holiday fairy lights wired the bulbs in series — one failure darkened the string.",
         ],
-        "related_experiments": ["ohms-law", "parallel-circuit", "voltage-divider", "kvl"],
+        "related_experiments": ["ohms-law", "parallel-circuit", "voltage-divider", "kvl", "wheatstone-bridge"],
         "simulation_configuration": {"mode": "series", "parameters": {"voltage": 12, "r1": 1000, "r2": 2200}},
     },
     {
@@ -616,7 +616,7 @@ EXPERIMENTS: list[dict] = [
             "Battery-management systems sum cell voltages around pack loops for balancing.",
             "Circuit simulators (SPICE) literally build their equations from KVL and KCL.",
         ],
-        "related_experiments": ["series-circuit", "kcl", "voltage-divider"],
+        "related_experiments": ["series-circuit", "kcl", "voltage-divider", "wheatstone-bridge"],
         "simulation_configuration": {"mode": "series", "parameters": {"voltage": 9, "r1": 1000, "r2": 2200}},
     },
     {
@@ -915,7 +915,7 @@ EXPERIMENTS: list[dict] = [
             "High-voltage probes divide 1000 V down to 1 V for safe metering.",
             "Bias networks set reference voltages for op-amps and transistor stages.",
         ],
-        "related_experiments": ["series-circuit", "current-divider", "kvl"],
+        "related_experiments": ["series-circuit", "current-divider", "kvl", "wheatstone-bridge"],
         "simulation_configuration": {"mode": "series", "parameters": {"voltage": 9, "r1": 1000, "r2": 2200}},
     },
     {
@@ -1541,5 +1541,179 @@ EXPERIMENTS: list[dict] = [
         ],
         "related_experiments": ["diode-characteristics", "ohms-law", "rc-circuit"],
         "simulation_configuration": {"mode": "series", "parameters": {"voltage": 5, "r1": 150}},
+    },
+    {
+        "id": "wheatstone-bridge",
+        "title": "Wheatstone Bridge",
+        "slug": "wheatstone-bridge",
+        "short_description": "Balance a four-resistor bridge and measure unknown resistance from the null condition.",
+        "description": (
+            "This experiment explores the classic Wheatstone bridge: two voltage "
+            "dividers sharing a supply, with the bridge output taken between their "
+            "midpoints. You will build a balanced bridge, unbalance it deliberately, "
+            "and use the ratio condition to relate an unknown arm to three known resistors."
+        ),
+        "objective": (
+            "Construct a DC Wheatstone bridge, verify the balance condition "
+            "R1/R2 = R3/R4, and measure Vleft, Vright, and Vout from simulation."
+        ),
+        "theory": (
+            "A Wheatstone bridge is two series voltage dividers driven by the same "
+            "source Vin. The left divider (R1 above R2) produces midpoint voltage "
+            "Vleft = Vin × R2/(R1+R2). The right divider (R3 above R4) produces "
+            "Vright = Vin × R4/(R3+R4). The bridge output is Vout = Vleft − Vright. "
+            "When the arm ratios match — R1/R2 = R3/R4 — the midpoints are equal, "
+            "Vout = 0, and the bridge is balanced. That null condition is the basis "
+            "for precision resistance measurement: if R1, R2, and R3 are known and "
+            "the bridge is balanced by adjusting R3 (or a rheostat), the unknown "
+            "R4 equals R3 × (R2/R1). Small departures from balance produce a "
+            "proportional Vout that a sensitive meter can detect."
+        ),
+        "difficulty": "Intermediate",
+        "category": "Circuit Fundamentals",
+        "duration_minutes": 40,
+        "status": "published",
+        "historical_background": (
+            "Samuel Hunter Christie described a diamond-shaped comparison circuit "
+            "in 1833; Sir Charles Wheatstone popularized it in 1843 for measuring "
+            "electrical resistance. The bridge and its AC descendants (Maxwell, "
+            "Wien, Kelvin) remained primary metrology tools well into the "
+            "electronic-instrument era."
+        ),
+        "learning_outcomes": [
+            "Explain bridge topology as two voltage dividers sharing a supply",
+            "State and apply the balance condition R1/R2 = R3/R4",
+            "Predict Vleft, Vright, and Vout from Vin and the four arm resistances",
+            "Use the null condition to relate an unknown resistance to three known arms",
+        ],
+        "prerequisites": ["ohms-law", "series-circuit", "voltage-divider"],
+        "formulas": [
+            {
+                "expression": "V_left = V_in × R₂ / (R₁ + R₂)",
+                "variables": [
+                    {"symbol": "V_left", "name": "Left midpoint voltage (across R2)"},
+                    {"symbol": "V_in", "name": "Bridge supply voltage"},
+                    {"symbol": "R₁", "name": "Upper-left arm"},
+                    {"symbol": "R₂", "name": "Lower-left arm"},
+                ],
+            },
+            {
+                "expression": "V_right = V_in × R₄ / (R₃ + R₄)",
+                "variables": [
+                    {"symbol": "V_right", "name": "Right midpoint voltage (across R4)"},
+                    {"symbol": "R₃", "name": "Upper-right arm"},
+                    {"symbol": "R₄", "name": "Lower-right arm"},
+                ],
+            },
+            {
+                "expression": "V_out = V_left − V_right",
+                "variables": [
+                    {"symbol": "V_out", "name": "Bridge output (galvanometer / voltmeter)"},
+                ],
+            },
+            {
+                "expression": "R₁/R₂ = R₃/R₄  (balanced ⇒ V_out = 0)",
+                "variables": [
+                    {"symbol": "R₁/R₂", "name": "Left arm ratio"},
+                    {"symbol": "R₃/R₄", "name": "Right arm ratio"},
+                ],
+            },
+        ],
+        "variables": [
+            {"symbol": "V_in", "name": "Supply voltage", "unit": "volt (V)", "description": "DC source across the bridge"},
+            {"symbol": "R₁", "name": "Arm R1", "unit": "ohm (Ω)", "description": "Upper-left resistor"},
+            {"symbol": "R₂", "name": "Arm R2", "unit": "ohm (Ω)", "description": "Lower-left resistor"},
+            {"symbol": "R₃", "name": "Arm R3", "unit": "ohm (Ω)", "description": "Upper-right resistor"},
+            {"symbol": "R₄", "name": "Arm R4", "unit": "ohm (Ω)", "description": "Lower-right resistor (often the unknown)"},
+            {"symbol": "V_left", "name": "Left midpoint", "unit": "volt (V)", "description": "Voltage at the R1–R2 junction relative to ground"},
+            {"symbol": "V_right", "name": "Right midpoint", "unit": "volt (V)", "description": "Voltage at the R3–R4 junction relative to ground"},
+            {"symbol": "V_out", "name": "Bridge output", "unit": "volt (V)", "description": "V_left − V_right; zero at balance"},
+        ],
+        "components": [
+            {"name": "DC voltage source", "quantity": 1, "spec": "10 V"},
+            {"name": "Resistor R1", "quantity": 1, "spec": "1 kΩ"},
+            {"name": "Resistor R2", "quantity": 1, "spec": "1 kΩ"},
+            {"name": "Resistor R3", "quantity": 1, "spec": "1 kΩ"},
+            {"name": "Resistor R4", "quantity": 1, "spec": "1 kΩ"},
+            {"name": "Ground", "quantity": 1, "spec": "Reference node"},
+            {"name": "Voltmeter", "quantity": 1, "spec": "Across bridge midpoints (Vout)"},
+        ],
+        "circuit_diagram": {
+            "art": (
+                "        +----- R1 -----o----- R3 -----+\n"
+                "        |             | left        | right     |\n"
+                "       (Vin)        VM (Vout)                  |\n"
+                "        |             |             |          |\n"
+                "        +----- R2 -----o----- R4 -----+\n"
+                "                      GND"
+            ),
+            "caption": (
+                "Two dividers share Vin. Vout is measured between the left (R1–R2) "
+                "and right (R3–R4) midpoints. Equal 1 kΩ arms give Vout = 0."
+            ),
+        },
+        "procedure": [
+            "Open the simulation lab for Wheatstone Bridge — the balanced starter circuit (Vin = 10 V, all arms 1 kΩ) should load automatically.",
+            "Identify R1–R4, the supply V1, ground, and voltmeter VM1 across the midpoints.",
+            "Run the simulation and record Vleft (voltage across R2), Vright (across R4), and Vout (VM1).",
+            "Confirm that with equal arms the bridge is balanced: Vout ≈ 0 and R1/R2 = R3/R4 = 1.",
+            "Change R4 to 2 kΩ, run again, and observe that Vout becomes nonzero.",
+            "Compute theoretical Vleft, Vright, and Vout for the new R4 and compare with measured values.",
+            "Restore balance by adjusting R3 so that R1/R2 = R3/R4, then re-run and check Vout ≈ 0.",
+            "Optional: treat R4 as unknown — note the R3 that nulls the meter and compute R4 = R3 × (R2/R1).",
+        ],
+        "expected_results": [
+            "Balanced (all 1 kΩ, 10 V): Vleft ≈ 5 V, Vright ≈ 5 V, Vout ≈ 0 V.",
+            "With R4 = 2 kΩ and other arms 1 kΩ: Vleft ≈ 5 V, Vright ≈ 6.67 V, Vout ≈ −1.67 V.",
+            "Restoring R3/R4 = R1/R2 returns Vout to approximately zero.",
+            "Branch currents in each divider equal Vin/(R_upper+R_lower) when the meter draws negligible current.",
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Swapping which resistors form the left vs right divider",
+                "consequence": "The balance formula appears to fail because the ratio pairing is wrong.",
+            },
+            {
+                "mistake": "Expecting Vout = 0 whenever any two resistors are equal",
+                "consequence": "Balance requires equal ratios, not merely equal individuals.",
+            },
+            {
+                "mistake": "Measuring Vout to ground instead of between midpoints",
+                "consequence": "You record a divider voltage, not the bridge output.",
+            },
+            {
+                "mistake": "Forgetting that the voltmeter must span both midpoints",
+                "consequence": "Missing sense connection leaves Vout undefined or floating.",
+            },
+        ],
+        "safety_precautions": [
+            "Keep Vin within the lab limit (this experiment uses 10 V DC).",
+            "Power off conceptually before rewiring arms in a physical lab.",
+            "Do not short the supply rails while probing midpoints.",
+            "Use meter ranges that start high when Vout is unknown.",
+        ],
+        "observation_guidance": [
+            "Watch Vout cross through zero as you sweep R4 or R3 through the balance point.",
+            "Compare the graph of R3/R4 ratio versus Vout with your operating point.",
+            "Note that each divider current is independent when the meter is ideal (infinite impedance).",
+            "Record how sensitive Vout is near balance — small ratio errors still produce readable millivolts at 10 V.",
+        ],
+        "real_world_applications": [
+            "Strain-gauge load cells and pressure sensors use bridge topologies.",
+            "RTD and thermistor bridges convert temperature to a differential voltage.",
+            "Precision ohmmeters and decade boxes still teach the null method.",
+            "Instrumentation amplifiers often read the differential output of a sensor bridge.",
+        ],
+        "related_experiments": ["voltage-divider", "series-circuit", "ohms-law", "kvl"],
+        "simulation_configuration": {
+            "mode": "wheatstone",
+            "parameters": {
+                "voltage": 10,
+                "r1": 1000,
+                "r2": 1000,
+                "r3": 1000,
+                "r4": 1000,
+            },
+        },
     },
 ]

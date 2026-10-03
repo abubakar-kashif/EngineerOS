@@ -1,12 +1,18 @@
 /**
  * Graph data from SimulationRun measurements only.
  * Axes are measurable signals (V, I, P, …) — never experiment names.
- * No synthetic sweeps or invented time series.
+ * No invented time series. Parameter sweeps (e.g. Wheatstone R4) use real solveDC runs.
  */
 
 import type { CircuitDefinition } from './circuitGraph';
 import type { DCResult } from './dcSolver';
+import { solveDC } from './dcSolver';
 import type { Measurements, SimulationResult } from './types';
+import {
+  extractWheatstoneMetrics,
+  findWheatstoneArms,
+  wheatstoneRatioSweep,
+} from './wheatstoneAnalysis';
 
 export interface GraphPoint {
   x: number;
@@ -497,6 +503,67 @@ export function generateGraphsFromMeasurements(
       ],
       metadata: { source: 'measurements', r2Id: r2.componentId, pointCount: 1 },
     });
+  }
+
+  if (circuit) {
+    const arms = findWheatstoneArms(circuit);
+    if (arms) {
+      const dc = solveDC(circuit);
+      const metrics = extractWheatstoneMetrics(circuit, dc, measurements);
+      if (metrics) {
+        graphs.push({
+          id: 'wheatstone_bridge_nodes',
+          type: 'bar',
+          title: 'Wheatstone Bridge (Vleft, Vright, Vout)',
+          xAxis: { label: 'Signal', unit: '' },
+          yAxis: { label: 'Voltage', unit: 'V' },
+          series: [
+            {
+              name: 'Bridge voltages',
+              color: COLORS[0],
+              points: [
+                { x: 1, y: metrics.vleft },
+                { x: 2, y: metrics.vright },
+                { x: 3, y: metrics.vout },
+              ],
+            },
+          ],
+          metadata: {
+            source: 'measurements',
+            labels: ['Vleft', 'Vright', 'Vout'],
+            balanced: metrics.balanced,
+          },
+        });
+
+        const sweep = wheatstoneRatioSweep(circuit, arms, 11);
+        if (sweep.length >= 2) {
+          graphs.push({
+            id: 'wheatstone_bridge',
+            type: 'line',
+            title: 'Wheatstone Bridge (R3/R4 ratio vs Vout)',
+            xAxis: { label: 'Resistance ratio R3/R4', unit: '' },
+            yAxis: { label: 'Bridge output Vout', unit: 'V' },
+            series: [
+              {
+                name: 'Vout (solved)',
+                color: COLORS[1],
+                points: sweep.map((p) => ({ x: p.ratio, y: p.vout })),
+              },
+              {
+                name: 'Operating point',
+                color: COLORS[0],
+                points: [{ x: metrics.ratioRight, y: metrics.vout }],
+              },
+            ],
+            metadata: {
+              source: 'dc_sweep',
+              pointCount: sweep.length,
+              operatingR4: metrics.r4,
+            },
+          });
+        }
+      }
+    }
   }
 
   const cap = physical.find((cm) => cm.type === 'capacitor');

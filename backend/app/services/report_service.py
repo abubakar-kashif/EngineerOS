@@ -89,37 +89,24 @@ def _latest_quiz_attempt(
     )
 
 
-def _measured_rows(run: SimulationRun) -> list[dict] | None:
-    """Measurement rows extracted from the run's solver output.
-
-    Returns None when the run carries no numeric results — the report then
-    honestly records "no measurements" instead of inventing values.
-    """
-    results = run.results if isinstance(run.results, dict) else None
-    if not results:
-        return None
-
-    # Component reference designators (R1, C2, …) live in the circuit
-    # definition; fall back to the raw component id.
+def _component_label_map(circuit: dict) -> dict[str, str]:
     labels: dict[str, str] = {}
-    circuit = run.circuit_definition if isinstance(run.circuit_definition, dict) else {}
     for component in circuit.get("components", []):
         if isinstance(component, dict) and component.get("id"):
             labels[component["id"]] = component.get("label") or component["id"]
+    return labels
 
-    rows: list[dict] = []
 
-    global_data = results.get("global")
-    if isinstance(global_data, dict):
-        for field, label, unit in GLOBAL_MEASUREMENT_FIELDS:
-            value = _numeric(global_data.get(field))
-            if value is not None:
-                rows.append({"label": label, "value": value, "unit": unit})
-
-    for component_result in results.get("components", []):
+def _append_component_rows(
+    rows: list[dict],
+    component_rows: list,
+    labels: dict[str, str],
+    id_key: str = "componentId",
+) -> None:
+    for component_result in component_rows:
         if not isinstance(component_result, dict):
             continue
-        component_id = component_result.get("componentId")
+        component_id = component_result.get(id_key) or component_result.get("component_id")
         if not component_id:
             continue
         name = labels.get(component_id, component_id)
@@ -128,7 +115,148 @@ def _measured_rows(run: SimulationRun) -> list[dict] | None:
             if value is not None:
                 rows.append({"label": f"{name} {quantity}", "value": value, "unit": unit})
 
+
+def _wheatstone_measured_rows(
+    results: dict, labels: dict[str, str]
+) -> list[dict]:
+    """Derive Vleft / Vright / Vout from live SimulationResult measurements."""
+    measurements = results.get("measurements")
+    if not isinstance(measurements, dict):
+        return []
+
+    components = measurements.get("componentMeasurements") or measurements.get(
+        "component_measurements"
+    )
+    if not isinstance(components, list):
+        return []
+
+    by_label: dict[str, dict] = {}
+    for row in components:
+        if not isinstance(row, dict):
+            continue
+        cid = row.get("componentId") or row.get("component_id")
+        if not cid:
+            continue
+        name = labels.get(cid, cid)
+        by_label[name] = row
+        by_label[cid] = row
+
+    r2 = by_label.get("R2")
+    r4 = by_label.get("R4")
+    vm = by_label.get("VM1") or next(
+        (
+            row
+            for row in components
+            if isinstance(row, dict) and row.get("type") == "voltmeter"
+        ),
+        None,
+    )
+
+    vleft = _numeric(r2.get("voltage")) if r2 else None
+    vright = _numeric(r4.get("voltage")) if r4 else None
+    vout = _numeric(vm.get("voltage")) if vm else None
+    if vout is None and vleft is not None and vright is not None:
+        vout = vleft - vright
+
+    rows: list[dict] = []
+    if vleft is not None:
+        rows.append({"label": "Vleft", "value": vleft, "unit": "V"})
+    if vright is not None:
+        rows.append({"label": "Vright", "value": vright, "unit": "V"})
+    if vout is not None:
+        rows.append({"label": "Vout", "value": vout, "unit": "V"})
+    if vleft is not None and vright is not None:
+        rows.append(
+            {
+                "label": "Balance condition",
+                "value": 1.0 if abs(vleft - vright) < 1e-6 else 0.0,
+                "unit": "balanced",
+            }
+        )
+    return rows
+
+
+def _measured_rows(run: SimulationRun) -> list[dict] | None:
+    """Measurement rows extracted from the run's solver output.
+
+    Returns None when the run carries no numeric results — the report then
+    honestly records "no measurements" instead of inventing values.
+    Supports both the legacy {global, components} shape and the live
+    SimulationResult {measurements, dcResult} contract.
+    """
+    results = run.results if isinstance(run.results, dict) else None
+    if not results:
+        return None
+
+    circuit = run.circuit_definition if isinstance(run.circuit_definition, dict) else {}
+    labels = _component_label_map(circuit)
+    rows: list[dict] = []
+
+    global_data = results.get("global")
+    if isinstance(global_data, dict):
+        for field, label, unit in GLOBAL_MEASUREMENT_FIELDS:
+            value = _numeric(global_data.get(field))
+            if value is not None:
+                rows.append({"label": label, "value": value, "unit": unit})
+        _append_component_rows(rows, results.get("components") or [], labels)
+
+    measurements = results.get("measurements")
+    if isinstance(measurements, dict):
+        mapping = (
+            ("totalVoltage", "Source Voltage", "V"),
+            ("equivalentResistance", "Total Resistance", "Ω"),
+            ("totalCurrent", "Total Current", "A"),
+            ("totalPower", "Total Power", "W"),
+        )
+        for field, label, unit in mapping:
+            value = _numeric(measurements.get(field))
+            if value is not None and not any(r["label"] == label for r in rows):
+                rows.append({"label": label, "value": value, "unit": unit})
+
+        component_rows = measurements.get("componentMeasurements") or measurements.get(
+            "component_measurements"
+        )
+        if isinstance(component_rows, list):
+            _append_component_rows(rows, component_rows, labels)
+
+        for wheatstone_row in _wheatstone_measured_rows(results, labels):
+            if not any(r["label"] == wheatstone_row["label"] for r in rows):
+                rows.append(wheatstone_row)
+
     return rows or None
+
+
+def _wheatstone_reference_rows(parameters: dict, voltage: float) -> list[dict] | None:
+    r1 = _numeric(parameters.get("r1"))
+    r2 = _numeric(parameters.get("r2"))
+    r3 = _numeric(parameters.get("r3"))
+    r4 = _numeric(parameters.get("r4"))
+    if None in (r1, r2, r3, r4) or min(r1, r2, r3, r4) <= 0:
+        return None
+
+    vleft = voltage * r2 / (r1 + r2)
+    vright = voltage * r4 / (r3 + r4)
+    vout = vleft - vright
+    i_left = voltage / (r1 + r2)
+    i_right = voltage / (r3 + r4)
+
+    return [
+        {"label": "Source Voltage", "value": voltage, "unit": "V"},
+        {"label": "R1", "value": r1, "unit": "Ω"},
+        {"label": "R2", "value": r2, "unit": "Ω"},
+        {"label": "R3", "value": r3, "unit": "Ω"},
+        {"label": "R4", "value": r4, "unit": "Ω"},
+        {"label": "Vleft", "value": vleft, "unit": "V"},
+        {"label": "Vright", "value": vright, "unit": "V"},
+        {"label": "Vout", "value": vout, "unit": "V"},
+        {
+            "label": "Balance condition",
+            "value": 1.0 if abs(r1 / r2 - r3 / r4) < 1e-9 else 0.0,
+            "unit": "balanced",
+        },
+        {"label": "Left branch current", "value": i_left, "unit": "A"},
+        {"label": "Right branch current", "value": i_right, "unit": "A"},
+    ]
 
 
 def _reference_rows(experiment: Experiment) -> list[dict] | None:
@@ -154,6 +282,9 @@ def _reference_rows(experiment: Experiment) -> list[dict] | None:
     r2 = _numeric(parameters.get("r2"))
     if voltage is None or r1 is None or voltage <= 0 or r1 <= 0:
         return None
+
+    if config.get("mode") == "wheatstone" or experiment.id == "wheatstone-bridge":
+        return _wheatstone_reference_rows(parameters, voltage)
 
     if config.get("mode") == "parallel":
         if r2 is None or r2 <= 0:
